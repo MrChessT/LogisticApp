@@ -63,6 +63,16 @@ describe("fuente de datos Supabase (solo lectura, con el JWT del usuario)", () =
     expect(rows[0]).toEqual({ locationId: LOC, productId: "p1", areaId: null, type: "consumption", qty: "-1", unitCost: "0.5", occurredAt: "2026-09-20T10:00:00Z" });
   });
 
+  it("el stock de muchos locales no se corta en las 1000 filas de PostgREST", async () => {
+    const row = { location_id: LOC, product_id: "p1", qty: "1", avg_cost: "0.5" };
+    const { fn, calls } = fakeFetch({ stock_balances: (_url, n) => Array.from({ length: n === 0 ? 1000 : 250 }, () => row) });
+    const rows = await new SupabaseDataSource(userClient(settings(fn), JWT)).balances({ locationIds: [LOC] });
+    expect(rows).toHaveLength(1250);
+    expect(calls).toHaveLength(2);
+    // Orden por la clave primaria: las páginas no se solapan.
+    expect(calls[0]!.url.searchParams.get("order")).toBe("location_id.asc,product_id.asc");
+  });
+
   it("traspasos: busca por origen o destino y lee las líneas", async () => {
     const { fn, calls } = fakeFetch({
       transfers: () => [

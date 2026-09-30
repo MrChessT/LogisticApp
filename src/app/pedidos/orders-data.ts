@@ -1,6 +1,7 @@
 // Datos y utilidades compartidas de la pantalla de pedidos.
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
+import { readAll } from "@/lib/supabase/read-all";
 import { decimalText, parseDecimal } from "@/lib/format";
 
 export type OrderStatus = "draft" | "sent" | "partial" | "received" | "cancelled";
@@ -62,8 +63,10 @@ export async function loadReference(): Promise<Reference> {
     supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
     supabase.from("suppliers").select("id, name, email, phone").eq("active", true).order("name"),
-    supabase.from("product_packs").select("id, product_id, name, qty_base, products!inner(name, base_unit, active)").eq("active", true).eq("products.active", true),
-    supabase.from("supplier_prices").select("supplier_id, pack_id, last_price").not("last_price", "is", null),
+    readAll((from, to) =>
+      supabase.from("product_packs").select("id, product_id, name, qty_base, products!inner(name, base_unit, active)").eq("active", true).eq("products.active", true).order("id").range(from, to),
+    ),
+    readAll((from, to) => supabase.from("supplier_prices").select("supplier_id, pack_id, last_price").not("last_price", "is", null).order("supplier_id").order("pack_id").range(from, to)),
   ]);
   const member = membership.data as { org_id: string; role: Role; organizations: { name: string } | null } | null;
   if (!member) throw new Error("No perteneces a ninguna organización.");

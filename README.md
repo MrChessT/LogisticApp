@@ -99,3 +99,14 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 ## Despliegue
 
 Vercel (`vercel.json`). En producción solo hacen falta las dos variables de Supabase: Jev se autentica con el token OIDC del propio despliegue (Vercel AI Gateway), sin guardar claves.
+
+La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la propia app y el proyecto de Supabase de `NEXT_PUBLIC_SUPABASE_URL`, sin iframes, `noindex`. Si el navegador tiene que hablar con otro dominio, hay que añadirlo ahí.
+
+**Antes de abrir a clientes** (fuera del código):
+
+- Supabase → Authentication → URL Configuration: *Site URL* con el dominio real y `https://<dominio>/auth/callback` en *Redirect URLs* (enlace mágico y recuperar contraseña).
+- Supabase → Authentication → Sign In / Providers: desactivar *Allow new users to sign up*. Los usuarios los da de alta un administrador; el enlace mágico ya no crea cuentas.
+- Supabase → Authentication → SMTP: un SMTP propio (el de Supabase solo manda unos pocos correos por hora).
+- Migraciones hasta la 0017 aplicadas (`npm run db:bundle -- <primera sin aplicar>`).
+- Términos de uso y política de privacidad: la pantalla de acceso los menciona, pero aún no existen.
+- Límite de peticiones del asistente: está en memoria de cada instancia; con mucho tráfico, moverlo a un almacén compartido.

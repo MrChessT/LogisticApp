@@ -39,8 +39,8 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
-    setMessage(error ? "No hemos podido enviar el enlace." : "Revisa tu email. Te hemos enviado un enlace de acceso.");
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth/callback`, shouldCreateUser: false } });
+    setMessage(error ? "No hemos podido enviar el enlace. Usa el email con el que te dieron acceso." : "Revisa tu email. Te hemos enviado un enlace de acceso.");
     setLoading(false);
   }
 

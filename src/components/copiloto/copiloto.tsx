@@ -193,6 +193,7 @@ export function Copiloto() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let finished = false;
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -205,6 +206,7 @@ export function Copiloto() {
           const event = /^event: (.*)$/m.exec(block)?.[1];
           const raw = /^data: (.*)$/m.exec(block)?.[1];
           if (!event || !raw) continue;
+          if (event === "done" || event === "error") finished = true;
           const data: unknown = JSON.parse(raw);
           if (event === "decision") update(assistantId, () => ({ decision: data as DecisionEvent }));
           else if (event === "text") {
@@ -228,6 +230,8 @@ export function Copiloto() {
           else if (event === "done") update(assistantId, () => ({ text: (data as DoneEvent).text, pending: false }));
         }
       }
+      // La conexión se cerró sin respuesta final (despliegue, tiempo agotado…): mejor decirlo que dejar la burbuja vacía.
+      if (!finished) update(assistantId, (item) => (item.text || item.draft || item.clarify ? {} : { error: "El asistente no ha terminado de responder. Inténtalo de nuevo." }));
     } catch {
       update(assistantId, () => ({ error: "Se ha perdido la conexión con el asistente." }));
     } finally {

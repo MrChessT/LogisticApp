@@ -1,7 +1,7 @@
 .editor-layer { z-index: 20; place-items: stretch end; padding: 0; }
 .product-editor { width: min(860px, 100%); height: 100%; display: flex; flex-direction: column; background: #fff; box-shadow: -20px 0 70px rgba(26, 55, 37, .18); }
 .editor-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 28px 14px; }
-.editor-header h2 { margin: 0; font: 600 24px 'Space Grotesk', sans-serif; letter-spacing: -.5px; }
+.editor-header h2 { margin: 0; font: 600 24px var(--font-display), sans-serif; letter-spacing: -.5px; }
 .editor-badge { display: inline-block; margin-top: 6px; padding: 3px 8px; color: #8a6d1d; background: #fbf1d3; border-radius: 5px; font-size: 10px; font-weight: 700; }
 .editor-tabs { display: flex; gap: 22px; padding: 0 28px; border-bottom: 1px solid #e6ebe7; overflow-x: auto; }
 .editor-tabs button { position: relative; padding: 10px 0 12px; color: #8d9a92; background: transparent; font-size: 12px; white-space: nowrap; }

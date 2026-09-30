@@ -18,6 +18,7 @@ import {
 import { useEffect, useState } from "react";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
+import { readAll } from "@/lib/supabase/read-all";
 import { euros as formatCurrency } from "@/lib/format";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
 import "./operations.css";
@@ -166,11 +167,17 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     const [{ data: membership }, { data: locationRows }, { data: productRows }, { data: packRows }, { data: supplierRows }] = await Promise.all([
       supabase.from("memberships").select("org_id").limit(1).maybeSingle(),
       supabase.from("locations").select("id, name").eq("active", true).order("name"),
-      supabase.from("products").select("id, name, base_unit, dimension, product_packs(id, name, qty_base, is_count_default, is_purchase_default, active)").eq("active", true).order("name"),
-      supabase
-        .from("product_packs")
-        .select("id, product_id, name, is_purchase_default, products(name, base_unit)")
-        .eq("is_purchase_default", true),
+      readAll((from, to) =>
+        supabase.from("products").select("id, name, base_unit, dimension, product_packs(id, name, qty_base, is_count_default, is_purchase_default, active)").eq("active", true).order("name").order("id").range(from, to),
+      ),
+      readAll((from, to) =>
+        supabase
+          .from("product_packs")
+          .select("id, product_id, name, is_purchase_default, products(name, base_unit)")
+          .eq("is_purchase_default", true)
+          .order("id")
+          .range(from, to),
+      ),
       supabase.from("suppliers").select("id, name").eq("active", true).order("name"),
     ]);
     if (membership) setOrgId(membership.org_id);
