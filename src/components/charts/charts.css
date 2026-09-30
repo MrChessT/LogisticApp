@@ -2,7 +2,7 @@
 .chart-card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px 16px; background: #fff; border: 1px solid var(--line); border-radius: 11px; min-width: 0; }
 .chart-card.compact { padding: 12px 12px 10px; gap: 8px; border-color: #d5e4d7; }
 .chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.chart-head h3 { margin: 0; font: 600 15px 'Space Grotesk', sans-serif; letter-spacing: -.2px; color: var(--ink); }
+.chart-head h3 { margin: 0; font: 600 15px var(--font-display), sans-serif; letter-spacing: -.2px; color: var(--ink); }
 .chart-card.compact .chart-head h3 { font-size: 13px; }
 .chart-head p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
 .chart-table-toggle { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; color: var(--muted); background: #fff; border: 1px solid var(--line); border-radius: 7px; font-size: 11px; flex-shrink: 0; }

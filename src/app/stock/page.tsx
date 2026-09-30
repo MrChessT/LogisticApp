@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { ArrowLeft, ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { readAll } from "@/lib/supabase/read-all";
 import { daysAgo, euros, normalizeText, quantity } from "@/lib/format";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
@@ -59,8 +60,10 @@ const STATUS_LABEL: Record<Status, string> = { ok: "Correcto", low: "Bajo mínim
 
 function exportCsv(rows: StockRow[], label: string) {
   const header = ["Producto", "Categoría", "Local", "Existencias", "Valor (€)", "Mínimo", "Estado"];
-  const escape = (v: string) => (/[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const lines = rows.map((r) => [r.name, r.category, r.locationName, r.quantity, r.valueNumber.replace(".", ","), r.minimum, STATUS_LABEL[r.status]].map(escape).join(";"));
+  const escape = (v: string) => (/[";\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  // Nombres escritos por usuarios: «=HYPERLINK(…)» se ejecutaría como fórmula al abrir el CSV en Excel.
+  const text = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
+  const lines = rows.map((r) => [text(r.name), text(r.category), text(r.locationName), r.quantity, r.valueNumber.replace(".", ","), r.minimum, STATUS_LABEL[r.status]].map(escape).join(";"));
   // BOM + ";" para que Excel en español lo abra con tildes y columnas correctas.
   const blob = new Blob([`﻿${[header.join(";"), ...lines].join("\r\n")}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -113,15 +116,16 @@ export default function StockPage() {
       const BASE = "location_id, location_name, product_id, product_name, category_name, base_unit, qty, stock_value, min_qty, below_min";
       // Con la migración 0016 la vista trae familia y formatos («12 botellas», «2 cajas + 5 ud»).
       const FULL = `${BASE}, family_name, dimension, count_pack_name, count_pack_qty, purchase_pack_name, purchase_pack_qty`;
-      const stockQueryFor = (columns: string) => {
-        const q = supabase.from("v_stock_valuation").select(columns).order("product_name");
-        return selected ? q.eq("location_id", selected) : q;
-      };
+      // «Todos los locales» son productos × locales: puede pasar de 1000 filas, se lee por páginas.
+      const stockQueryFor = (columns: string) =>
+        readAll((from, to) => {
+          const q = supabase.from("v_stock_valuation").select(columns).order("product_name").order("product_id").order("location_id");
+          return (selected ? q.eq("location_id", selected) : q).range(from, to);
+        });
       let countQuery = supabase.from("inventory_counts").select("closed_at, locations(name)").eq("status", "closed").order("closed_at", { ascending: false }).limit(1);
       if (selected) countQuery = countQuery.eq("location_id", selected);
       const [full, count] = await Promise.all([stockQueryFor(FULL), countQuery]);
       const stock = full.error ? await stockQueryFor(BASE) : full; // migración 0016 aún sin aplicar
-      if (id !== requestId.current) return;
       if (id !== requestId.current) return;
       if (stock.error) {
         setError("No se pudo cargar el stock del local seleccionado.");

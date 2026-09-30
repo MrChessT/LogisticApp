@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { ROLES, type Role } from "../contract/index";
 import { baseUnitOf, type Dimension, type SessionContext } from "../domain";
 import { AuthError, type AuthUser, type ContextPort } from "../security/auth";
-import { DataError, userClient, type SupabaseSettings } from "./client";
+import { DataError, readAll, userClient, type SupabaseSettings } from "./client";
 
 interface ProductRow {
   id: string;
@@ -12,6 +12,14 @@ interface ProductRow {
   category: { name: string } | null;
   notes: string | null;
   packs: Array<{ id: string; name: string; qty_base: string; is_count_default: boolean; is_purchase_default: boolean; active: boolean }>;
+}
+
+/** Lectura paginada con la misma forma `{ data, error }` que una consulta suelta. */
+function settle<T>(rows: Promise<T[]>): Promise<{ data: T[] | null; error: unknown }> {
+  return rows.then(
+    (data) => ({ data, error: null }),
+    (error: unknown) => ({ data: null, error: error instanceof DataError ? error.cause : error }),
+  );
 }
 
 function fail(what: string, error: unknown): never {
@@ -32,12 +40,20 @@ export class SupabaseContext implements ContextPort {
     const [membership, locations, products, areas, suppliers, categories, archived] = await Promise.all([
       db.from("memberships").select("role").eq("org_id", orgId).eq("user_id", user.userId).maybeSingle(),
       db.from("locations").select("id,name,timezone,day_cutoff").eq("org_id", orgId).eq("active", true).order("name"),
-      db
-        .from("products")
-        .select("id,name,dimension,notes,category_id,category:categories(name),packs:product_packs(id,name,qty_base:qty_base::text,is_count_default,is_purchase_default,active)")
-        .eq("org_id", orgId)
-        .eq("active", true)
-        .order("name"),
+      // Más de 1000 productos no caben en una respuesta de PostgREST: se lee por páginas.
+      settle(
+        readAll<ProductRow>("el catálogo", (from, to) =>
+          db
+            .from("products")
+            .select("id,name,dimension,notes,category_id,category:categories(name),packs:product_packs(id,name,qty_base:qty_base::text,is_count_default,is_purchase_default,active)")
+            .eq("org_id", orgId)
+            .eq("active", true)
+            .order("name")
+            .order("id")
+            .range(from, to)
+            .overrideTypes<ProductRow[], { merge: false }>(),
+        ),
+      ),
       db
         .from("storage_areas")
         .select("id,location_id,name,location:locations!inner(org_id,active)")
@@ -46,7 +62,11 @@ export class SupabaseContext implements ContextPort {
         .order("sort_order"),
       db.from("suppliers").select("id,name").eq("org_id", orgId).eq("active", true).order("name"),
       db.from("categories").select("id,name,parent_id").eq("org_id", orgId).order("name"),
-      db.from("products").select("id,name").eq("org_id", orgId).eq("active", false).order("name").limit(2000),
+      settle(
+        readAll<{ id: string; name: string }>("los archivados", (from, to) =>
+          db.from("products").select("id,name").eq("org_id", orgId).eq("active", false).order("name").order("id").range(from, to),
+        ),
+      ),
     ]);
     if (membership.error) fail("la pertenencia", membership.error);
     const role = membership.data?.role as Role | undefined;

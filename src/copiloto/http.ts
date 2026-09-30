@@ -82,12 +82,22 @@ async function chat(request: Request, user: RequestUser): Promise<Response> {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      // Si el usuario cierra el panel a mitad de respuesta, el stream ya no acepta datos: no es un error.
+      let open = true;
+      const send = (event: string, data: unknown) => {
+        if (!open) return;
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        } catch {
+          open = false;
+        }
+      };
       try {
         await rt.agent.handle(
           parsed.data,
           ctx,
           (event) => {
-            controller.enqueue(encoder.encode(`event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`));
+            send(event.event, event.data);
           },
           {
             tools: scope.tools,
@@ -105,8 +115,16 @@ async function chat(request: Request, user: RequestUser): Promise<Response> {
             },
           },
         );
+      } catch (err) {
+        // Lo que falla antes del bucle del agente (sesión, hábitos…) también llega al usuario como error.
+        console.error("copiloto chat", err);
+        const error: ErrorEvent =
+          err instanceof DataError
+            ? { code: "data_unavailable", message: "No he podido leer los datos del inventario. Inténtalo de nuevo en un momento.", retryable: true }
+            : { code: "internal", message: "Algo ha fallado al procesar tu mensaje. Inténtalo de nuevo.", retryable: true };
+        send("error", error);
       } finally {
-        controller.close();
+        if (open) controller.close();
       }
     },
   });

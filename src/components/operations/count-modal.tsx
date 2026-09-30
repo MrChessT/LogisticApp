@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { readAll } from "@/lib/supabase/read-all";
 import { euros, normalizeText, parseDecimal as parse, quantity } from "@/lib/format";
 import { formatStock, type CountingPacks } from "@/lib/units";
 
@@ -43,7 +44,7 @@ export function CountModal({
   async function loadCounted() {
     const supabase = createClient();
     if (!supabase) return;
-    const { data } = await supabase.from("count_lines").select("product_id, qty").eq("count_id", count.id);
+    const { data } = await readAll((from, to) => supabase.from("count_lines").select("product_id, qty").eq("count_id", count.id).order("id").range(from, to));
     const sums = new Map<string, Decimal>();
     for (const line of data ?? []) sums.set(line.product_id, (sums.get(line.product_id) ?? new Decimal(0)).plus(String(line.qty)));
     setCounted(sums);
@@ -55,7 +56,7 @@ export function CountModal({
       const supabase = createClient();
       if (!supabase) return;
       const [{ data: packRows }] = await Promise.all([
-        supabase.from("product_packs").select("id, product_id, name, qty_base, is_count_default").eq("active", true).order("qty_base"),
+        readAll((from, to) => supabase.from("product_packs").select("id, product_id, name, qty_base, is_count_default").eq("active", true).order("qty_base").order("id").range(from, to)),
         loadCounted(),
       ]);
       const byProduct = new Map<string, Pack[]>();

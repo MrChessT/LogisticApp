@@ -18,11 +18,7 @@ import type {
   SupplierPriceRaw,
   TransferRaw,
 } from "../tools/types";
-import { DataError } from "./client";
-
-const PAGE = 1000;
-/** Tope de filas por consulta paginada (movimientos). */
-const MAX_ROWS = 20_000;
+import { DataError, readAll } from "./client";
 
 type Row = Record<string, unknown>;
 
@@ -59,14 +55,16 @@ export class SupabaseDataSource implements InventoryDataSource {
 
   async supplierPrices(packIds: string[]): Promise<SupplierPriceRaw[]> {
     if (packIds.length === 0) return [];
-    const rows = check<Row[]>(
-      "los últimos precios",
-      await this.db
+    const rows = await readAll<Row>("los últimos precios", (from, to) =>
+      this.db
         .from("supplier_prices")
         .select("supplier_id,pack_id,last_price:last_price::text,last_price_at,supplier:suppliers(name)")
         .in("pack_id", packIds)
         .not("last_price", "is", null)
-        .order("last_price_at", { ascending: false }),
+        .order("last_price_at", { ascending: false })
+        .order("supplier_id")
+        .order("pack_id")
+        .range(from, to),
     );
     return rows.map((r) => ({
       supplierId: String(r.supplier_id),
@@ -79,69 +77,73 @@ export class SupabaseDataSource implements InventoryDataSource {
 
   async balances(filter: DataFilter): Promise<BalanceRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    let q = this.db.from("stock_balances").select("location_id,product_id,qty:qty::text,avg_cost:avg_cost::text").in("location_id", filter.locationIds);
-    if (filter.productIds) q = q.in("product_id", filter.productIds);
-    const rows = check<Row[]>("el stock", await q);
+    const rows = await readAll<Row>("el stock", (from, to) => {
+      let q = this.db.from("stock_balances").select("location_id,product_id,qty:qty::text,avg_cost:avg_cost::text").in("location_id", filter.locationIds);
+      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      return q.order("location_id").order("product_id").range(from, to);
+    });
     return rows.map((r) => ({ locationId: String(r.location_id), productId: String(r.product_id), qty: str(r.qty), avgCost: str(r.avg_cost) }));
   }
 
   async areaBalances(areaId: string, productIds?: string[]): Promise<AreaBalanceRaw[]> {
-    let q = this.db.from("stock_area_balances").select("area_id,product_id,qty:qty::text,avg_cost:avg_cost::text").eq("area_id", areaId);
-    if (productIds) q = q.in("product_id", productIds);
-    const rows = check<Row[]>("el stock por espacio", await q);
+    const rows = await readAll<Row>("el stock por espacio", (from, to) => {
+      let q = this.db.from("stock_area_balances").select("area_id,product_id,qty:qty::text,avg_cost:avg_cost::text").eq("area_id", areaId);
+      if (productIds) q = q.in("product_id", productIds);
+      return q.order("product_id").range(from, to);
+    });
     return rows.map((r) => ({ areaId: String(r.area_id), productId: String(r.product_id), qty: str(r.qty), avgCost: str(r.avg_cost) }));
   }
 
   async locationProducts(filter: DataFilter): Promise<LocationProductRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    let q = this.db
-      .from("location_products")
-      .select("location_id,product_id,min_qty:min_qty::text,par_qty:par_qty::text")
-      .in("location_id", filter.locationIds)
-      .eq("active", true);
-    if (filter.productIds) q = q.in("product_id", filter.productIds);
-    const rows = check<Row[]>("los mínimos", await q);
+    const rows = await readAll<Row>("los mínimos", (from, to) => {
+      let q = this.db
+        .from("location_products")
+        .select("location_id,product_id,min_qty:min_qty::text,par_qty:par_qty::text")
+        .in("location_id", filter.locationIds)
+        .eq("active", true);
+      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      return q.order("location_id").order("product_id").range(from, to);
+    });
     return rows.map((r) => ({ locationId: String(r.location_id), productId: String(r.product_id), minQty: str(r.min_qty), parQty: str(r.par_qty) }));
   }
 
   async movements(filter: DataFilter & { since: string }): Promise<MovementRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    const out: MovementRaw[] = [];
-    for (let from = 0; from < MAX_ROWS; from += PAGE) {
+    const rows = await readAll<Row>("los movimientos", (from, to) => {
       let q = this.db
         .from("stock_movements")
         .select("id,location_id,product_id,area_id,type,qty:qty::text,unit_cost:unit_cost::text,occurred_at")
         .in("location_id", filter.locationIds)
         .gte("occurred_at", filter.since)
         .order("id")
-        .range(from, from + PAGE - 1);
+        .range(from, to);
       if (filter.productIds) q = q.in("product_id", filter.productIds);
-      const rows = check<Row[]>("los movimientos", await q);
-      for (const r of rows) {
-        out.push({
-          locationId: String(r.location_id),
-          productId: String(r.product_id),
-          areaId: strOrNull(r.area_id),
-          type: r.type as MovementRaw["type"],
-          qty: str(r.qty),
-          unitCost: strOrNull(r.unit_cost),
-          occurredAt: String(r.occurred_at),
-        });
-      }
-      if (rows.length < PAGE) break;
-    }
-    return out;
+      return q;
+    });
+    return rows.map((r) => ({
+      locationId: String(r.location_id),
+      productId: String(r.product_id),
+      areaId: strOrNull(r.area_id),
+      type: r.type as MovementRaw["type"],
+      qty: str(r.qty),
+      unitCost: strOrNull(r.unit_cost),
+      occurredAt: String(r.occurred_at),
+    }));
   }
 
   async prices(packIds: string[] | null, since: string): Promise<PriceRaw[]> {
-    let q = this.db
-      .from("price_history")
-      .select("supplier_id,pack_id,price:price::text,recorded_at,supplier:suppliers(name)")
-      .gte("recorded_at", since)
-      .order("recorded_at")
-      .limit(5000);
-    if (packIds) q = q.in("pack_id", packIds);
-    const rows = check<Row[]>("los precios", await q);
+    const rows = await readAll<Row>("los precios", (from, to) => {
+      let q = this.db
+        .from("price_history")
+        .select("supplier_id,pack_id,price:price::text,recorded_at,supplier:suppliers(name)")
+        .gte("recorded_at", since)
+        .order("recorded_at")
+        .order("id")
+        .range(from, to);
+      if (packIds) q = q.in("pack_id", packIds);
+      return q;
+    });
     return rows.map((r) => ({
       supplierId: String(r.supplier_id),
       supplierName: (r.supplier as { name?: string } | null)?.name ?? "proveedor",
@@ -231,15 +233,15 @@ export class SupabaseDataSource implements InventoryDataSource {
 
   async purchases(filter: { locationIds: string[]; since: string }): Promise<PurchaseRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    const rows = check<Row[]>(
-      "las compras",
-      await this.db
+    const rows = await readAll<Row>("las compras", (from, to) =>
+      this.db
         .from("goods_receipts")
         .select("id,location_id,supplier_id,doc_date,supplier:suppliers(name),lines:receipt_lines(packs_qty:packs_qty::text,pack_price:pack_price::text)")
         .in("location_id", filter.locationIds)
         .eq("status", "closed")
         .gte("doc_date", filter.since)
-        .limit(2000),
+        .order("id")
+        .range(from, to),
     );
     return rows.map((r) => ({
       receiptId: String(r.id),
@@ -253,17 +255,18 @@ export class SupabaseDataSource implements InventoryDataSource {
 
   async countResults(filter: DataFilter & { since: string }): Promise<CountResultRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    let q = this.db
-      .from("count_results")
-      .select(
-        "count_id,product_id,expected_qty:expected_qty::text,counted_qty:counted_qty::text,unit_cost:unit_cost::text,count:inventory_counts!inner(location_id,closed_at,status)",
-      )
-      .in("count.location_id", filter.locationIds)
-      .eq("count.status", "closed")
-      .gte("count.closed_at", filter.since)
-      .limit(5000);
-    if (filter.productIds) q = q.in("product_id", filter.productIds);
-    const rows = check<Row[]>("los resultados de inventario", await q);
+    const rows = await readAll<Row>("los resultados de inventario", (from, to) => {
+      let q = this.db
+        .from("count_results")
+        .select(
+          "count_id,product_id,expected_qty:expected_qty::text,counted_qty:counted_qty::text,unit_cost:unit_cost::text,count:inventory_counts!inner(location_id,closed_at,status)",
+        )
+        .in("count.location_id", filter.locationIds)
+        .eq("count.status", "closed")
+        .gte("count.closed_at", filter.since);
+      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      return q.order("count_id").order("product_id").range(from, to);
+    });
     return rows.map((r) => {
       const count = r.count as { location_id: string; closed_at: string };
       return {

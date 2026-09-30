@@ -14,6 +14,30 @@ export class DataError extends Error {
   }
 }
 
+/** Filas por petición: PostgREST corta en `max_rows` (1000 en Supabase) sin avisar. */
+export const PAGE_SIZE = 1000;
+/** Tope de filas de una lectura paginada. */
+export const MAX_ROWS = 20_000;
+
+/**
+ * Lee todas las filas de una consulta, de PAGE_SIZE en PAGE_SIZE. `page` debe ordenar por una clave
+ * única para que las páginas no se solapen. Con menos de 1000 filas es una sola petición, como antes.
+ */
+export async function readAll<T>(
+  what: string,
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  max = MAX_ROWS,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < max; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw new DataError(`No se pudo leer ${what}`, { cause: error });
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  return out;
+}
+
 /**
  * Cliente con la clave anon y el JWT del usuario: todas las consultas pasan por RLS.
  * Nunca se usa la service role.
