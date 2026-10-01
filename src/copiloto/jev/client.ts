@@ -29,7 +29,7 @@ export interface JevResult {
 
 export interface JevPort {
   evaluate(state: EntryType, questions: Questions, signal?: AbortSignal): Promise<JevResult>;
-  ping(): Promise<{ ok: boolean; model: string | null; latencyMs: number | null }>;
+  ping(): Promise<{ ok: boolean; model: string | null; latencyMs: number | null; error?: string | null }>;
 }
 
 export type JevErrorCode = "auth" | "invalid_request" | "rate_limited" | "timeout" | "unavailable";
@@ -127,17 +127,29 @@ export class JevClient implements JevPort {
       this.options.cache.set(key, result, this.options.cacheTtlMs);
       return result;
     } catch (err) {
-      throw toJevError(err);
+      const jevError = toJevError(err);
+      // En los registros del servidor (Vercel → Logs) queda por qué falla y por qué camino.
+      if (jevError.code === "auth") console.error(`Jev: ${this.diagnose(jevError)}`);
+      throw jevError;
     }
   }
 
-  async ping(): Promise<{ ok: boolean; model: string | null; latencyMs: number | null }> {
+  /** Explicación para quien administra: qué camino se usa y qué revisar. */
+  diagnose(err: JevError): string {
+    const host = new URL(this.options.baseURL).host;
+    if (err.code !== "auth") return `${err.message} (${host})`;
+    return host.includes("ai-gateway")
+      ? `Vercel AI Gateway (${host}) rechazó la autenticación: revisa que el AI Gateway del equipo esté activo y con saldo, o define TYPESAFE_API_KEY para ir directo a TypeSafe.`
+      : `TypeSafe (${host}) rechazó la clave: revisa TYPESAFE_API_KEY.`;
+  }
+
+  async ping(): Promise<{ ok: boolean; model: string | null; latencyMs: number | null; error?: string | null }> {
     const t0 = performance.now();
     try {
       const models = await (await this.client()).models.list({ timeout: 3000, retry: { maxRetries: 0 } });
-      return { ok: models.length > 0, model: this.options.model, latencyMs: Math.round(performance.now() - t0) };
-    } catch {
-      return { ok: false, model: null, latencyMs: null };
+      return { ok: models.length > 0, model: this.options.model, latencyMs: Math.round(performance.now() - t0), error: null };
+    } catch (err) {
+      return { ok: false, model: null, latencyMs: null, error: this.diagnose(toJevError(err)) };
     }
   }
 }

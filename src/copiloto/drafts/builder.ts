@@ -73,6 +73,8 @@ export interface Quantity {
   pack: Pack | null;
   input: { amount: string; unit: string; packId?: string };
   warnings: string[];
+  /** «3 cajas y 5 sueltas»: cómo se dijo, para que Jev lo compare con la petición. */
+  mixed?: { boxes: string; box: Pack; loose: string; loosePack: Pack | null };
 }
 
 function locationName(ctx: SessionContext, id: string): string {
@@ -90,6 +92,12 @@ function describeInput(q: Quantity, product: Product): string {
  */
 function describeForJev(q: Quantity, product: Product): string {
   const shown = describeInput(q, product);
+  // Medido con Jev real: «77 ud (= 3 cajas + 5 ud)» frente a «3 cajas y 5 sueltas» daba 0,38;
+  // contado como se dijo, 0,85.
+  if (q.mixed) {
+    const loose = q.mixed.loosePack ? `${formatDecimal(q.mixed.loose, 4)} loose × ${q.mixed.loosePack.name}` : `${formatDecimal(q.mixed.loose, 4)} loose units`;
+    return `${formatDecimal(q.mixed.boxes, 4)} × ${q.mixed.box.name} + ${loose} (= ${shown})`;
+  }
   if (q.pack) return shown;
   const asked = `${formatDecimal(q.input.amount, 4)} ${q.input.unit}`;
   return asked === shown ? shown : `${asked} (= ${shown})`;
@@ -405,6 +413,25 @@ export class DraftBuilder {
   }
 }
 
+/**
+ * «3 cajas y 5 sueltas»: cajas en su formato más las sueltas en la unidad en que se cuenta (ud, o la
+ * botella si el producto se mide en ml). Sin formato de caja reconocible, null (se trata como siempre).
+ */
+function boxesPlusLoose(p: ResolvedProduct, warnings: string[]): Quantity | null {
+  const boxes = toBase(p.amount!, p.unit, p.product);
+  const loose = toBase(p.loose!, p.looseUnit ?? "ud", p.product);
+  if (!boxes.ok || !loose.ok || !boxes.pack) return null;
+  if (loose.assumed && loose.pack) warnings.push(`He contado las sueltas de ${p.product.name} como «${loose.pack.name}».`);
+  const qtyBase = boxes.qtyBase.plus(loose.qtyBase);
+  return {
+    qtyBase,
+    pack: null,
+    input: { amount: qtyBase.toString(), unit: p.product.baseUnit },
+    warnings,
+    mixed: { boxes: p.amount!, box: boxes.pack, loose: p.loose!, loosePack: loose.pack },
+  };
+}
+
 /** Opción «unidades sueltas» de la pregunta de formato (productos que se cuentan por unidades). */
 export const BASE_PACK = "base";
 
@@ -438,6 +465,10 @@ export function resolveQuantity(p: ResolvedProduct, overrides: Record<string, st
         segmentIndex: p.segmentIndex,
       };
     }
+  }
+  if (p.loose && p.amount !== null) {
+    const mixed = boxesPlusLoose(p, warnings);
+    if (mixed) return mixed;
   }
   const result = toBase(p.amount!, p.unit, p.product);
   if (result.ok) {

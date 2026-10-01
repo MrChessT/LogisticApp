@@ -9,6 +9,7 @@ import { asNoul, asScore, gateNoulYes } from "../gates/gate";
 import type { Thresholds } from "../gates/thresholds";
 import { CATALOG_VERSION, evaluationQuestions, label, URGENCY_KEYS, type Intent } from "../jev/catalog";
 import { JevError, type JevPort, type JevResult } from "../jev/client";
+import { runTarea, type TareaPlan } from "../skills/tareas";
 import { StageTimer, type Metrics } from "../metrics/metrics";
 import { DataError } from "../supabase/client";
 import { Analytics, VIEW_FOR_TOOL } from "../analytics/analytics";
@@ -92,7 +93,11 @@ const DEFAULT_PERIOD: Partial<Record<ToolName, "semana" | "mes">> = { query_move
 function errorEvent(err: unknown): ErrorEvent {
   if (err instanceof JevError) {
     return err.code === "auth" || err.code === "invalid_request"
-      ? { code: "internal", message: "El asistente no está bien configurado. Avisa al administrador.", retryable: false }
+      ? {
+          code: "internal",
+          message: "El asistente no puede conectar con Jev (la clave o el AI Gateway no están bien configurados). Avisa al administrador; mientras tanto funcionan las Funciones y atajos como «/stock agua».",
+          retryable: false,
+        }
       : { code: "jev_unavailable", message: "El motor de decisiones no responde ahora mismo. Puedes usar atajos como «/stock agua» o «/pendientes».", retryable: true };
   }
   if (err instanceof DataError) {
@@ -202,7 +207,16 @@ export class Agent {
 
       if (plan) {
         deps.metrics.shortcuts += 1;
-        intent = plan.type === "navegar" ? "navegar" : plan.type === "conversar" ? "conversar" : plan.type === "catalogo" ? "proponer_accion" : "consultar";
+        intent =
+          plan.type === "navegar"
+            ? "navegar"
+            : plan.type === "conversar"
+              ? "conversar"
+              : plan.type === "catalogo" || plan.type === "accion"
+                ? "proponer_accion"
+                : plan.type === "tarea"
+                  ? "pedir_sugerencias"
+                  : "consultar";
       } else {
         if (!routing) {
           const built = await timer.time("entidades", () =>
@@ -433,7 +447,22 @@ export class Agent {
         return this.answerDraft(plan, env);
       case "consultar":
         return this.query(plan, env.message, ctx, emit, env.timer, env.tools, env.session);
+      case "tarea":
+        return this.tarea(plan, env);
     }
+  }
+
+  /** Tarea de varios pasos: tabla, botones que preparan los borradores y enlace a su pantalla. */
+  private async tarea(plan: TareaPlan, env: ExecEnv): Promise<ReportOutcome> {
+    const result = await env.timer.time("herramientas", () => runTarea(plan.tarea, { ctx: env.ctx, source: env.tools.source, locationIds: plan.locationIds, now: this.now() }));
+    if (result.table) await env.emit({ event: "table", data: result.table });
+    if (result.navigate) await env.emit({ event: "navigate", data: result.navigate });
+    const followUps = result.followUps.map((f) => ({ ...f, id: randomUUID().slice(0, 12) }));
+    if (followUps.length > 0) {
+      this.deps.sessions.setFollowUps(env.session, followUps);
+      await env.emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
+    }
+    return { kind: "tarea", tarea: result.tarea, text: result.text, rows: result.table?.rows.length ?? 0 };
   }
 
   private async query(plan: QueryPlan, message: string, ctx: SessionContext, emit: Emit, timer: StageTimer, tools: Tools, session: Session): Promise<ReportOutcome> {

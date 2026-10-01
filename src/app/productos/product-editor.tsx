@@ -39,6 +39,8 @@ type Draft = {
   categoryId: string;
   dimension: UnitDimension;
   active: boolean;
+  /** IVA de compra en % (los precios de proveedor van sin IVA). */
+  vatRate: string;
   packs: PackDraft[];
   prices: PriceDraft[];
   locations: LocationDraft[];
@@ -89,6 +91,9 @@ function friendlyError(error: { code?: string; message?: string } | null, fallba
   if (!error) return fallback;
   if (error.code === "23505") return "Ya existe otro registro con ese nombre o código.";
   if (error.code === "42501") return "No tienes permisos para hacer este cambio.";
+  // Reglas del catálogo (migración 0018): la base de datos explica qué no cuadra.
+  const rule = error as { message?: string; hint?: string };
+  if (rule.hint && /^(pack_|dimension_locked)/.test(rule.message ?? "")) return rule.hint;
   return fallback;
 }
 
@@ -96,7 +101,7 @@ async function load(productId: string): Promise<Loaded> {
   const supabase = createClient();
   if (!supabase) throw new Error("Configura las variables de Supabase.");
   const [product, categories, suppliers, locations, packs, prices, locationProducts, balances, movements] = await Promise.all([
-    supabase.from("products").select("id, org_id, name, sku, category_id, dimension, active").eq("id", productId).single(),
+    supabase.from("products").select("id, org_id, name, sku, category_id, dimension, active, vat_rate").eq("id", productId).single(),
     supabase.from("categories").select("id, name, parent_id").order("name"),
     supabase.from("suppliers").select("id, name").eq("active", true).order("name"),
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
@@ -165,6 +170,7 @@ async function load(productId: string): Promise<Loaded> {
       categoryId: p.category_id ?? "",
       dimension,
       active: p.active,
+      vatRate: show(p.vat_rate ?? 21),
       packs: packDrafts,
       prices: priceDrafts,
       locations: locationDrafts,
@@ -311,10 +317,10 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
     };
 
     // 1) Datos generales
-    if (before.name !== draft.name || before.sku !== draft.sku || before.categoryId !== draft.categoryId || before.dimension !== draft.dimension || before.active !== draft.active) {
+    if (before.name !== draft.name || before.sku !== draft.sku || before.categoryId !== draft.categoryId || before.dimension !== draft.dimension || before.active !== draft.active || before.vatRate !== draft.vatRate) {
       const { data: rows, error: err } = await supabase
         .from("products")
-        .update({ name: draft.name.trim(), sku: draft.sku.trim() || null, category_id: draft.categoryId || null, dimension: draft.dimension, active: draft.active })
+        .update({ name: draft.name.trim(), sku: draft.sku.trim() || null, category_id: draft.categoryId || null, dimension: draft.dimension, active: draft.active, vat_rate: Number(draft.vatRate) })
         .eq("id", productId)
         .select("id");
       if (err) return fail(friendlyError(err, "No se pudieron guardar los datos generales."));
@@ -550,6 +556,17 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
                   <option value="count">Unidades (ud)</option>
                 </select>
                 {data.hasMovements && <small className="field-hint">No se puede cambiar: ya tiene movimientos de stock.</small>}
+              </label>
+              <label>
+                IVA de compra
+                <select value={d.vatRate} onChange={(e) => patch({ vatRate: e.target.value })}>
+                  {!["0", "4", "10", "21"].includes(d.vatRate) && <option value={d.vatRate}>{d.vatRate} %</option>}
+                  <option value="21">21 % (general: bebidas con alcohol, refrescos, consumibles)</option>
+                  <option value="10">10 % (agua, zumos, hielo, alimentación)</option>
+                  <option value="4">4 % (fruta y verdura)</option>
+                  <option value="0">0 %</option>
+                </select>
+                <small className="field-hint">Los precios de compra se guardan sin IVA.</small>
               </label>
               <label>
                 Estado

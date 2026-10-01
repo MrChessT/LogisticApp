@@ -121,6 +121,20 @@ describe("borradores desde el chat", () => {
     expect((jev.calls[1]!.state as { draft: { lines: string } }).draft.lines).toBe("30 ud (= 1 caja + 6 ud) de Coca-Cola 20 cl");
   });
 
+  it("cajas y sueltas («2 cajas y 5 sueltas») se suman en una sola línea", async () => {
+    const script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Vivero", producto_0: { winner: "Coca-Cola 20 cl", p: 0.99 }, cantidad_ok_0: 0.95 };
+    const jev = new FakeJev([script, { coherencia: 0.9 }]);
+    const draft = find(await run(makeAgent(jev).agent, chat("pasa 2 cajas y 5 sueltas de coca de Parador al Vivero")), "draft") as TransferDraft;
+    expect(draft.lines[0]).toMatchObject({ qtyBase: "53", baseUnit: "ud" });
+    expect(draft.title).toContain("2 cajas + 5 ud de Coca-Cola 20 cl");
+  });
+
+  it("botellas sueltas con cajas de un destilado («1 caja y 2 botellas»)", async () => {
+    const script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Vivero", producto_0: { winner: "Ginebra Tanqueray 70 cl", p: 0.99 }, cantidad_ok_0: 0.95 };
+    const draft = find(await run(makeAgent(new FakeJev([script, { coherencia: 0.9 }])).agent, chat("pasa 1 caja y 2 botellas de tanqueray de Parador al Vivero")), "draft") as TransferDraft;
+    expect(draft.lines[0]).toMatchObject({ qtyBase: "5600", baseUnit: "ml" });
+  });
+
   it("cantidad sin unidad («6 cocas») → pregunta el formato en vez de suponerlo", async () => {
     const script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Vivero", producto_0: { winner: "Coca-Cola 20 cl", p: 0.99 }, cantidad_ok_0: 0.95 };
     const { agent } = makeAgent(new FakeJev([script, { coherencia: 0.9 }]));

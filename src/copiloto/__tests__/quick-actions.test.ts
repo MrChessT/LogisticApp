@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuery, QUERY_FUNCTIONS } from "../../components/copiloto/quick-actions";
+import { buildQuery, QUERY_FUNCTIONS, TASK_FUNCTIONS } from "../../components/copiloto/quick-actions";
 import { chat, FakeJev, find, makeAgent, run } from "./helpers";
 
 describe("menú de funciones del asistente", () => {
@@ -18,6 +18,14 @@ describe("menú de funciones del asistente", () => {
     expect(find(events, "error")).toBeUndefined();
     expect(find(events, "navigate")?.auto ?? false).toBe(false);
     expect(find(events, "done")!.text.length).toBeGreaterThan(0);
+  });
+
+  it.each(TASK_FUNCTIONS.map((fn) => [fn.label, fn] as const))("tarea «%s»: responde sin Jev, con tabla o una conclusión clara", async (_label, fn) => {
+    const jev = new FakeJev();
+    const events = await run(makeAgent(jev).agent, chat(`/${fn.command}`));
+    expect(jev.calls).toHaveLength(0);
+    expect(find(events, "error")).toBeUndefined();
+    expect(find(events, "done")!.text.length).toBeGreaterThan(20);
   });
 
   it("la ficha desde el menú enseña precio y stock del producto", async () => {

@@ -13,6 +13,13 @@ export interface Segment {
   productText: string;
   /** Precio por unidad o formato si el mensaje lo dice ("a 12 €"). */
   price: string | null;
+  /**
+   * Unidades sueltas que acompañan a las cajas: «3 cajas y 5 sueltas» → amount 3 (caja) y loose 5.
+   * Van en la unidad en que se cuenta el producto (ud, o la botella si se mide en ml), salvo que
+   * `looseUnit` diga otra («2 cajas y 3 botellas»).
+   */
+  loose?: string | null;
+  looseUnit?: string | null;
 }
 
 const NUMBER_WORDS: Record<string, string> = {
@@ -78,6 +85,16 @@ const DAMAGE = new Set([
 
 const SIZE_UNITS = new Set(["cl", "ml", "l", "g", "kg"]);
 
+/** Formatos de varias unidades: lo que va detrás («y 5 sueltas») son unidades sueltas del mismo producto. */
+const BOX_UNITS = new Set(["caja", "pack", "bandeja", "paquete"]);
+/** Unen las cajas con las sueltas: «3 cajas y 5», «2 cajas + 3», «4 cajas más 2». */
+// «con» no: «2 cajas con 12 unidades» describe la caja, no son sueltas.
+const LOOSE_JOINERS = new Set(["y", "+", "mas"]);
+/** Palabras que dicen que son unidades sueltas, sin ser el producto. */
+const LOOSE_WORDS = new Set(["suelta", "sueltas", "suelto", "sueltos"]);
+/** Unidades válidas para las sueltas («2 cajas y 3 botellas», «y 4 unidades», «y 6 latas»). */
+const LOOSE_UNITS = new Set(["ud", "botella", "lata", "tercio", "bote"]);
+
 const LEADING_FILLERS = new Set(["de", "del", "la", "el", "los", "las"]);
 
 interface Token {
@@ -87,7 +104,7 @@ interface Token {
 
 function tokens(message: string): Token[] {
   // NFC + \p{M}: una tilde enviada como carácter combinado (o + ´) no parte la palabra.
-  const raw = message.normalize("NFC").match(/\d+(?:[.,/]\d+)?|[\p{L}\p{M}\p{N}]+|[€%,;:!?¿¡]/gu) ?? [];
+  const raw = message.normalize("NFC").match(/\d+(?:[.,/]\d+)?|[\p{L}\p{M}\p{N}]+|[€%,;:!?¿¡+]/gu) ?? [];
   return raw.map((r) => ({ raw: r, norm: normalize(r) }));
 }
 
@@ -151,6 +168,30 @@ export function parseQuantities(message: string, maxSegments = 5): Segment[] {
         i += 2;
       }
     }
+    // «3 cajas y 5 sueltas de coca», «2 cajas + 3 de red bull», «3 cajas y 4 unidades de heineken»:
+    // las sueltas son del mismo producto y se suman a las cajas en un único fragmento.
+    let loose: string | null = null;
+    let looseUnit: string | null = null;
+    if (unit !== null && BOX_UNITS.has(unit) && toks[i] && LOOSE_JOINERS.has(toks[i]!.norm) && toks[i + 1]) {
+      const n = parseNumber(toks[i + 1]!.raw);
+      const after = toks[i + 2]?.norm;
+      const afterUnit = after !== undefined ? UNIT_ALIASES[after] : undefined;
+      if (n && n.gt(0)) {
+        if (after !== undefined && LOOSE_WORDS.has(after)) {
+          loose = n.toString();
+          i += 3;
+        } else if (afterUnit !== undefined && LOOSE_UNITS.has(afterUnit)) {
+          loose = n.toString();
+          looseUnit = afterUnit === "ud" ? null : afterUnit;
+          i += 3;
+          if (toks[i] && LOOSE_WORDS.has(toks[i]!.norm)) i += 1;
+        } else if (after === "de" || (after !== undefined && afterUnit === undefined && !PRODUCT_BREAKERS.has(after) && !parseNumber(toks[i + 2]!.raw))) {
+          // «2 cajas y 3 de red bull», «3 cajas y 5 cocas»: sin producto aún, el número son sueltas.
+          loose = n.toString();
+          i += 2;
+        }
+      }
+    }
     if (unit === "docena") {
       amount = amount.mul(12);
       unit = "ud";
@@ -205,12 +246,20 @@ export function parseQuantities(message: string, maxSegments = 5): Segment[] {
     // es la misma unidad (2 cajas), como lo entendería cualquiera.
     const previous = segments[segments.length - 1];
     if (unit === null && previous?.unit && toks[start + 1]?.norm === "de" && toks[start - 1]?.norm === "y") unit = previous.unit;
+    // «2 cajas de tónica y 7 sueltas»: las sueltas van con las cajas del fragmento anterior.
+    const looseTail = productTokens.length === 1 && LOOSE_WORDS.has(productTokens[0]!.norm);
+    if (looseTail && previous?.unit && BOX_UNITS.has(previous.unit) && !previous.loose && (unit === null || unit === "ud") && LOOSE_JOINERS.has(toks[start - 1]?.norm ?? "")) {
+      previous.loose = amount.toString();
+      previous.text = `${previous.text} ${toks.slice(start - 1, end).map((t) => t.raw).join(" ")}`;
+      continue;
+    }
     segments.push({
       text: toks.slice(start, end).map((t) => t.raw).join(" "),
       amount: amount.toString(),
       unit,
       productText,
       price,
+      ...(loose !== null ? { loose, looseUnit } : {}),
     });
   }
 

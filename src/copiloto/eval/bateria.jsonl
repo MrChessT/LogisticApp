@@ -96,3 +96,10 @@
 {"kind":"cantidad","message":"entra mercancía: 4 cajas de tónica en el vivero","expect":[{"amount":"4","unit":"caja","product":"tónica"}]}
 {"kind":"cantidad","message":"el de makro ha traído 6 cajas de coca y 2 de tónica al parador","expect":[{"amount":"6","unit":"caja","product":"coca"},{"amount":"2","unit":"caja","product":"tónica"}]}
 {"kind":"cantidad","message":"pasa 3 botellas de ron y 2 de ginebra","expect":[{"amount":"3","unit":"botella","product":"ron"},{"amount":"2","unit":"botella","product":"ginebra"}]}
+// Cajas y sueltas: una sola cantidad (cajas + unidades sueltas del mismo producto).
+{"kind":"cantidad","message":"en el vivero hay 3 cajas y 5 sueltas de coca-cola","expect":[{"amount":"3","unit":"caja","product":"coca cola","loose":"5"}]}
+{"kind":"cantidad","message":"he contado 2 cajas de tónica y 7 sueltas","expect":[{"amount":"2","unit":"caja","product":"tónica","loose":"7"}]}
+{"kind":"cantidad","message":"quedan 4 cajas y 3 unidades de heineken en barra","expect":[{"amount":"4","unit":"caja","product":"heineken","loose":"3"}]}
+{"kind":"cantidad","message":"han llegado 2 cajas + 6 de red bull","expect":[{"amount":"2","unit":"caja","product":"red bull","loose":"6"}]}
+{"kind":"cantidad","message":"tengo 1 caja y 2 botellas de beefeater","expect":[{"amount":"1","unit":"caja","product":"beefeater","loose":"2"}]}
+{"kind":"cantidad","message":"pasa 3 cajas de coca y 2 de fanta","expect":[{"amount":"3","unit":"caja","product":"coca"},{"amount":"2","unit":"caja","product":"fanta"}]}

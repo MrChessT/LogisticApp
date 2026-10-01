@@ -81,3 +81,39 @@ export function formatStock(qty: Decimal.Value, packs: CountingPacks): string {
   if (countPack && !METRIC_PACK.test(countPack.name.trim()) && new Decimal(countPack.qtyBase).gt(0)) return packCount(value, countPack);
   return quantity(value, dimension === "mass" ? "g" : "ml");
 }
+
+/** Cómo se cuenta un producto en la hoja de inventario: cajas (si las hay) y unidades sueltas. */
+export type CountLayout = {
+  /** Caja o bandeja de varias unidades («Caja 24», «Caja 6»); null si se cuenta solo suelto. */
+  box: { name: string; qty: Decimal; units: Decimal } | null;
+  /** Lo suelto: ud, botellas, barriles o kg. `qty` en unidad base; `decimals` admite «0,5» (botella abierta). */
+  unit: { name: string; qty: Decimal; plural: string; decimals: boolean };
+};
+
+export function countLayout(packs: CountingPacks): CountLayout {
+  const { dimension, countPack, purchasePack } = packs;
+  const unit =
+    dimension === "count"
+      ? { name: "Unidad", qty: new Decimal(1), plural: "ud", decimals: false }
+      : countPack && new Decimal(countPack.qtyBase).gt(0)
+        ? {
+            name: countPack.name,
+            qty: new Decimal(countPack.qtyBase),
+            plural: METRIC_PACK.test(countPack.name.trim()) ? countPack.name.trim().toLowerCase() : packNoun(countPack.name, 2),
+            decimals: true,
+          }
+        : { name: dimension === "mass" ? "g" : "ml", qty: new Decimal(1), plural: dimension === "mass" ? "g" : "ml", decimals: true };
+  const boxQty = purchasePack ? new Decimal(purchasePack.qtyBase) : null;
+  // Una caja solo tiene sentido si lleva un número entero (> 1) de lo que se cuenta suelto.
+  const units = boxQty ? boxQty.div(unit.qty) : null;
+  const box = purchasePack && boxQty && units && units.gt(1) && units.isInteger() ? { name: purchasePack.name, qty: boxQty, units } : null;
+  return { box, unit };
+}
+
+/** Cantidad contada en unidad base: cajas × su contenido + sueltas × la unidad. null si algo no es válido. */
+export function countTotal(layout: CountLayout, boxes: Decimal | null, loose: Decimal | null): Decimal | null {
+  if (boxes && (boxes.isNegative() || !boxes.isInteger())) return null;
+  if (loose && (loose.isNegative() || (!layout.unit.decimals && !loose.isInteger()))) return null;
+  if (!boxes && !loose) return null;
+  return (boxes && layout.box ? boxes.mul(layout.box.qty) : new Decimal(0)).plus(loose ? loose.mul(layout.unit.qty) : 0);
+}

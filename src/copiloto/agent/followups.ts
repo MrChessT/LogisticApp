@@ -2,12 +2,13 @@
 // «Preparar pedido». Cada uno guarda en la sesión la consulta ya resuelta (mismos productos y locales):
 // al pulsarlo se ejecuta sin volver a llamar a Jev (respuesta inmediata y sin dudas que resolver).
 import type { ToolName } from "../tools/tools";
-import type { CatalogPlan, QueryPlan } from "./interpret";
+import type { TareaPlan } from "../skills/tareas";
+import type { ActionPlan, CatalogPlan, QueryPlan } from "./interpret";
 
 export interface FollowUp {
   id: string;
   label: string;
-  plan: QueryPlan | CatalogPlan;
+  plan: QueryPlan | CatalogPlan | ActionPlan | TareaPlan;
 }
 
 /** Como mucho estos productos se arrastran a la siguiente consulta (la familia «ron» puede ser larga). */

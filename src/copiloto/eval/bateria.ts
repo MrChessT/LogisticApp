@@ -11,7 +11,7 @@ import { parseQuantities } from "../entities/quantity-parser";
 import { LexicalRetriever, type Retriever } from "../entities/retriever";
 
 interface ProductCase { kind: "producto"; message: string; /** Todos deben estar entre los candidatos «parecidos al mejor». */ expect: string[]; /** Ninguno debe estar. */ not?: string[] }
-interface QuantityCase { kind: "cantidad"; message: string; expect: Array<{ amount: string; unit: string | null; product: string }> }
+interface QuantityCase { kind: "cantidad"; message: string; expect: Array<{ amount: string; unit: string | null; product: string; loose?: string }> }
 interface AnswerCase { kind: "respuesta"; field: PendingClarify["field"]; options?: Array<[string, string]>; text: string; expect: string }
 type Case = ProductCase | QuantityCase | AnswerCase;
 
@@ -49,7 +49,7 @@ export async function runBattery(): Promise<{ total: number; fails: string[] }> 
       got = names.slice(0, 6).join(" | ") + (names.length > 6 ? ` (+${names.length - 6})` : "") || "(nada)";
     } else if (c.kind === "cantidad") {
       const segs = parseQuantities(c.message);
-      const shown = segs.map((s) => ({ amount: s.amount!, unit: s.unit, product: s.productText }));
+      const shown = segs.map((s) => ({ amount: s.amount!, unit: s.unit, product: s.productText, ...(s.loose ? { loose: s.loose } : {}) }));
       pass = JSON.stringify(shown) === JSON.stringify(c.expect);
       got = JSON.stringify(shown);
     } else {

@@ -7,6 +7,7 @@ import type {
   BalanceRaw,
   CountResultRaw,
   DataFilter,
+  HealthIssueRaw,
   InventoryDataSource,
   LocationProductRaw,
   MovementRaw,
@@ -279,5 +280,20 @@ export class SupabaseDataSource implements InventoryDataSource {
         unitCost: str(r.unit_cost),
       };
     });
+  }
+
+  async catalogHealth(filter: { locationIds: string[] }): Promise<HealthIssueRaw[]> {
+    const rows = check<Row[]>("la revisión del catálogo", await this.db.rpc("catalog_health", { p_location: null }));
+    return rows
+      .filter((r) => r.location_id === null || filter.locationIds.includes(String(r.location_id)))
+      .map((r) => ({
+        productId: String(r.product_id),
+        productName: String(r.product_name),
+        family: strOrNull(r.family),
+        locationId: strOrNull(r.location_id),
+        issue: String(r.issue),
+        severity: r.severity === "error" || r.severity === "aviso" ? r.severity : "info",
+        detail: String(r.detail),
+      }));
   }
 }

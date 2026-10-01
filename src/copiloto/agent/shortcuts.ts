@@ -3,6 +3,7 @@ import type { AppRoute } from "../contract/index";
 import type { Product, SessionContext } from "../domain";
 import type { Retriever } from "../entities/retriever";
 import type { ToolName } from "../tools/tools";
+import type { TareaId } from "../skills/tareas";
 import type { ClarifyPlan, Plan, QueryPlan } from "./interpret";
 
 const ROUTES: Record<string, AppRoute> = {
@@ -35,7 +36,15 @@ const TOOLS: Record<string, ToolName> = {
   consumo: "query_top_usage",
 };
 
-export const SHORTCUT_HELP = Object.keys(TOOLS).map((k) => `/${k}`).concat(Object.keys(ROUTES).map((k) => `/${k}`));
+/** Tareas: trabajo de varios pasos sobre todos los locales (ver skills/tareas.ts). */
+const TAREA_COMMANDS: Record<string, TareaId> = {
+  preparar: "pedidos",
+  equilibrar: "equilibrar",
+  revisar: "catalogo",
+  parte: "parte",
+};
+
+export const SHORTCUT_HELP = [...Object.keys(TAREA_COMMANDS), ...Object.keys(TOOLS), ...Object.keys(ROUTES)].map((k) => `/${k}`);
 
 /** Puntuación mínima y ventaja sobre el segundo candidato para aceptar un producto sin preguntar. */
 const MIN_SCORE = 0.8;
@@ -59,6 +68,13 @@ export async function resolveShortcut(
   const arg = match[2]!.trim();
 
   if (command === "ayuda") return { type: "conversar" };
+  const tarea = TAREA_COMMANDS[command];
+  if (tarea) {
+    // «/preparar vivero»: un local nombrado (o el de la página) acota; si no, todos los del usuario.
+    const named = arg ? ctx.locations.find((l) => arg.toLowerCase().includes(l.name.toLowerCase())) : undefined;
+    const only = named?.id ?? pageLocationId;
+    return { type: "tarea", tarea, locationIds: only ? [only] : ctx.locations.map((l) => l.id) };
+  }
   const tool = TOOLS[command];
   // "/stock" sin texto navega; "/stock agua" consulta.
   if (!tool || (ROUTES[command] && !arg)) {

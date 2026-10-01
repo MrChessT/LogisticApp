@@ -452,7 +452,8 @@ export type Emit = (event: SseEvent) => Promise<void> | void;
 
 export interface HealthResponse {
   status: "ok" | "degradado" | "caido";
-  jev: { ok: boolean; model: string | null; latencyMs: number | null };
+  /** error: por qué no responde Jev (camino y qué revisar), para el administrador. */
+  jev: { ok: boolean; model: string | null; latencyMs: number | null; error?: string | null };
   writer: { ok: boolean; provider: string; model: string };
   embeddings: { ok: boolean; provider: string; model: string };
   supabase: { ok: boolean };

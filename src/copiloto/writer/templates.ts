@@ -42,7 +42,7 @@ export function renderTemplate(report: DecisionReport): string {
       if (o.charla === "gracias") return "¡De nada!";
       if (o.charla === "adios") return "¡Hasta luego!";
       if (o.charla === "hola") return "¡Hola! ¿Qué necesitas?";
-      return "Consulto stock, precios, consumo, lo que más se gasta, pedidos y gasto, y te preparo mermas, traspasos, recepciones y pedidos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?» o «pasa 2 cajas de tónica del Parador a Pickels».";
+      return "Consulto stock, precios, consumo, lo que más se gasta, pedidos y gasto, y te preparo mermas, traspasos, recepciones, conteos y pedidos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «pasa 2 cajas y 5 sueltas de tónica del Parador a Pickels» o, en Funciones, «Preparar pedidos» y «Equilibrar locales».";
     case "navegacion":
       return o.navigate.auto ? `Te llevo a ${o.destino}.` : `¿Quieres ir a ${o.destino}?`;
     case "borrador": {
@@ -57,6 +57,8 @@ export function renderTemplate(report: DecisionReport): string {
       return o.message;
     case "resuelto":
       return o.message;
+    case "tarea":
+      return o.text;
     case "consulta":
       return renderQuery(o);
   }

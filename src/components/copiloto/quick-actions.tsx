@@ -1,24 +1,22 @@
 "use client";
 
-// Menú de funciones del asistente: consultas que se ejecutan al momento con los atajos deterministas
-// del servidor (sin Jev) y accesos a las pantallas donde se registran las operaciones. Local y
-// producto son filtros opcionales comunes a todas.
+// Menú de funciones del asistente. Primero las TAREAS: trabajo que el panel no hace solo (cruza todos
+// los locales y deja borradores listos para confirmar: pedidos, traspasos) o que encuentra lo que está
+// mal. Después, consultas rápidas. Registrar operaciones se hace escribiendo («se han roto 2 botellas de
+// Beefeater en barra»): el asistente prepara el borrador. Local y producto son filtros opcionales.
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   ArrowLeftRight,
   Boxes,
-  ClipboardCheck,
   ClipboardList,
   FileText,
   MapPin,
-  PackageCheck,
-  Repeat,
+  Newspaper,
   Scale,
   Search,
-  ShoppingBag,
+  ShieldCheck,
   ShoppingCart,
   Tag,
-  Trash2,
   TrendingUp,
   Truck,
   Wallet,
@@ -38,32 +36,31 @@ interface QueryFn {
   needsProduct?: boolean;
 }
 
-interface OperationFn {
-  route: string;
+interface TaskFn {
+  /** Comando de la tarea en el servidor (/preparar, /equilibrar…). */
+  command: string;
   label: string;
+  /** Qué obtienes: el resultado, no la pantalla. */
   hint: string;
   icon: Icon;
 }
 
+export const TASK_FUNCTIONS: TaskFn[] = [
+  { command: "preparar", label: "Preparar pedidos", hint: "Lo que hay que pedir esta semana en cada local, por proveedor y en cajas. Un toque y queda en borrador.", icon: ShoppingCart },
+  { command: "equilibrar", label: "Equilibrar locales", hint: "Lo que sobra en un local y falta en otro: traspasos listos en vez de compras.", icon: ArrowLeftRight },
+  { command: "revisar", label: "Revisar catálogo", hint: "Precios, formatos y stock que dan cifras falsas, con qué arreglar primero.", icon: ShieldCheck },
+  { command: "parte", label: "Parte de ayer", hint: "Consumo, mermas y compras por local, y lo que requiere atención hoy.", icon: Newspaper },
+];
+
 export const QUERY_FUNCTIONS: QueryFn[] = [
-  { command: "existencias", label: "Stock", hint: "Cuánto queda", icon: Boxes },
-  { command: "reponer", label: "Qué reponer", hint: "Lo que falta para los próximos días", icon: ShoppingCart },
+  { command: "ficha", label: "Ficha", hint: "Precio, proveedores, stock y consumo de un producto", icon: FileText, needsProduct: true },
+  { command: "existencias", label: "Stock", hint: "Cuánto queda y cuánto vale", icon: Boxes },
   { command: "precios", label: "Precios", hint: "Último precio y subidas", icon: Tag },
-  { command: "ficha", label: "Ficha", hint: "Precio, stock y consumo de un producto", icon: FileText, needsProduct: true },
   { command: "consumo", label: "Lo que más se gasta", hint: "Ranking del último mes", icon: TrendingUp },
-  { command: "movimientos", label: "Movimientos", hint: "Consumo, compras y mermas de la semana", icon: ArrowLeftRight },
+  { command: "desvios", label: "Desvíos de inventario", hint: "Diferencias del último recuento", icon: Scale },
   { command: "pendientes", label: "Traspasos pendientes", hint: "Enviados sin recibir", icon: Truck },
   { command: "pedidos", label: "Pedidos abiertos", hint: "Por enviar, en camino o con retraso", icon: ClipboardList },
   { command: "gasto", label: "Gasto en compras", hint: "Por proveedor, último mes", icon: Wallet },
-  { command: "desvios", label: "Desvíos de inventario", hint: "Diferencias del último recuento", icon: Scale },
-];
-
-export const OPERATION_FUNCTIONS: OperationFn[] = [
-  { route: "/mermas", label: "Merma", hint: "Roturas, caducados, invitaciones", icon: Trash2 },
-  { route: "/recepciones", label: "Recepción", hint: "Lo que llega del proveedor", icon: PackageCheck },
-  { route: "/traspasos", label: "Traspaso", hint: "Entre locales", icon: Repeat },
-  { route: "/inventarios", label: "Inventario", hint: "Contar y cerrar", icon: ClipboardCheck },
-  { route: "/pedidos", label: "Pedido", hint: "Preparar y enviar", icon: ShoppingBag },
 ];
 
 /** Comando del atajo y texto que se enseña en el chat («Stock · Vivero · Beefeater»). */
@@ -106,9 +103,9 @@ export function QuickActions({ disabled, onRun, onClose }: Props) {
     onRun(message, display);
   }
 
-  function go(fn: OperationFn) {
-    const id = locations.find((l) => l.name === location)?.id;
-    window.location.assign(id ? `${fn.route}?local=${id}` : fn.route);
+  function runTask(fn: TaskFn) {
+    // Las tareas trabajan por local; el producto no aplica.
+    onRun(`/${fn.command}${location ? ` ${location}` : ""}`, [fn.label, location].filter(Boolean).join(" · "));
   }
 
   return (
@@ -116,7 +113,7 @@ export function QuickActions({ disabled, onRun, onClose }: Props) {
       <div className="copiloto-functions-head">
         <div>
           <strong>Funciones</strong>
-          <small>Al momento, sin escribir al asistente</small>
+          <small>Trabajo hecho en un toque, sin escribir</small>
         </div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar funciones">
           <X size={15} />
@@ -150,7 +147,20 @@ export function QuickActions({ disabled, onRun, onClose }: Props) {
       </div>
       {missing && !product.trim() && <p className="copiloto-functions-note">La ficha necesita un producto.</p>}
 
-      <p className="copiloto-section">Consultar</p>
+      <p className="copiloto-section">Tareas</p>
+      <div className="copiloto-functions-grid tasks">
+        {TASK_FUNCTIONS.map((fn) => (
+          <button type="button" key={fn.command} disabled={disabled} onClick={() => runTask(fn)}>
+            <span className="copiloto-functions-icon"><fn.icon size={16} /></span>
+            <span>
+              <b>{fn.label}</b>
+              <small>{fn.hint}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <p className="copiloto-section">Consultas rápidas</p>
       <div className="copiloto-functions-grid">
         {QUERY_FUNCTIONS.map((fn) => (
           <button type="button" key={fn.command} disabled={disabled} onClick={() => run(fn)}>
@@ -162,19 +172,7 @@ export function QuickActions({ disabled, onRun, onClose }: Props) {
           </button>
         ))}
       </div>
-
-      <p className="copiloto-section">Registrar</p>
-      <div className="copiloto-functions-grid operations">
-        {OPERATION_FUNCTIONS.map((fn) => (
-          <button type="button" key={fn.route} onClick={() => go(fn)}>
-            <span className="copiloto-functions-icon"><fn.icon size={16} /></span>
-            <span>
-              <b>{fn.label}</b>
-              <small>{fn.hint}</small>
-            </span>
-          </button>
-        ))}
-      </div>
+      <p className="copiloto-functions-tip">Para registrar algo, escríbelo: «se han roto 2 botellas de Beefeater en barra» o «han llegado 3 cajas de tónica».</p>
     </div>
   );
 }
