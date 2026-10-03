@@ -69,6 +69,10 @@ function countingPacks(dimension: UnitDimension, packs: PackRow[]): CountingPack
 }
 type PackOption = { id: string; product_id: string; product_name: string; pack_name: string; base_unit: string };
 type SupplierOption = { id: string; name: string };
+type Reference = { orgId: string; locations: Location[]; products: ProductOption[]; packs: PackOption[]; suppliers: SupplierOption[] };
+
+/** Catálogo, locales y proveedores compartidos por las cuatro pantallas de operativa. */
+let referenceCache: (Reference & { userId: string }) | null = null;
 
 type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
 
@@ -161,31 +165,36 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [ivLocation, setIvLocation] = useState("");
   const [countModal, setCountModal] = useState<{ id: string; locationId: string } | null>(null);
 
+  function applyReference(ref: Reference) {
+    setOrgId(ref.orgId);
+    setLocations(ref.locations);
+    setProducts(ref.products);
+    setPacks(ref.packs);
+    setSuppliers(ref.suppliers);
+  }
+
   async function loadReference() {
     const supabase = createClient();
     if (!supabase) return null;
+    // Lo último que se cargó se pinta al instante (al volver a esta pantalla o pasar a otra
+    // operativa) y se refresca igualmente en segundo plano.
+    // La sesión se lee del navegador (sin red): la caché nunca se enseña a otro usuario.
+    const userId = (await supabase.auth.getSession()).data.session?.user.id ?? "";
+    if (referenceCache?.userId === userId) applyReference(referenceCache);
     // Datos de referencia independientes entre sí: una sola ronda de peticiones en paralelo.
-    const [{ data: membership }, { data: locationRows }, { data: productRows }, { data: packRows }, { data: supplierRows }] = await Promise.all([
+    const [{ data: membership }, { data: locationRows }, { data: productRows }, { data: supplierRows }] = await Promise.all([
       supabase.from("memberships").select("org_id").limit(1).maybeSingle(),
       supabase.from("locations").select("id, name").eq("active", true).order("name"),
       readAll((from, to) =>
         supabase.from("products").select("id, name, base_unit, dimension, product_packs(id, name, qty_base, is_count_default, is_purchase_default, active), category:categories(name, parent:parent_id(name))").eq("active", true).order("name").order("id").range(from, to),
       ),
-      readAll((from, to) =>
-        supabase
-          .from("product_packs")
-          .select("id, product_id, name, is_purchase_default, products(name, base_unit)")
-          .eq("is_purchase_default", true)
-          .order("id")
-          .range(from, to),
-      ),
       supabase.from("suppliers").select("id, name").eq("active", true).order("name"),
     ]);
-    if (membership) setOrgId(membership.org_id);
-    const loadedLocations = (locationRows ?? []) as Location[];
-    setLocations(loadedLocations);
-    setProducts(
-      ((productRows ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; dimension: UnitDimension; product_packs: PackRow[] | null; category: CategoryRef }>).map((p) => ({
+    const rawProducts = (productRows ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; dimension: UnitDimension; product_packs: PackRow[] | null; category: CategoryRef }>;
+    const ref: Reference = {
+      orgId: membership?.org_id ?? "",
+      locations: (locationRows ?? []) as Location[],
+      products: rawProducts.map((p) => ({
         id: p.id,
         name: p.name,
         base_unit: p.base_unit,
@@ -195,20 +204,17 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         // Familia (Destilados, Refrescos…): la hoja de inventario se agrupa por ella.
         family: p.category?.parent?.name ?? p.category?.name ?? null,
       })),
-    );
-    setPacks(
-      ((packRows ?? []) as unknown as Array<{ id: string; product_id: string; name: string; products: { name: string; base_unit: string } | null }>).map(
-        (pack) => ({
-          id: pack.id,
-          product_id: pack.product_id,
-          product_name: pack.products?.name ?? "Producto",
-          pack_name: pack.name,
-          base_unit: pack.products?.base_unit ?? "",
-        }),
+      // Formatos de compra para las recepciones: salen de los mismos productos (antes, otra consulta).
+      packs: rawProducts.flatMap((p) =>
+        (p.product_packs ?? [])
+          .filter((k) => k.is_purchase_default && k.id)
+          .map((k) => ({ id: k.id as string, product_id: p.id, product_name: p.name, pack_name: k.name, base_unit: p.base_unit })),
       ),
-    );
-    setSuppliers((supplierRows ?? []) as SupplierOption[]);
-    return { supabase, locations: loadedLocations };
+      suppliers: (supplierRows ?? []) as SupplierOption[],
+    };
+    referenceCache = { ...ref, userId };
+    applyReference(ref);
+    return { supabase, locations: ref.locations };
   }
 
   async function loadRows(locationsOverride?: Location[] | Promise<Location[]>) {

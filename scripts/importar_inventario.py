@@ -358,13 +358,15 @@ def build(folder: str, fixes: dict) -> tuple[list[dict], list[dict]]:
             e = per_venue.setdefault(k, {"alm": None, "inv": 0.0, "cost": None, "unit": r["unidad"]})
             if r["kind"] == "almacen":
                 e["alm"] = (e["alm"] or 0.0) + r["qty"]
+                e["alm_unit"] = r["unidad"]  # la cantidad del almacén va en SU unidad (kg o g)
             else:
                 e["inv"] += r["qty"]
                 if r["coste"] and not e["cost"]:
                     e["cost"] = r["coste"]
         for (venue, area), e in per_venue.items():
             qty = e["alm"] if e["alm"] is not None else e["inv"]
-            stock.append({"key": key, "venue": venue, "area": area, "qty": qty, "cost": e["cost"], "unit": e["unit"]})
+            unit = e.get("alm_unit", e["unit"]) if e["alm"] is not None else e["unit"]
+            stock.append({"key": key, "venue": venue, "area": area, "qty": qty, "cost": e["cost"], "unit": unit})
     return products, stock
 
 

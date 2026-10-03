@@ -63,16 +63,19 @@ export async function loadReference(): Promise<Reference> {
     supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
     supabase.from("suppliers").select("id, name, email, phone").eq("active", true).order("name"),
+    // Formatos agrupados por producto: una fila por producto (no por formato) y sin repetir el nombre.
     readAll((from, to) =>
-      supabase.from("product_packs").select("id, product_id, name, qty_base, products!inner(name, base_unit, active)").eq("active", true).eq("products.active", true).order("id").range(from, to),
+      supabase.from("products").select("id, name, base_unit, product_packs(id, name, qty_base)").eq("active", true).eq("product_packs.active", true).order("id").range(from, to),
     ),
     readAll((from, to) => supabase.from("supplier_prices").select("supplier_id, pack_id, last_price").not("last_price", "is", null).order("supplier_id").order("pack_id").range(from, to)),
   ]);
   const member = membership.data as { org_id: string; role: Role; organizations: { name: string } | null } | null;
   if (!member) throw new Error("No perteneces a ninguna organización.");
   const packMap = new Map<string, Pack>();
-  for (const p of (packs.data ?? []) as unknown as Array<{ id: string; product_id: string; name: string; qty_base: number; products: { name: string; base_unit: string } }>) {
-    packMap.set(p.id, { id: p.id, productId: p.product_id, productName: p.products.name, name: p.name, qtyBase: String(p.qty_base), baseUnit: p.products.base_unit });
+  for (const p of (packs.data ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; product_packs: Array<{ id: string; name: string; qty_base: number }> | null }>) {
+    for (const k of p.product_packs ?? []) {
+      packMap.set(k.id, { id: k.id, productId: p.id, productName: p.name, name: k.name, qtyBase: String(k.qty_base), baseUnit: p.base_unit });
+    }
   }
   return {
     orgId: member.org_id,
