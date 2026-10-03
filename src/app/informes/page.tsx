@@ -114,8 +114,9 @@ export default function InformesPage() {
             <label className="location-select">
               <Building2 size={15} />
               <select value={location} onChange={(event) => change({ location: event.target.value })} aria-label="Local">
-                <option value="">Todos los locales</option>
-                {data?.locations.map((l) => (
+                {/* Con un único local, «todos» es ese local: no se repite. */}
+                <option value="">{data?.locations.length === 1 ? data.locations[0]!.name : "Todos los locales"}</option>
+                {(data?.locations.length ?? 0) > 1 && data?.locations.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>

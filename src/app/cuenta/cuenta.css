@@ -7,3 +7,6 @@
 .account-card .catalog-primary { align-self: flex-start; }
 .account-card .catalog-primary:disabled { opacity: .5; cursor: not-allowed; }
 .user-link { color: inherit; text-decoration: none; }
+.account-welcome { border-color: #cfe3c1; background: #f2f9ea; }
+.account-access { margin: 0; color: #34473b; font-size: 13px; }
+.account-access b { color: #1f3b2c; }

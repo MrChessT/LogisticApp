@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ROLE_HELP, ROLE_LABEL, seesAllLocations, type Role } from "@/lib/team";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./cuenta.css";
@@ -20,6 +21,8 @@ export default function AccountPage() {
   const [repeat, setRepeat] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState<"" | "name" | "password">("");
+  const [access, setAccess] = useState<{ role: Role; locations: string[] | null } | null>(null);
+  const [welcome, setWelcome] = useState(false);
 
   useEffect(() => {
     async function start() {
@@ -30,8 +33,18 @@ export default function AccountPage() {
       if (!supabase || !user) return;
       setEmail(user.email ?? "");
       setUserId(user.id);
-      const { data: profile } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+      setWelcome(new URLSearchParams(window.location.search).has("bienvenida"));
+      const [{ data: profile }, { data: membership }, { data: locations }] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
+        supabase.from("memberships").select("role, all_locations").eq("user_id", user.id).limit(1).maybeSingle(),
+        // RLS: cada uno solo ve sus locales (todos, si es propietario o administrador).
+        supabase.from("locations").select("name").eq("active", true).order("name"),
+      ]);
       setName(profile?.full_name ?? "");
+      if (membership) {
+        const role = membership.role as Role;
+        setAccess({ role, locations: seesAllLocations(role) || membership.all_locations ? null : (locations ?? []).map((l) => l.name) });
+      }
     }
     void start();
   }, []);
@@ -81,7 +94,20 @@ export default function AccountPage() {
           </div>
           <button className="ghost-button" onClick={() => void signOut()}><LogOut size={14} /> Cerrar sesión</button>
         </div>
+        {welcome && (
+          <div className="catalog-panel account-card account-welcome">
+            <h2>Bienvenido a LogisticApp</h2>
+            <p className="section-hint">Ya tienes acceso. Escribe tu nombre y ponte una contraseña: así entras la próxima vez sin necesitar otro enlace.</p>
+          </div>
+        )}
         {message && <p className={message.ok ? "editor-message" : "editor-message error"}>{message.text}</p>}
+        {access && (
+          <div className="catalog-panel account-card">
+            <h2>Tu acceso</h2>
+            <p className="section-hint">{ROLE_HELP[access.role]}</p>
+            <p className="account-access"><b>{ROLE_LABEL[access.role]}</b> · {access.locations ? access.locations.join(", ") || "Sin locales asignados" : "Todos los locales"}</p>
+          </div>
+        )}
         <form className="catalog-panel account-card" onSubmit={saveName}>
           <h2>Nombre</h2>
           <p className="section-hint">Es el que ven tus compañeros y el que aparece en el resumen.</p>
