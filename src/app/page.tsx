@@ -18,6 +18,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Menu,
   Package,
   Search,
@@ -410,6 +411,7 @@ export default function Dashboard() {
           {identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
             <Link className="nav-item" href="/equipo"><Users size={18} /><span>Equipo</span></Link>
           )}
+          <Link className="nav-item" href="/zonas"><MapPin size={18} /><span>Zonas</span></Link>
         </nav>
 
         <div className="sidebar-bottom">

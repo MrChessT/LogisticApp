@@ -86,6 +86,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0019 | Rendimiento sin cambiar permisos: las políticas de escritura ya no se evalúan al leer (eran `for all` y llamaban a una función por fila; leer 734 productos pasaba de ~70 ms a ~1 ms) y las de líneas y formatos comparan contra conjuntos calculados una vez por consulta. `catalog_search` agrega formatos, proveedores y stock de una vez (~2-3× más rápida, mismos resultados) |
 | 0020 | Búsquedas en el servidor: `product_lookup()` (buscador de productos de los formularios: nombre, familia o código de barras, lo del local primero, con formatos, último precio y stock), `stock_search()` (stock por páginas con los totales calculados en Postgres) y `v_supplier_summary` (productos y último precio por proveedor sin descargar sus precios) |
 | 0021 | Equipo: roles (propietario, administrador, encargado, personal) con reglas en la base de datos. `team_members()`, `team_set_member()`, `team_remove_member()` y `team_check_assign()` deciden quién puede dar qué rol en qué locales; nadie cambia su propio acceso y la organización nunca se queda sin propietario. Se cierran las escrituras directas en `memberships` (un administrador podía ascenderse a propietario) |
+| 0022 | Zonas: cada zona es `almacen` (donde se guarda) o `servicio` (barra, cocina…) y se archiva en vez de borrarse; una zona con stock no se puede archivar. Todos los locales tienen «Almacén» y «Barra» (también los nuevos). `v_storage_areas` resume qué guarda cada una. Pantalla `/zonas` para encargados y administración |
 
 **Aplicar en el proyecto real:** `npm run db:bundle -- 0008` genera `supabase/scripts/aplicar.sql` con las migraciones desde la 0008, en una sola transacción. Se pega en Supabase → SQL Editor → Run.
 
@@ -121,6 +122,6 @@ La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la
 - Supabase → Authentication → URL Configuration: *Site URL* con el dominio real y `https://<dominio>/auth/callback` en *Redirect URLs* (enlace mágico y recuperar contraseña).
 - Supabase → Authentication → Sign In / Providers: desactivar *Allow new users to sign up*. Los usuarios los da de alta un administrador; el enlace mágico ya no crea cuentas.
 - Supabase → Authentication → SMTP: un SMTP propio (el de Supabase solo manda unos pocos correos por hora).
-- Migraciones hasta la 0021 aplicadas (`npm run db:bundle -- 0021`) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
+- Migraciones hasta la 0022 aplicadas (`npm run db:bundle -- 0022`) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
 - Términos de uso y política de privacidad: la pantalla de acceso los menciona, pero aún no existen.
 - Límite de peticiones del asistente: está en memoria de cada instancia; con mucho tráfico, moverlo a un almacén compartido.

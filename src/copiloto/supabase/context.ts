@@ -57,6 +57,7 @@ export class SupabaseContext implements ContextPort {
       db
         .from("storage_areas")
         .select("id,location_id,name,location:locations!inner(org_id,active)")
+        .eq("active", true)
         .eq("location.org_id", orgId)
         .eq("location.active", true)
         .order("sort_order"),

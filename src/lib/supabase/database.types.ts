@@ -89,6 +89,12 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["locations"]["Insert"]>;
         Relationships: [];
       };
+      storage_areas: {
+        Row: { id: string; location_id: string; name: string; sort_order: number; kind: "almacen" | "servicio"; active: boolean };
+        Insert: { id?: string; location_id: string; name: string; sort_order?: number; kind?: "almacen" | "servicio"; active?: boolean };
+        Update: Partial<Database["public"]["Tables"]["storage_areas"]["Insert"]>;
+        Relationships: [];
+      };
       suppliers: {
         Row: {
           id: string;
@@ -456,6 +462,20 @@ export type Database = {
       };
     };
     Views: {
+      v_storage_areas: {
+        Row: {
+          id: string;
+          location_id: string;
+          location_name: string;
+          name: string;
+          kind: "almacen" | "servicio";
+          active: boolean;
+          sort_order: number;
+          products: number;
+          stock_value: number;
+        };
+        Relationships: [];
+      };
       v_supplier_summary: {
         Row: { supplier_id: string; prices: number; products: number; last_price_at: string | null };
         Relationships: [];
