@@ -456,6 +456,10 @@ export type Database = {
       };
     };
     Views: {
+      v_supplier_summary: {
+        Row: { supplier_id: string; prices: number; products: number; last_price_at: string | null };
+        Relationships: [];
+      };
       v_stock_valuation: {
         Row: {
           org_id: string;
@@ -560,6 +564,14 @@ export type Database = {
         }>;
       };
       create_organization: { Args: { p_name: string; p_business_type?: string }; Returns: string };
+      product_lookup: {
+        Args: { p_search?: string | null; p_location?: string | null; p_supplier?: string | null; p_limit?: number };
+        Returns: Json;
+      };
+      stock_search: {
+        Args: { p_location?: string | null; p_search?: string | null; p_status?: string | null; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
       catalog_search: {
         Args: {
           p_search?: string | null;

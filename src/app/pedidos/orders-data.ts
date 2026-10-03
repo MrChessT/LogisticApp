@@ -1,7 +1,6 @@
 // Datos y utilidades compartidas de la pantalla de pedidos.
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
-import { readAll } from "@/lib/supabase/read-all";
 import { decimalText, parseDecimal } from "@/lib/format";
 
 export type OrderStatus = "draft" | "sent" | "partial" | "received" | "cancelled";
@@ -9,9 +8,8 @@ export type Role = "owner" | "admin" | "manager" | "staff";
 
 export type Location = { id: string; name: string };
 export type Supplier = { id: string; name: string; email: string | null; phone: string | null };
-export type Pack = { id: string; productId: string; productName: string; name: string; qtyBase: string; baseUnit: string };
-
-export type OrderLine = { id?: string; packId: string; packsQty: string; packPrice: string; receivedPacks: string };
+/** Línea de pedido. El nombre del producto y del formato vienen con la línea (no hace falta el catálogo). */
+export type OrderLine = { id?: string; packId: string; productName?: string; packName?: string; packsQty: string; packPrice: string; receivedPacks: string };
 export type Order = {
   id: string;
   status: OrderStatus;
@@ -33,9 +31,6 @@ export type Reference = {
   role: Role;
   locations: Location[];
   suppliers: Supplier[];
-  packs: Map<string, Pack>;
-  /** Último precio por proveedor y formato: `${supplierId}:${packId}` → precio. */
-  lastPrices: Map<string, string>;
 };
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -58,25 +53,14 @@ export async function loadReference(): Promise<Reference> {
   const { data: session } = await supabase.auth.getSession();
   const user = session.session?.user;
   if (!user) throw new Error("Inicia sesión de nuevo.");
-  const [membership, profile, locations, suppliers, packs, prices] = await Promise.all([
+  const [membership, profile, locations, suppliers] = await Promise.all([
     supabase.from("memberships").select("org_id, role, organizations(name)").eq("user_id", user.id).limit(1).maybeSingle(),
     supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
     supabase.from("suppliers").select("id, name, email, phone").eq("active", true).order("name"),
-    // Formatos agrupados por producto: una fila por producto (no por formato) y sin repetir el nombre.
-    readAll((from, to) =>
-      supabase.from("products").select("id, name, base_unit, product_packs(id, name, qty_base)").eq("active", true).eq("product_packs.active", true).order("id").range(from, to),
-    ),
-    readAll((from, to) => supabase.from("supplier_prices").select("supplier_id, pack_id, last_price").not("last_price", "is", null).order("supplier_id").order("pack_id").range(from, to)),
   ]);
   const member = membership.data as { org_id: string; role: Role; organizations: { name: string } | null } | null;
   if (!member) throw new Error("No perteneces a ninguna organización.");
-  const packMap = new Map<string, Pack>();
-  for (const p of (packs.data ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; product_packs: Array<{ id: string; name: string; qty_base: number }> | null }>) {
-    for (const k of p.product_packs ?? []) {
-      packMap.set(k.id, { id: k.id, productId: p.id, productName: p.name, name: k.name, qtyBase: String(k.qty_base), baseUnit: p.base_unit });
-    }
-  }
   return {
     orgId: member.org_id,
     orgName: member.organizations?.name ?? "",
@@ -84,8 +68,6 @@ export async function loadReference(): Promise<Reference> {
     role: member.role,
     locations: (locations.data ?? []) as Location[],
     suppliers: (suppliers.data ?? []) as Supplier[],
-    packs: packMap,
-    lastPrices: new Map((prices.data ?? []).map((p) => [`${p.supplier_id}:${p.pack_id}`, String(p.last_price)])),
   };
 }
 
@@ -94,7 +76,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
   if (!supabase) throw new Error("Configura las variables de Supabase.");
   let query = supabase
     .from("purchase_orders")
-    .select("id, status, location_id, supplier_id, note, expected_date, created_at, sent_at, suppliers(name), locations(name), lines:purchase_order_lines(id, pack_id, packs_qty, pack_price, received_packs)")
+    .select("id, status, location_id, supplier_id, note, expected_date, created_at, sent_at, suppliers(name), locations(name), lines:purchase_order_lines(id, pack_id, packs_qty, pack_price, received_packs, pack:product_packs(name, product:products(name)))")
     .in("status", statuses)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -106,7 +88,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
   type Row = {
     id: string; status: OrderStatus; location_id: string; supplier_id: string; note: string | null; expected_date: string | null;
     created_at: string; sent_at: string | null; suppliers: { name: string } | null; locations: { name: string } | null;
-    lines: Array<{ id: string; pack_id: string; packs_qty: number; pack_price: number | null; received_packs: number }>;
+    lines: Array<{ id: string; pack_id: string; packs_qty: number; pack_price: number | null; received_packs: number; pack: { name: string; product: { name: string } | null } | null }>;
   };
   return ((data ?? []) as unknown as Row[]).map((o) => ({
     id: o.id,
@@ -119,7 +101,15 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
     expectedDate: o.expected_date ?? "",
     createdAt: o.created_at,
     sentAt: o.sent_at,
-    lines: o.lines.map((l) => ({ id: l.id, packId: l.pack_id, packsQty: String(l.packs_qty), packPrice: l.pack_price === null ? "" : String(l.pack_price), receivedPacks: String(l.received_packs) })),
+    lines: o.lines.map((l) => ({
+      id: l.id,
+      packId: l.pack_id,
+      productName: l.pack?.product?.name,
+      packName: l.pack?.name,
+      packsQty: String(l.packs_qty),
+      packPrice: l.pack_price === null ? "" : String(l.pack_price),
+      receivedPacks: String(l.received_packs),
+    })),
   }));
 }
 
@@ -152,8 +142,7 @@ export async function saveDraft(ref: Reference, order: Omit<Order, "id" | "statu
 /** Texto del pedido para email o WhatsApp. */
 export function orderText(ref: Reference, order: Order): string {
   const lines = order.lines.map((l) => {
-    const pack = ref.packs.get(l.packId);
-    return `• ${decimalText(l.packsQty)} × ${pack?.name ?? "formato"} — ${pack?.productName ?? "producto"}`;
+    return `• ${decimalText(l.packsQty)} × ${l.packName ?? "formato"} — ${l.productName ?? "producto"}`;
   });
   const when = order.expectedDate ? `, con entrega el ${new Date(`${order.expectedDate}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}` : "";
   return [

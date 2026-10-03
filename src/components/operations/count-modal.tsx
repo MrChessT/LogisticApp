@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { readAll } from "@/lib/supabase/read-all";
+import { loadCountCatalog } from "@/lib/count-catalog";
 import { decimalText, euros, normalizeText, parseDecimal as parse, quantity } from "@/lib/format";
 import { countLayout, countTotal, formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
 
@@ -34,15 +35,16 @@ const familyRank = (f: string | null | undefined) => {
 
 export function CountModal({
   count,
-  products,
   onClose,
   onChanged,
 }: {
   count: { id: string; locationId: string };
-  products: Product[];
   onClose: () => void;
   onChanged: () => void;
 }) {
+  // La hoja necesita todo el catálogo: se pide al abrir el conteo (y se reutiliza unos minutos).
+  const [products, setProducts] = useState<Product[]>([]);
+  const [catalogState, setCatalogState] = useState<"loading" | "ready" | "error">("loading");
   const [counted, setCounted] = useState<Map<string, Decimal>>(new Map());
   const [assortment, setAssortment] = useState<Set<string> | null>(null);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
@@ -72,11 +74,14 @@ export function CountModal({
       const supabase = createClient();
       if (!supabase) return;
       // Surtido del local: lo que se cuenta aquí sale primero; el resto, bajo «Otros productos».
-      const [{ data: rows }] = await Promise.all([
+      const [{ data: rows }, catalog] = await Promise.all([
         readAll((from, to) => supabase.from("location_products").select("product_id").eq("location_id", count.locationId).eq("active", true).order("product_id").range(from, to)),
+        loadCountCatalog().catch(() => null),
         loadCounted(),
       ]);
       setAssortment(new Set((rows ?? []).map((r) => r.product_id)));
+      if (catalog) setProducts(catalog);
+      setCatalogState(catalog ? "ready" : "error");
     }
     void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- se carga una vez por inventario
@@ -295,7 +300,9 @@ export function CountModal({
                   {showOthers && groups.others.map((product) => renderRow(product))}
                 </section>
               )}
-              {groups.families.length === 0 && groups.others.length === 0 && <p className="count-empty">Ningún producto coincide.</p>}
+              {catalogState === "loading" && <p className="count-empty">Cargando la hoja de inventario…</p>}
+              {catalogState === "error" && <p className="count-empty">No se pudo cargar el catálogo. Cierra y vuelve a abrir el inventario.</p>}
+              {catalogState === "ready" && groups.families.length === 0 && groups.others.length === 0 && <p className="count-empty">Ningún producto coincide.</p>}
             </div>
             <p className="count-hint">Cuenta las cajas cerradas y lo suelto aparte; se suman solas. Lo que guardes se añade a lo ya contado: podéis contar por zonas o entre varias personas.</p>
             {notice && <p className="count-notice">{notice}</p>}

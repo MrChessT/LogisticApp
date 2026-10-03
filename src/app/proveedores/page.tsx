@@ -21,9 +21,12 @@ type Supplier = {
   phone: string;
   notes: string;
   active: boolean;
-  prices: Price[];
+  /** Resumen (v_supplier_summary): los precios en sí se cargan al abrir el proveedor. */
+  productCount: number;
+  priceCount: number;
+  lastPriceAt: string | null;
 };
-type Form = Omit<Supplier, "id" | "active" | "prices">;
+type Form = Omit<Supplier, "id" | "active" | "productCount" | "priceCount" | "lastPriceAt">;
 
 const EMPTY_FORM: Form = { name: "", taxId: "", email: "", phone: "", notes: "" };
 
@@ -36,16 +39,14 @@ function friendly(error: { code?: string } | null, fallback: string) {
 async function loadSuppliers(): Promise<Supplier[]> {
   const supabase = createClient();
   if (!supabase) throw new Error("Configura las variables de Supabase.");
-  const { data, error } = await supabase
-    .from("suppliers")
-    .select("id, name, tax_id, email, phone, notes, active, prices:supplier_prices(last_price, last_price_at, pack:product_packs(name, product:products(id, name)))")
-    .order("name");
+  // Datos de cada proveedor y su resumen de precios (cuántos y el último), sin bajar todos los precios.
+  const [{ data, error }, { data: summary }] = await Promise.all([
+    supabase.from("suppliers").select("id, name, tax_id, email, phone, notes, active").order("name"),
+    supabase.from("v_supplier_summary").select("supplier_id, prices, products, last_price_at"),
+  ]);
   if (error) throw new Error("No se pudieron cargar los proveedores.");
-  type Row = {
-    id: string; name: string; tax_id: string | null; email: string | null; phone: string | null; notes: string | null; active: boolean;
-    prices: Array<{ last_price: number | null; last_price_at: string | null; pack: { name: string; product: { id: string; name: string } | null } | null }>;
-  };
-  return ((data ?? []) as unknown as Row[]).map((r) => ({
+  const bySupplier = new Map((summary ?? []).map((r) => [r.supplier_id, r]));
+  return (data ?? []).map((r) => ({
     id: r.id,
     name: r.name,
     taxId: r.tax_id ?? "",
@@ -53,10 +54,25 @@ async function loadSuppliers(): Promise<Supplier[]> {
     phone: r.phone ?? "",
     notes: r.notes ?? "",
     active: r.active,
-    prices: r.prices
-      .map((p) => ({ price: p.last_price, at: p.last_price_at, pack: p.pack?.name ?? "Formato", product: p.pack?.product?.name ?? "Producto", productId: p.pack?.product?.id ?? "" }))
-      .sort((a, b) => a.product.localeCompare(b.product)),
+    productCount: Number(bySupplier.get(r.id)?.products ?? 0),
+    priceCount: Number(bySupplier.get(r.id)?.prices ?? 0),
+    lastPriceAt: bySupplier.get(r.id)?.last_price_at ?? null,
   }));
+}
+
+/** Precios de un proveedor: solo cuando se abre su ficha. */
+async function loadSupplierPrices(supplierId: string): Promise<Price[]> {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("supplier_prices")
+    .select("last_price, last_price_at, pack:product_packs(name, product:products(id, name))")
+    .eq("supplier_id", supplierId);
+  if (error) throw new Error("No se pudieron cargar los precios.");
+  type Row = { last_price: number | null; last_price_at: string | null; pack: { name: string; product: { id: string; name: string } | null } | null };
+  return ((data ?? []) as unknown as Row[])
+    .map((p) => ({ price: p.last_price, at: p.last_price_at, pack: p.pack?.name ?? "Formato", product: p.pack?.product?.name ?? "Producto", productId: p.pack?.product?.id ?? "" }))
+    .sort((a, b) => a.product.localeCompare(b.product));
 }
 
 export default function SuppliersPage() {
@@ -128,7 +144,7 @@ export default function SuppliersPage() {
               </div>
             )}
             {visible.map((s) => {
-              const last = s.prices.map((p) => p.at).filter(Boolean).sort().at(-1);
+              const last = s.lastPriceAt;
               return (
                 <div
                   key={s.id}
@@ -148,7 +164,7 @@ export default function SuppliersPage() {
                     <span><strong>{s.name}</strong><small>{s.taxId || "Sin CIF"}</small></span>
                   </span>
                   <span className="cell-ellipsis">{[s.email, s.phone].filter(Boolean).join(" · ") || <em className="muted">Sin contacto</em>}</span>
-                  <span>{new Set(s.prices.map((p) => p.productId)).size}</span>
+                  <span>{s.productCount}</span>
                   <span>{last ? new Date(last).toLocaleDateString("es-ES") : <em className="muted">—</em>}</span>
                 </div>
               );
@@ -179,6 +195,19 @@ function SupplierEditor({ supplier, onClose, onChanged }: { supplier: Supplier |
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [prices, setPrices] = useState<Price[] | null>(null);
+  const [pricesError, setPricesError] = useState("");
+
+  useEffect(() => {
+    if (!supplier) return;
+    let cancelled = false;
+    loadSupplierPrices(supplier.id)
+      .then((list) => !cancelled && setPrices(list))
+      .catch((err: Error) => !cancelled && setPricesError(err.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [supplier]);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
   function close() {
@@ -269,13 +298,17 @@ function SupplierEditor({ supplier, onClose, onChanged }: { supplier: Supplier |
           </div>
           {supplier && (
             <div className="editor-section supplier-prices">
-              <p className="facet-title">Precios de este proveedor ({supplier.prices.length})</p>
-              {supplier.prices.length === 0 ? (
+              <p className="facet-title">Precios de este proveedor ({supplier.priceCount})</p>
+              {pricesError ? (
+                <p className="section-hint">{pricesError}</p>
+              ) : !prices ? (
+                <p className="section-hint">Cargando precios...</p>
+              ) : prices.length === 0 ? (
                 <p className="section-hint">Todavía no hay precios. Se añaden desde la ficha de cada producto o al registrar una recepción.</p>
               ) : (
                 <div className="editor-table">
                   <div className="editor-head supplier-price-row"><span>Producto</span><span>Formato</span><span>Precio</span><span>Fecha</span></div>
-                  {supplier.prices.map((p, i) => (
+                  {prices.map((p, i) => (
                     <div className="editor-row supplier-price-row" key={`${p.productId}-${p.pack}-${i}`}>
                       <Link href={`/productos?producto=${p.productId}`}>{p.product}</Link>
                       <span>{p.pack}</span>
@@ -293,7 +326,7 @@ function SupplierEditor({ supplier, onClose, onChanged }: { supplier: Supplier |
           {supplier ? (
             confirmDelete ? (
               <div className="delete-confirm">
-                <span>¿Eliminar «{supplier.name}»{supplier.prices.length ? ` y sus ${supplier.prices.length} precios` : ""}?</span>
+                <span>¿Eliminar «{supplier.name}»{supplier.priceCount ? ` y sus ${supplier.priceCount} precios` : ""}?</span>
                 <button className="danger-button" disabled={saving} onClick={() => void remove()}>Sí, eliminar</button>
                 <button className="ghost-button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
               </div>
