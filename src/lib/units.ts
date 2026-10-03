@@ -94,7 +94,8 @@ export function countLayout(packs: CountingPacks): CountLayout {
   const { dimension, countPack, purchasePack } = packs;
   const unit =
     dimension === "count"
-      ? { name: "Unidad", qty: new Decimal(1), plural: "ud", decimals: false }
+      ? // «botellas», «bolsas», «latas» si el producto se cuenta en ese envase; si no, «ud».
+        { name: countPack?.name ?? "Unidad", qty: new Decimal(1), plural: countPack && !/^(unidad|ud)\b/i.test(countPack.name.trim()) ? packNoun(countPack.name, 2) : "ud", decimals: false }
       : countPack && new Decimal(countPack.qtyBase).gt(0)
         ? {
             name: countPack.name,

@@ -82,6 +82,12 @@ describe("hoja de inventario: cajas y sueltas", () => {
     expect(countTotal(kg, null, d("1.6"))?.toString()).toBe("1600");
   });
 
+  it("productos por unidades que se cuentan en un envase: «botellas sueltas», «bolsas»", () => {
+    expect(countLayout({ ...coca, countPack: { name: "Botella", qtyBase: "1" } }).unit.plural).toBe("botellas");
+    expect(countLayout({ dimension: "count", countPack: { name: "Bolsa", qtyBase: "1" }, purchasePack: null }).unit.plural).toBe("bolsas");
+    expect(countLayout({ dimension: "count", countPack: { name: "Unidad", qtyBase: "1" }, purchasePack: null }).unit.plural).toBe("ud");
+  });
+
   it("nada tecleado o negativo no cuenta", () => {
     expect(countTotal(countLayout(coca), null, null)).toBeNull();
     expect(countTotal(countLayout(coca), d("-1"), null)).toBeNull();

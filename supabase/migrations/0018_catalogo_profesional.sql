@@ -223,8 +223,10 @@ issues as (
   where exists (select 1 from product_packs k where k.product_id = pr.id and k.active)
     and not exists (select 1 from product_packs k where k.product_id = pr.id and k.active and k.is_purchase_default)
   union all
-  select pr.id, null, 'sin_precio', 'aviso', 'No tiene precio de compra: su stock y su consumo se valoran a 0 €.'
+  -- Sin precio de proveedor ni coste conocido (un inventario importado con coste ya lo valora).
+  select pr.id, null, 'sin_precio', 'aviso', 'No tiene precio de compra ni coste: su stock y su consumo se valoran a 0 €.'
   from prod pr where pr.track_stock and not exists (select 1 from costs c where c.product_id = pr.id)
+    and not exists (select 1 from stock_balances b where b.product_id = pr.id and b.avg_cost > 0)
   union all
   select pr.id, null, 'sin_categoria', 'info', 'No tiene categoría.'
   from prod pr where pr.category_id is null

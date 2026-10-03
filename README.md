@@ -92,6 +92,8 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 
 **Preparar el lanzamiento:** `supabase/scripts/preparar_lanzamiento.sql` (después de la 0018) borra las operaciones de prueba, conserva la apertura de referencia del Vivero y recalcula el stock, quita productos basura y de demostración, da de alta lo que el catálogo no pudo crear y restaura los precios del catálogo. Una transacción; al terminar enseña lo que queda por revisar (`catalog_health`).
 
+**Importar un inventario de otro sistema:** `python3 scripts/importar_inventario.py <carpeta .xlsx> <correcciones.json> <salida.sql> [revision.csv]` lee los informes «Inventario» y «Almacén detallado», limpia nombres (sufijos de local, EAN, lotes, mayúsculas), une duplicados, asigna familia → tipo, unidad y formatos según las convenciones de abajo, y genera un SQL que crea o reutiliza los productos y carga el stock contado como apertura por local y espacio, más un CSV para revisar cada decisión. Las correcciones propias del negocio (fusiones, productos que ya existen, familias, unidades) van en el JSON. **Los .xlsx, el JSON y el SQL generado contienen datos del negocio: no se suben al repositorio.**
+
 **Convenciones del catálogo:** las cantidades se guardan en unidad base (ml, g, ud). Refrescos, cervezas en botella, aguas y energéticas se cuentan por unidades y se compran en cajas («Caja 24» = 24 ud); destilados, vino y champán, en ml con su botella como formato de conteo y la caja de 6 como formato de compra; la fruta a granel, en g con el kg como formato. Los precios de proveedor van por formato y sin IVA.
 
 ## Asistente

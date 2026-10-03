@@ -23,7 +23,10 @@ type PreviewRow = { productId: string; name: string; unit: string; expected: Dec
 type Filter = "todos" | "pendientes" | "contados";
 
 /** Orden de las familias en la hoja (el mismo que el catálogo). */
-const FAMILIES = ["Destilados", "Champán", "Vinos", "Cervezas", "Refrescos y mixers", "Energéticas", "Aguas", "Zumos y siropes", "Hielo", "Fruta y guarnición", "Snacks y picoteo", "Consumibles"];
+const FAMILIES = [
+  "Destilados", "Champán", "Vinos", "Cervezas", "Refrescos y mixers", "Energéticas", "Aguas", "Zumos y siropes", "Café e infusiones",
+  "Hielo", "Fruta y guarnición", "Snacks y picoteo", "Comida", "Sala y menaje", "Consumibles",
+];
 const familyRank = (f: string | null | undefined) => {
   const i = f ? FAMILIES.indexOf(f) : -1;
   return i === -1 ? FAMILIES.length : i;
