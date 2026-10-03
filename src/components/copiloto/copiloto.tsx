@@ -6,7 +6,9 @@ import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, LayoutGrid,
 import { ChartCard } from "@/components/charts/charts";
 import Decimal from "decimal.js";
 import { decimalText, euros, parseDecimal } from "@/lib/format";
-import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, ConfirmResponse, Decision, DecisionEvent, DoneEvent, Draft, DraftCheck, ErrorEvent, NavigateEvent, ResolvedEvent, Suggestion, TableEvent } from "./types";
+import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, Decision, DecisionEvent, DoneEvent, Draft, DraftCheck, ErrorEvent, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
+import type { ConfirmResponse } from "@/copiloto/drafts/confirm";
+import type { Suggestion } from "@/copiloto/suggestions/engine";
 import { QuickActions } from "./quick-actions";
 import "./copiloto.css";
 

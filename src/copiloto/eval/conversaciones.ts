@@ -11,7 +11,6 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EntryType, Questions } from "@typesafe-ai/sdk";
-import { getVercelOidcToken } from "@vercel/oidc";
 import { HabitsStore } from "../agent/habits";
 import { Agent } from "../agent/loop";
 import { SessionStore } from "../agent/session";
@@ -30,11 +29,12 @@ import { DraftStore } from "../drafts/store";
 import { LexicalRetriever } from "../entities/retriever";
 import { loadThresholds } from "../gates/thresholds";
 import { CATALOG_VERSION } from "../jev/catalog";
-import { JevClient, type JevPort, type JevResult } from "../jev/client";
+import type { JevPort, JevResult } from "../jev/client";
 import { Metrics } from "../metrics/metrics";
 import { InventoryTools } from "../tools/tools";
 import type { BalanceRaw, DataFilter, LocationProductRaw, PriceRaw, SupplierPriceRaw } from "../tools/types";
 import { Writer } from "../writer/writer";
+import { evalJev, requireJevKey } from "./jev";
 
 interface Expectation {
   aclaracion?: string;
@@ -183,17 +183,8 @@ class TurnJev implements JevPort {
 
 function realJev(metrics: Metrics): JevPort {
   const config = loadConfig();
-  if (!config.jev.apiKey && !config.jev.oidc) throw new Error("Falta TYPESAFE_API_KEY, AI_GATEWAY_API_KEY o VERCEL_OIDC_TOKEN en .env.local");
-  return new JevClient({
-    apiKey: config.jev.oidc ? () => getVercelOidcToken() : config.jev.apiKey,
-    baseURL: config.jev.baseURL,
-    model: config.jev.model,
-    timeoutMs: 20_000,
-    maxRetries: 3,
-    cacheTtlMs: 0,
-    cache: new LruCache<JevResult>(1, 1),
-    metrics,
-  });
+  requireJevKey(config);
+  return evalJev(config, metrics);
 }
 
 function check(e: Expectation, events: SseEvent[]): string[] {

@@ -10,7 +10,7 @@ import { DocumentDraftBuilder } from "./document-builder";
 import type { NavigateEvent } from "../contract/index";
 import { CatalogDraftBuilder, type Review } from "./catalog-builder";
 import { label } from "../jev/catalog";
-import { businessDay } from "../tools/periods";
+import { businessDay } from "../../lib/business-day";
 import type { InventoryDataSource } from "../tools/types";
 import { validateDraft } from "./schemas";
 

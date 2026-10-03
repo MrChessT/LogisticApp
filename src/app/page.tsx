@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { euros, localDay, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { readLocation, saveLocation } from "@/lib/location-preference";
+import { ROLE_LABEL, type Role } from "@/lib/team";
 import "./dashboard-charts.css";
 import {
   ArrowUpRight,
@@ -72,8 +73,6 @@ type DashboardActivity = {
 type MovementType = "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
 
 type BrowserClient = NonNullable<ReturnType<typeof createClient>>;
-
-const ROLE_LABEL: Record<string, string> = { owner: "Propietario", admin: "Administrador", manager: "Encargado", staff: "Personal" };
 
 const movementIcon: Record<MovementType, typeof Truck> = {
   purchase: ShoppingCart,
@@ -144,12 +143,12 @@ async function loadIdentity(supabase: BrowserClient): Promise<Identity | null> {
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
   ]);
   const name = profile.data?.full_name?.trim() || user?.email?.split("@")[0] || "Usuario";
-  const member = membership.data as { role: string; organizations: { name: string } | null } | null;
+  const member = membership.data as { role: Role; organizations: { name: string } | null } | null;
   if (user && !member) return null;
   return {
     name,
     initials: initialsOf(name),
-    role: ROLE_LABEL[member?.role ?? ""] ?? "",
+    role: member ? ROLE_LABEL[member.role] : "",
     roleKey: member?.role ?? "",
     org: member?.organizations?.name ?? "Tu organización",
     locations: (locations.data ?? []) as Location[],

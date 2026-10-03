@@ -1,41 +1,6 @@
 import type { Periodo } from "../jev/catalog";
 import type { Period } from "./types";
 
-// Un Intl.DateTimeFormat por zona horaria: crearlo en cada llamada costaba ~80 µs por movimiento.
-const formatters = new Map<string, Intl.DateTimeFormat>();
-
-function formatterFor(timezone: string): Intl.DateTimeFormat {
-  let formatter = formatters.get(timezone);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    });
-    formatters.set(timezone, formatter);
-  }
-  return formatter;
-}
-
-/** Día de negocio (misma lógica que src/lib/business-day.ts de la app). */
-export function businessDay(occurredAt: Date, timezone: string, cutoff: string): string {
-  const parts = formatterFor(timezone)
-    .formatToParts(occurredAt)
-    .reduce<Record<string, string>>((acc, part) => {
-      acc[part.type] = part.value;
-      return acc;
-    }, {});
-  const localMinutes = Number(parts.hour) * 60 + Number(parts.minute);
-  const [ch = 0, cm = 0] = cutoff.split(":").map(Number);
-  const date = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
-  if (localMinutes < ch * 60 + cm) date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
-}
-
 export function addDays(day: string, days: number): string {
   const date = new Date(`${day}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);

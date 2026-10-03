@@ -4,7 +4,8 @@ import Decimal from "decimal.js";
 import type { Herramienta } from "../jev/catalog";
 import type { Product, SessionContext } from "../domain";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
-import { addDays, businessDay, daysInclusive, formatDay } from "./periods";
+import { businessDay } from "../../lib/business-day";
+import { addDays, daysInclusive, formatDay } from "./periods";
 import type { EvalItem, InventoryDataSource, MovementType, ToolParams, ToolResult, ToolRow } from "./types";
 
 export const MAX_ROWS = 12;

@@ -18,7 +18,7 @@ import { FixtureWriter } from "../dev/fixture-writer";
 import { randomUUID } from "node:crypto";
 import { HabitsStore } from "../agent/habits";
 
-export { choiceAnswer, choiceDist, FakeJev, noulAnswer, scoreAnswer, type Script } from "../dev/fake-jev";
+export { choiceAnswer, choiceDist, FakeJev, noulAnswer, type Script } from "../dev/fake-jev";
 
 export const NOW = new Date("2026-09-23T12:00:00Z"); // miércoles
 

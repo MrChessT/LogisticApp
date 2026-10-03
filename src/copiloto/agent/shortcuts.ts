@@ -44,8 +44,6 @@ const TAREA_COMMANDS: Record<string, TareaId> = {
   parte: "parte",
 };
 
-export const SHORTCUT_HELP = [...Object.keys(TAREA_COMMANDS), ...Object.keys(TOOLS), ...Object.keys(ROUTES)].map((k) => `/${k}`);
-
 /** Puntuación mínima y ventaja sobre el segundo candidato para aceptar un producto sin preguntar. */
 const MIN_SCORE = 0.8;
 const MIN_LEAD = 1.3;

@@ -11,7 +11,8 @@ import type { NavigateEvent, TableEvent } from "../contract/index";
 import type { Pack, Product, SessionContext } from "../domain";
 import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/interpret";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
-import { addDays, businessDay } from "../tools/periods";
+import { businessDay } from "../../lib/business-day";
+import { addDays } from "../tools/periods";
 import { computeReorder } from "../tools/tools";
 import type { InventoryDataSource } from "../tools/types";
 
