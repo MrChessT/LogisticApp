@@ -372,7 +372,7 @@ export default function Dashboard() {
       <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
         <div className="brand-row">
           <div className="brand-mark"><Sparkles size={18} strokeWidth={2.5} /></div>
-          <span className="brand-name">nexo<span>.</span></span>
+          <span className="brand-name">Logistic<span>App</span></span>
           <button className="icon-button sidebar-close" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)}><X size={18} /></button>
         </div>
 

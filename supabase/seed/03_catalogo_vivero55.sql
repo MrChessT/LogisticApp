@@ -1,4 +1,4 @@
--- Catálogo de compra de Vivero 55 importado al MODELO CANÓNICO de Nexo (sin tablas paralelas).
+-- Catálogo de compra de Vivero 55 importado al MODELO CANÓNICO de LogisticApp (sin tablas paralelas).
 -- Añade a Parador Eventos: categorías, proveedores, productos con sus formatos (unidad base ml/g/ud),
 -- último precio de compra, mínimos y stock de apertura en el local de prueba «Vivero».
 -- Idempotente: los productos que ya existen (mismo nombre o SKU) no se tocan.
@@ -175,7 +175,7 @@ declare
   r record;
   v_product uuid;
   v_dimension unit_dimension;
-  v_factor numeric;       -- unidad de compra/base del catálogo → unidad base de Nexo (ml, g, ud)
+  v_factor numeric;       -- unidad de compra/base del catálogo → unidad base de LogisticApp (ml, g, ud)
   v_count_pack uuid;
   v_purchase_pack uuid;
   v_supplier uuid;

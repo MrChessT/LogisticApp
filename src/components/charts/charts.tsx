@@ -1,6 +1,6 @@
 "use client";
 
-// Kit de gráficas SVG de Nexo. Las cifras llegan calculadas (decimal.js en el servicio) como cadena
+// Kit de gráficas SVG de LogisticApp. Las cifras llegan calculadas (decimal.js en el servicio) como cadena
 // y ya formateadas en `display`; aquí solo se convierten a número para POSICIONAR marcas en píxeles.
 // Paleta validada (verde de marca saturado, azul, naranja, violeta; orden fijo, nunca cíclico).
 

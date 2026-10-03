@@ -1,4 +1,4 @@
-// Tipos de CONTRACT.md de Nexo Copiloto (versión 1.0.0-draft). La app solo depende de este contrato.
+// Tipos de CONTRACT.md del asistente de LogisticApp (versión 1.0.0-draft). La app solo depende de este contrato.
 
 export type AppRoute = "/" | "/productos" | "/stock" | "/pedidos" | "/recepciones" | "/traspasos" | "/inventarios" | "/mermas" | "/informes";
 
