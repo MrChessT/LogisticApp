@@ -32,7 +32,8 @@ type Location = { id: string; name: string };
 type PackRow = { id?: string; name: string; qty_base: number | string; is_count_default: boolean; is_purchase_default?: boolean; active: boolean };
 /** Cómo se escribe una cantidad: en botellas, cajas, unidades… (factor = unidades base por cada una). */
 type UnitChoice = { id: string; label: string; factor: string };
-type ProductOption = { id: string; name: string; base_unit: string; dimension: UnitDimension; units: UnitChoice[]; packs: CountingPacks };
+type ProductOption = { id: string; name: string; base_unit: string; dimension: UnitDimension; units: UnitChoice[]; packs: CountingPacks; family: string | null };
+type CategoryRef = { name: string; parent: { name: string } | null } | null;
 
 const BASE_LABEL: Record<UnitDimension, string> = { count: "Unidades", volume: "ml", mass: "g" };
 
@@ -168,7 +169,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       supabase.from("memberships").select("org_id").limit(1).maybeSingle(),
       supabase.from("locations").select("id, name").eq("active", true).order("name"),
       readAll((from, to) =>
-        supabase.from("products").select("id, name, base_unit, dimension, product_packs(id, name, qty_base, is_count_default, is_purchase_default, active)").eq("active", true).order("name").order("id").range(from, to),
+        supabase.from("products").select("id, name, base_unit, dimension, product_packs(id, name, qty_base, is_count_default, is_purchase_default, active), category:categories(name, parent:parent_id(name))").eq("active", true).order("name").order("id").range(from, to),
       ),
       readAll((from, to) =>
         supabase
@@ -184,13 +185,15 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     const loadedLocations = (locationRows ?? []) as Location[];
     setLocations(loadedLocations);
     setProducts(
-      ((productRows ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; dimension: UnitDimension; product_packs: PackRow[] | null }>).map((p) => ({
+      ((productRows ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; dimension: UnitDimension; product_packs: PackRow[] | null; category: CategoryRef }>).map((p) => ({
         id: p.id,
         name: p.name,
         base_unit: p.base_unit,
         dimension: p.dimension,
         units: unitChoices(p.dimension, p.product_packs ?? []),
         packs: countingPacks(p.dimension, p.product_packs ?? []),
+        // Familia (Destilados, Refrescos…): la hoja de inventario se agrupa por ella.
+        family: p.category?.parent?.name ?? p.category?.name ?? null,
       })),
     );
     setPacks(

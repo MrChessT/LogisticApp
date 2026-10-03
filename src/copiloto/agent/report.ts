@@ -31,7 +31,9 @@ export type ReportOutcome =
   | { kind: "bloqueado" }
   | { kind: "borrador"; draft: Draft }
   | { kind: "resuelto"; status: "confirmado" | "descartado"; message: string }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  /** Tarea (pedidos, equilibrar, catálogo, parte): el texto ya viene redactado con las cifras exactas. */
+  | { kind: "tarea"; tarea: string; text: string; rows: number };
 
 export interface DecisionReport {
   version: 1;
@@ -68,6 +70,8 @@ export function writerView(report: DecisionReport): Record<string, unknown> {
       return { tipo: "borrador", borrador: draftView(o.draft), decisiones };
     case "error":
       return { tipo: "error", mensaje: o.message };
+    case "tarea":
+      return { tipo: "tarea", tarea: o.tarea, texto: o.text };
     default:
       return { tipo: o.kind };
   }

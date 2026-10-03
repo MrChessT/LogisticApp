@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js";
-import { baseToPacks, formatQuantity, formatStock, openBottleFromWeight, packNoun, packsToBase } from "./units";
+import { baseToPacks, countLayout, countTotal, formatQuantity, formatStock, openBottleFromWeight, packNoun, packsToBase } from "./units";
 
 describe("units", () => {
   const bottle = { name: "botellas", qtyBase: "700" };
@@ -47,5 +47,49 @@ describe("stock como se cuenta en barra", () => {
     expect(packNoun("Botellín 250 ml", 2)).toBe("botellines");
     expect(packNoun("Pack 12", 3)).toBe("packs");
     expect(packNoun("Saco 10 kg", 2)).toBe("sacos");
+  });
+});
+
+describe("hoja de inventario: cajas y sueltas", () => {
+  const coca = { dimension: "count" as const, countPack: null, purchasePack: { name: "Caja 24", qtyBase: "24" } };
+  const ginebra = { dimension: "volume" as const, countPack: { name: "Botella 70 cl", qtyBase: "700" }, purchasePack: { name: "Caja 6", qtyBase: "4200" } };
+  const magnum = { dimension: "volume" as const, countPack: { name: "Botella 175 cl", qtyBase: "1750" }, purchasePack: { name: "Botella 175 cl", qtyBase: "1750" } };
+  const limones = { dimension: "mass" as const, countPack: { name: "Kg", qtyBase: "1000" }, purchasePack: { name: "Kg", qtyBase: "1000" } };
+  const d = (v: string) => new Decimal(v);
+
+  it("refrescos: cajas de 24 y unidades sueltas", () => {
+    const layout = countLayout(coca);
+    expect(layout.box?.units.toString()).toBe("24");
+    expect(layout.unit).toMatchObject({ plural: "ud", decimals: false });
+    expect(countTotal(layout, d("3"), d("5"))?.toString()).toBe("77");
+    expect(countTotal(layout, null, d("5"))?.toString()).toBe("5");
+    expect(countTotal(layout, d("1.5"), null)).toBeNull();
+    expect(countTotal(layout, null, d("2.5"))).toBeNull();
+  });
+
+  it("destilados: cajas de 6 botellas y botellas sueltas, con media abierta", () => {
+    const layout = countLayout(ginebra);
+    expect(layout.box?.units.toString()).toBe("6");
+    expect(layout.unit).toMatchObject({ plural: "botellas", decimals: true });
+    expect(countTotal(layout, d("1"), d("2.5"))?.toString()).toBe("5950");
+  });
+
+  it("sin caja de varias unidades: solo la cantidad suelta (botellas, kg)", () => {
+    expect(countLayout(magnum).box).toBeNull();
+    const kg = countLayout(limones);
+    expect(kg.box).toBeNull();
+    expect(kg.unit.plural).toBe("kg");
+    expect(countTotal(kg, null, d("1.6"))?.toString()).toBe("1600");
+  });
+
+  it("productos por unidades que se cuentan en un envase: «botellas sueltas», «bolsas»", () => {
+    expect(countLayout({ ...coca, countPack: { name: "Botella", qtyBase: "1" } }).unit.plural).toBe("botellas");
+    expect(countLayout({ dimension: "count", countPack: { name: "Bolsa", qtyBase: "1" }, purchasePack: null }).unit.plural).toBe("bolsas");
+    expect(countLayout({ dimension: "count", countPack: { name: "Unidad", qtyBase: "1" }, purchasePack: null }).unit.plural).toBe("ud");
+  });
+
+  it("nada tecleado o negativo no cuenta", () => {
+    expect(countTotal(countLayout(coca), null, null)).toBeNull();
+    expect(countTotal(countLayout(coca), d("-1"), null)).toBeNull();
   });
 });

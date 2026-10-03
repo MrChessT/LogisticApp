@@ -68,6 +68,17 @@ export interface OpenOrderRaw {
   qtyBase: string;
 }
 
+/** Un problema del catálogo o del stock (función catalog_health de la base de datos). */
+export interface HealthIssueRaw {
+  productId: string;
+  productName: string;
+  family: string | null;
+  locationId: string | null;
+  issue: string;
+  severity: "error" | "aviso" | "info";
+  detail: string;
+}
+
 export interface SupplierPriceRaw {
   supplierId: string;
   supplierName: string;
@@ -91,6 +102,8 @@ export interface InventoryDataSource {
   orders(filter: { locationIds: string[]; statuses: OrderRaw["status"][] }): Promise<OrderRaw[]>;
   /** Recepciones cerradas desde `since` (YYYY-MM-DD, incluido). */
   purchases(filter: { locationIds: string[]; since: string }): Promise<PurchaseRaw[]>;
+  /** Problemas del catálogo (sin local) y del stock de esos locales. */
+  catalogHealth(filter: { locationIds: string[] }): Promise<HealthIssueRaw[]>;
 }
 
 // Parámetros y resultados ---------------------------------------------------------

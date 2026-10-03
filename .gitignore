@@ -12,3 +12,4 @@ supabase/.temp/
 
 # Script generado con npm run db:bundle
 supabase/scripts/aplicar.sql
+__pycache__/

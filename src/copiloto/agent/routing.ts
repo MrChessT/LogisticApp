@@ -200,7 +200,12 @@ export async function buildRouting(
     current_page: page,
     current_location: currentLocation,
     recent_turns: turns.slice(-4),
-    segments: routingSegments.map((rs) => ({ text: withoutPlaces(rs.segment.text, placeWords), amount: rs.segment.amount, unit: rs.segment.unit })),
+    // «2 cajas y 5 sueltas»: la cantidad entera; con solo «2» Jev dudaba (con razón) de que fuera toda.
+    segments: routingSegments.map((rs) => ({
+      text: withoutPlaces(rs.segment.text, placeWords),
+      amount: rs.segment.loose && rs.segment.amount ? `${rs.segment.amount} ${rs.segment.unit ?? ""} + ${rs.segment.loose} ${rs.segment.looseUnit ?? "sueltas"}`.replace(/\s+/g, " ") : rs.segment.amount,
+      unit: rs.segment.loose ? null : rs.segment.unit,
+    })),
   };
   // Solo si el mensaje nombra alguno: Jev no puede saber que «Distribuciones Canarias» es un proveedor.
   const suppliers = ctx.suppliers.filter((s) => namesAll(message, s.name)).map((s) => s.name);

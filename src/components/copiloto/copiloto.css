@@ -125,6 +125,12 @@
 .copiloto-functions-grid small { display: block; margin-top: 1px; color: var(--muted); font-size: 10.5px; line-height: 1.3; }
 .copiloto-functions-icon { width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center; color: var(--green); background: var(--soft-green); border-radius: 8px; }
 .copiloto-functions-grid.operations .copiloto-functions-icon { color: #9a5a17; background: var(--soft-orange); }
+/* Tareas: tarjetas anchas con lo que se obtiene (son la parte que el panel no hace). */
+.copiloto-functions-grid.tasks { grid-template-columns: 1fr 1fr; }
+.copiloto-functions-grid.tasks button { align-items: flex-start; min-height: 74px; padding: 10px; border-color: #d5e4d7; background: linear-gradient(180deg, #fbfdf8, #fff); }
+.copiloto-functions-grid.tasks .copiloto-functions-icon { color: #263d31; background: var(--lime); }
+.copiloto-functions-tip { margin: 2px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+@media (max-width: 420px) { .copiloto-functions-grid.tasks { grid-template-columns: 1fr; } }
 @media (max-width: 700px) {
   .copiloto-functions { margin: 0 10px 8px; max-height: 62vh; }
   .copiloto-functions-filters { grid-template-columns: 1fr; }

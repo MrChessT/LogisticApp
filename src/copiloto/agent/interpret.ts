@@ -1,5 +1,6 @@
 // Respuestas de la llamada nº 1 → plan, aplicando la compuerta de confianza de cada decisión.
 // Cero adivinanzas: si una decisión en juego no llega a su umbral, el plan es una aclaración.
+import type { TareaPlan } from "../skills/tareas";
 import type { ChoiceResponse } from "@typesafe-ai/sdk";
 import type { AppRoute, ClarifyField, Decision, GateOutcome, NavigateFilters } from "../contract/index";
 import type { Product, SessionContext } from "../domain";
@@ -47,6 +48,9 @@ export interface ResolvedProduct {
   unit: string | null;
   price: string | null;
   quantityOutcome: GateOutcome | null;
+  /** Unidades sueltas que se suman a las cajas («3 cajas y 5 sueltas»). */
+  loose?: string | null;
+  looseUnit?: string | null;
   /** "confirmar": Jev lo eligió sin llegar al umbral de actuar; el borrador lo marca para revisar. */
   productOutcome?: GateOutcome;
 }
@@ -122,6 +126,7 @@ export interface DraftAnswerPlan {
 }
 
 export type Plan =
+  | TareaPlan
   | ClarifyPlan
   | DraftAnswerPlan
   | CatalogPlan
@@ -526,14 +531,15 @@ export class Interpreter {
         this.decisions.push({
           id: `cantidad_ok_${i}`,
           label: "Cantidad",
-          value: `${rs.segment.amount} ${rs.segment.unit ?? ""}`.trim(),
-          valueLabel: amountLabel(rs.segment.amount, rs.segment.unit),
+          value: `${rs.segment.amount} ${rs.segment.unit ?? ""}${rs.segment.loose ? ` + ${rs.segment.loose}` : ""}`.trim(),
+          valueLabel: `${amountLabel(rs.segment.amount, rs.segment.unit)}${rs.segment.loose ? ` + ${amountLabel(rs.segment.loose, rs.segment.looseUnit ?? "ud")} sueltas` : ""}`,
           probability: q.noul,
           confidence: null,
           gate: quantityOutcome,
         });
       }
-      resolved.push({ product, segmentIndex: i, amount: rs.segment.amount, unit: rs.segment.unit, price: rs.segment.price, quantityOutcome, productOutcome: g.outcome });
+      const loose = rs.segment.loose ? { loose: rs.segment.loose, looseUnit: rs.segment.looseUnit ?? null } : {};
+      resolved.push({ product, segmentIndex: i, amount: rs.segment.amount, unit: rs.segment.unit, price: rs.segment.price, quantityOutcome, productOutcome: g.outcome, ...loose });
     }
     return resolved;
   }
@@ -763,7 +769,7 @@ export class Interpreter {
     }
     for (const p of products) {
       if (relevant(context, "cantidad") && (p.amount === null || p.quantityOutcome === "preguntar")) {
-        const options = p.amount !== null ? [{ id: "si", label: `Sí, ${p.amount} ${p.unit ?? ""}`.trim(), probability: null }] : [];
+        const options = p.amount !== null ? [{ id: "si", label: `Sí, ${p.amount} ${p.unit ?? ""}${p.loose ? ` y ${p.loose} sueltas` : ""}`.trim(), probability: null }] : [];
         return { type: "clarify", field: "cantidad", question: `¿Qué cantidad de ${p.product.name}?`, options, segmentIndex: p.segmentIndex };
       }
     }

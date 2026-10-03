@@ -127,6 +127,7 @@ export type Database = {
           track_stock: boolean;
           active: boolean;
           notes: string | null;
+          vat_rate: number;
           created_at: string;
         };
         Insert: {
@@ -139,6 +140,7 @@ export type Database = {
           track_stock?: boolean;
           active?: boolean;
           notes?: string | null;
+          vat_rate?: number;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["products"]["Insert"]>;
@@ -544,6 +546,19 @@ export type Database = {
         }>;
       };
       post_receipt: { Args: { p_receipt: string }; Returns: undefined };
+      catalog_health: {
+        Args: { p_location?: string | null };
+        Returns: Array<{
+          product_id: string;
+          product_name: string;
+          family: string | null;
+          location_id: string | null;
+          location_name: string | null;
+          issue: string;
+          severity: "error" | "aviso" | "info";
+          detail: string;
+        }>;
+      };
       create_organization: { Args: { p_name: string; p_business_type?: string }; Returns: string };
       catalog_search: {
         Args: {

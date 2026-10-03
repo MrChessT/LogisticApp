@@ -5,6 +5,7 @@ import type {
   BalanceRaw,
   CountResultRaw,
   DataFilter,
+  HealthIssueRaw,
   InventoryDataSource,
   LocationProductRaw,
   MovementRaw,
@@ -249,6 +250,16 @@ export class FixtureDataSource implements InventoryDataSource {
     return all.filter(
       (t) => filter.status.includes(t.status) && (filter.locationIds.includes(t.fromLocationId) || filter.locationIds.includes(t.toLocationId)),
     );
+  }
+
+  /** Problemas de ejemplo: uno del catálogo y uno de stock en Parador. */
+  healthIssues: HealthIssueRaw[] = [
+    { productId: P[2]!.id, productName: P[2]!.name, family: "Destilados", locationId: null, issue: "sin_precio", severity: "aviso", detail: "No tiene precio de compra: su stock y su consumo se valoran a 0 €." },
+    { productId: P[5]!.id, productName: P[5]!.name, family: "Refrescos y mixers", locationId: PARADOR.id, issue: "stock_negativo", severity: "error", detail: "El stock es negativo: falta registrar una entrada (recepción, traspaso) o corregir con un inventario." },
+  ];
+
+  async catalogHealth(filter: { locationIds: string[] }): Promise<HealthIssueRaw[]> {
+    return this.healthIssues.filter((i) => i.locationId === null || filter.locationIds.includes(i.locationId));
   }
 
   async countResults(filter: DataFilter & { since: string }): Promise<CountResultRaw[]> {

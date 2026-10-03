@@ -104,3 +104,27 @@ describe("texto con tildes descompuestas (NFD)", () => {
     expect(parseQuantities(nfd)[0]).toMatchObject({ text: "2 botellas de barceló", productText: "barceló" });
   });
 });
+
+describe("cajas y sueltas", () => {
+  const cases: Array<[string, Array<[string, string | null, string | null, string | null, string]>]> = [
+    ["hay 3 cajas y 5 sueltas de coca-cola", [["3", "caja", "5", null, "coca cola"]]],
+    ["3 cajas y 5 cocas", [["3", "caja", "5", null, "cocas"]]],
+    ["he contado 2 cajas de tónica y 7 sueltas", [["2", "caja", "7", null, "tónica"]]],
+    ["2 cajas + 3 de red bull", [["2", "caja", "3", null, "red bull"]]],
+    ["tengo 3 cajas y 4 unidades de heineken", [["3", "caja", "4", null, "heineken"]]],
+    ["2 cajas y 3 botellas de beefeater", [["2", "caja", "3", "botella", "beefeater"]]],
+    // Sin cambios: otra cantidad de otro producto, o media caja.
+    ["6 cajas de coca y 2 de tónica", [["6", "caja", null, null, "coca"], ["2", "caja", null, null, "tónica"]]],
+    ["pásame 3 cajas de coca y 2 cajas de fanta", [["3", "caja", null, null, "coca"], ["2", "caja", null, null, "fanta"]]],
+    ["2 cajas y media de tónica", [["2.5", "caja", null, null, "tónica"]]],
+    ["han llegado 4 cajas más 2 de fanta", [["4", "caja", "2", null, "fanta"]]],
+  ];
+  it.each(cases)("%s", (message, expected) => {
+    expect(parseQuantities(message).map((s) => [s.amount, s.unit, s.loose ?? null, s.looseUnit ?? null, s.productText])).toEqual(expected);
+  });
+
+  it("«2 cajas con 12 unidades» describe la caja: no son sueltas", () => {
+    expect(parseQuantities("han llegado 2 cajas con 12 unidades de agua").every((s) => !s.loose)).toBe(true);
+  });
+});
+

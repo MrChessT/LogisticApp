@@ -5,18 +5,32 @@ import Decimal from "decimal.js";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { readAll } from "@/lib/supabase/read-all";
-import { euros, normalizeText, parseDecimal as parse, quantity } from "@/lib/format";
-import { formatStock, type CountingPacks } from "@/lib/units";
+import { decimalText, euros, normalizeText, parseDecimal as parse, quantity } from "@/lib/format";
+import { countLayout, countTotal, formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
+
+const unitDimension = (baseUnit: string): UnitDimension => (baseUnit === "ml" ? "volume" : baseUnit === "g" ? "mass" : "count");
 
 // Conteo de inventario en dos pasos:
-//   1) contar en el formato habitual (botellas, cajas…) y guardar las líneas (se pueden ir sumando);
+//   1) contar como se hace en el almacén: cajas cerradas y sueltas aparte (refrescos: «3 cajas + 5 ud»;
+//      destilados: «1 caja + 2,5 botellas»), agrupado por familia y con el surtido del local primero.
+//      Las líneas se guardan y se van sumando (por zonas o entre varias personas);
 //   2) revisar las diferencias con su valor y cerrar. Lo que falta puede registrarse como CONSUMO:
 //      en un bar sin TPV es el consumo real del periodo y alimenta informes y reposición.
 
-type Product = { id: string; name: string; base_unit: string; packs?: CountingPacks };
-type Pack = { id: string; productId: string; name: string; qtyBase: string; isCountDefault: boolean };
-type Entry = { qty: string; unit: string }; // unit: "base" o id de formato
+type Product = { id: string; name: string; base_unit: string; family?: string | null; packs?: CountingPacks };
+type Entry = { boxes: string; loose: string };
 type PreviewRow = { productId: string; name: string; unit: string; expected: Decimal; counted: Decimal; diff: Decimal; value: Decimal };
+type Filter = "todos" | "pendientes" | "contados";
+
+/** Orden de las familias en la hoja (el mismo que el catálogo). */
+const FAMILIES = [
+  "Destilados", "Champán", "Vinos", "Cervezas", "Refrescos y mixers", "Energéticas", "Aguas", "Zumos y siropes", "Café e infusiones",
+  "Hielo", "Fruta y guarnición", "Snacks y picoteo", "Comida", "Sala y menaje", "Consumibles",
+];
+const familyRank = (f: string | null | undefined) => {
+  const i = f ? FAMILIES.indexOf(f) : -1;
+  return i === -1 ? FAMILIES.length : i;
+};
 
 export function CountModal({
   count,
@@ -29,10 +43,12 @@ export function CountModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const [packs, setPacks] = useState<Map<string, Pack[]>>(new Map());
   const [counted, setCounted] = useState<Map<string, Decimal>>(new Map());
+  const [assortment, setAssortment] = useState<Set<string> | null>(null);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("todos");
+  const [showOthers, setShowOthers] = useState(false);
   const [step, setStep] = useState<"count" | "review">("count");
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [zeroUncounted, setZeroUncounted] = useState(false);
@@ -55,57 +71,77 @@ export function CountModal({
       await Promise.resolve();
       const supabase = createClient();
       if (!supabase) return;
-      const [{ data: packRows }] = await Promise.all([
-        readAll((from, to) => supabase.from("product_packs").select("id, product_id, name, qty_base, is_count_default").eq("active", true).order("qty_base").order("id").range(from, to)),
+      // Surtido del local: lo que se cuenta aquí sale primero; el resto, bajo «Otros productos».
+      const [{ data: rows }] = await Promise.all([
+        readAll((from, to) => supabase.from("location_products").select("product_id").eq("location_id", count.locationId).eq("active", true).order("product_id").range(from, to)),
         loadCounted(),
       ]);
-      const byProduct = new Map<string, Pack[]>();
-      for (const p of packRows ?? []) {
-        const list = byProduct.get(p.product_id) ?? [];
-        list.push({ id: p.id, productId: p.product_id, name: p.name, qtyBase: String(p.qty_base), isCountDefault: p.is_count_default });
-        byProduct.set(p.product_id, list);
-      }
-      setPacks(byProduct);
+      setAssortment(new Set((rows ?? []).map((r) => r.product_id)));
     }
     void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- se carga una vez por inventario
   }, [count.id]);
 
-  const defaultUnit = (productId: string) => packs.get(productId)?.find((p) => p.isCountDefault)?.id ?? "base";
-  const entryOf = (productId: string): Entry => entries[productId] ?? { qty: "", unit: defaultUnit(productId) };
+  const layouts = useMemo(() => new Map(products.map((p) => [p.id, countLayout(p.packs ?? { dimension: unitDimension(p.base_unit) })])), [products]);
+  const layoutOf = (productId: string) => layouts.get(productId)!;
+  const entryOf = (productId: string): Entry => entries[productId] ?? { boxes: "", loose: "" };
+  const typedOf = (productId: string): Decimal | null | "invalid" => {
+    const e = entryOf(productId);
+    if (!e.boxes.trim() && !e.loose.trim()) return null;
+    const boxes = e.boxes.trim() ? parse(e.boxes) : null;
+    const loose = e.loose.trim() ? parse(e.loose) : null;
+    if ((e.boxes.trim() && boxes === null) || (e.loose.trim() && loose === null)) return "invalid";
+    return countTotal(layoutOf(productId), boxes, loose) ?? "invalid";
+  };
   // Como se cuenta en barra (botellas, cajas + ud…) si se conocen los formatos; si no, en unidad base.
   const show = (q: Decimal, productId: string, unit: string) => {
     const packs = products.find((p) => p.id === productId)?.packs;
     return packs ? formatStock(q, packs) : quantity(q, unit);
   };
-  const factor = (productId: string, unit: string) => (unit === "base" ? new Decimal(1) : new Decimal(packs.get(productId)?.find((p) => p.id === unit)?.qtyBase ?? 1));
 
-  const visible = useMemo(() => {
-    const list = products.filter((p) => !search || normalizeText(p.name).includes(normalizeText(search)));
-    // Primero lo ya contado o en curso, luego el resto por nombre.
-    return list.sort((a, b) => Number(!!entries[b.id]?.qty || counted.has(b.id)) - Number(!!entries[a.id]?.qty || counted.has(a.id)) || a.name.localeCompare(b.name));
-  }, [products, search, entries, counted]);
+  const groups = useMemo(() => {
+    const matches = products.filter((p) => !search || normalizeText(`${p.name} ${p.family ?? ""}`).includes(normalizeText(search)));
+    const isDone = (id: string) => counted.has(id) || !!entries[id]?.boxes.trim() || !!entries[id]?.loose.trim();
+    const shown = matches.filter((p) => filter === "todos" || (filter === "contados") === isDone(p.id));
+    // Con búsqueda se ve todo; sin ella, primero el surtido del local.
+    const inLocation = (id: string) => !assortment || assortment.size === 0 || assortment.has(id) || !!search;
+    const sorted = [...shown].sort((a, b) => familyRank(a.family) - familyRank(b.family) || (a.family ?? "").localeCompare(b.family ?? "") || a.name.localeCompare(b.name));
+    const main = sorted.filter((p) => inLocation(p.id));
+    const others = sorted.filter((p) => !inLocation(p.id));
+    const byFamily = new Map<string, Product[]>();
+    for (const p of main) byFamily.set(p.family ?? "Sin familia", [...(byFamily.get(p.family ?? "Sin familia") ?? []), p]);
+    return { families: [...byFamily.entries()], others };
+  }, [products, search, filter, entries, counted, assortment]);
 
-  const pending = Object.entries(entries).filter(([, e]) => e.qty.trim() !== "");
+  const pending = Object.keys(entries).filter((id) => typedOf(id) !== null);
+  const totalProducts = assortment && assortment.size > 0 ? assortment.size : products.length;
+  const countedInLocation = [...counted.keys()].filter((id) => !assortment || assortment.size === 0 || assortment.has(id)).length;
 
   /** Guarda lo tecleado como líneas de conteo (en unidad base). Devuelve false si hay algo mal. */
   async function saveLines(): Promise<boolean> {
     if (pending.length === 0) return true;
-    const invalid = pending.find(([, e]) => parse(e.qty) === null);
+    const invalid = pending.find((id) => typedOf(id) === "invalid");
     if (invalid) {
-      setError(`Revisa la cantidad de ${products.find((p) => p.id === invalid[0])?.name ?? "un producto"}: usa números como 2 o 1,5.`);
+      const layout = layoutOf(invalid);
+      setError(
+        `Revisa ${products.find((p) => p.id === invalid)?.name ?? "un producto"}: las cajas van en números enteros${layout.unit.decimals ? "" : " y las sueltas también"} (usa 2 o 1,5).`,
+      );
       return false;
     }
     const supabase = createClient();
     if (!supabase) return false;
-    const rows = pending.map(([productId, e]) => {
-      const pack = packs.get(productId)?.find((p) => p.id === e.unit);
-      const product = products.find((p) => p.id === productId);
+    const rows = pending.map((productId) => {
+      const e = entryOf(productId);
+      const layout = layoutOf(productId);
+      const plain = (t: string) => (t.trim() ? parse(t)!.toString() : "0");
       return {
         count_id: count.id,
         product_id: productId,
-        qty: parse(e.qty)!.mul(factor(productId, e.unit)).toNumber(),
-        input: { amount: e.qty.trim().replace(",", "."), unit: pack?.name ?? product?.base_unit ?? "" },
+        qty: (typedOf(productId) as Decimal).toNumber(),
+        // Lo que se tecleó, para poder revisar el conteo: «3 cajas (Caja 24) + 5 ud».
+        input: layout.box
+          ? { boxes: plain(e.boxes), box: layout.box.name, loose: plain(e.loose), unit: layout.unit.name }
+          : { amount: plain(e.loose), unit: layout.unit.name },
         client_ref: crypto.randomUUID(),
       };
     });
@@ -125,7 +161,7 @@ export function CountModal({
     setNotice("");
     if (pending.length === 0) setError("Introduce al menos una cantidad.");
     else if (await saveLines()) {
-      setNotice(`${pending.length} ${pending.length === 1 ? "línea guardada" : "líneas guardadas"}. Puedes seguir contando o revisar y cerrar.`);
+      setNotice(`${pending.length} ${pending.length === 1 ? "producto guardado" : "productos guardados"}. Puedes seguir contando o revisar y cerrar.`);
       onChanged();
     }
     setSaving(false);
@@ -179,6 +215,37 @@ export function CountModal({
     onClose();
   }
 
+  function renderRow(product: Product) {
+    const layout = layoutOf(product.id);
+    const entry = entryOf(product.id);
+    const already = counted.get(product.id);
+    const typed = typedOf(product.id);
+    const set = (patch: Partial<Entry>) => setEntries({ ...entries, [product.id]: { ...entry, ...patch } });
+    return (
+      <div className={`count-line${typed === "invalid" ? " invalid" : ""}`} key={product.id}>
+        <span className="count-line-name">
+          {product.name}
+          <small>
+            {already ? `Contado: ${show(already, product.id, product.base_unit)}` : "Sin contar"}
+            {typed instanceof Decimal && <b> · {already ? "se suman" : "ahora"} {show(typed, product.id, product.base_unit)}</b>}
+          </small>
+        </span>
+        {layout.box ? (
+          <label className="count-field">
+            <input inputMode="numeric" placeholder="0" value={entry.boxes} onChange={(event) => set({ boxes: event.target.value })} aria-label={`Cajas de ${product.name}`} />
+            <small>{layout.box.name.split(/\s+/)[0]?.toLowerCase() === "bandeja" ? "bandejas" : "cajas"} de {decimalText(layout.box.units, 0)}</small>
+          </label>
+        ) : (
+          <span className="count-field empty" aria-hidden="true" />
+        )}
+        <label className="count-field">
+          <input inputMode="decimal" placeholder="0" value={entry.loose} onChange={(event) => set({ loose: event.target.value })} aria-label={`${layout.box ? "Sueltas" : "Cantidad"} de ${product.name}`} />
+          <small>{layout.box ? `${layout.unit.plural} sueltas` : layout.unit.plural}</small>
+        </label>
+      </div>
+    );
+  }
+
   const missing = (preview ?? []).filter((r) => r.diff.lt(0)).reduce((acc, r) => acc.plus(r.value.abs()), new Decimal(0));
   const extra = (preview ?? []).filter((r) => r.diff.gt(0)).reduce((acc, r) => acc.plus(r.value), new Decimal(0));
   const changes = (preview ?? []).filter((r) => !r.diff.isZero());
@@ -196,50 +263,45 @@ export function CountModal({
 
         {step === "count" && (
           <>
-            <div className="count-search">
-              <Search size={15} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar producto" autoFocus />
+            <div className="count-toolbar">
+              <div className="count-search">
+                <Search size={15} />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar producto o familia" autoFocus />
+              </div>
+              <div className="count-filters" role="group" aria-label="Filtrar">
+                {(["todos", "pendientes", "contados"] as const).map((f) => (
+                  <button type="button" key={f} className={filter === f ? "active" : ""} onClick={() => setFilter(f)}>
+                    {f === "todos" ? "Todos" : f === "pendientes" ? "Sin contar" : "Contados"}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="op-modal-count-list">
-              {visible.map((product) => {
-                const entry = entryOf(product.id);
-                const productPacks = packs.get(product.id) ?? [];
-                const already = counted.get(product.id);
-                const typed = parse(entry.qty);
-                return (
-                  <div className="op-modal-count-row count-row" key={product.id}>
-                    <span>
-                      {product.name}
-                      <small>
-                        {already ? `Ya contado: ${show(already, product.id, product.base_unit)}` : "Sin contar"}
-                        {typed && entry.unit !== "base" ? ` · ${show(typed.mul(factor(product.id, entry.unit)), product.id, product.base_unit)}` : ""}
-                      </small>
-                    </span>
-                    <input
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={entry.qty}
-                      onChange={(event) => setEntries({ ...entries, [product.id]: { ...entry, qty: event.target.value } })}
-                      aria-label={`Cantidad de ${product.name}`}
-                    />
-                    <select
-                      value={entry.unit}
-                      onChange={(event) => setEntries({ ...entries, [product.id]: { ...entry, unit: event.target.value } })}
-                      aria-label={`Unidad de ${product.name}`}
-                    >
-                      {productPacks.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      <option value="base">{product.base_unit}</option>
-                    </select>
-                  </div>
-                );
-              })}
-              {visible.length === 0 && <p className="count-empty">Ningún producto coincide con la búsqueda.</p>}
+            <p className="count-progress">
+              <b>{countedInLocation}</b> de {totalProducts} productos contados
+              <span style={{ width: `${Math.min(100, (countedInLocation / Math.max(totalProducts, 1)) * 100)}%` }} />
+            </p>
+            <div className="op-modal-count-list count-sheet">
+              {groups.families.map(([family, list]) => (
+                <section key={family}>
+                  <h3 className="count-family">{family}</h3>
+                  {list.map((product) => renderRow(product))}
+                </section>
+              ))}
+              {groups.others.length > 0 && (
+                <section>
+                  <button type="button" className="count-others" onClick={() => setShowOthers(!showOthers)}>
+                    {showOthers ? "Ocultar" : "Ver"} otros productos ({groups.others.length}) · no están en el surtido de este local
+                  </button>
+                  {showOthers && groups.others.map((product) => renderRow(product))}
+                </section>
+              )}
+              {groups.families.length === 0 && groups.others.length === 0 && <p className="count-empty">Ningún producto coincide.</p>}
             </div>
-            <p className="count-hint">Lo que guardes se suma a lo ya contado: podéis contar por zonas o entre varias personas.</p>
+            <p className="count-hint">Cuenta las cajas cerradas y lo suelto aparte; se suman solas. Lo que guardes se añade a lo ya contado: podéis contar por zonas o entre varias personas.</p>
             {notice && <p className="count-notice">{notice}</p>}
             {error && <p className="op-modal-error">{error}</p>}
             <div className="op-modal-actions">
-              <button className="op-modal-submit op-modal-secondary" onClick={() => void save()} disabled={saving || pending.length === 0}>{saving ? "Guardando..." : "Guardar conteo"}</button>
+              <button className="op-modal-submit op-modal-secondary" onClick={() => void save()} disabled={saving || pending.length === 0}>{saving ? "Guardando..." : `Guardar conteo${pending.length ? ` (${pending.length})` : ""}`}</button>
               <button className="op-modal-submit" onClick={() => void review()} disabled={saving || (pending.length === 0 && counted.size === 0)}>{saving ? "..." : "Revisar y cerrar"}</button>
             </div>
           </>

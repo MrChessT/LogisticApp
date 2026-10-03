@@ -28,7 +28,27 @@
 .op-action-primary:disabled, .op-action-secondary:disabled, .op-action-danger:disabled { opacity: .5; }
 .operation-table-head, .operation-row { grid-template-columns: minmax(200px, 1.2fr) 1fr .9fr .8fr auto !important; }
 /* Conteo en formatos y revisión antes de cerrar. */
-.count-modal { width: min(620px, 100%); }
+.count-modal { width: min(680px, 100%); }
+.count-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; }
+.count-toolbar .count-search { flex: 1 1 220px; margin: 0; }
+.count-filters { display: inline-flex; padding: 2px; background: #f2f5f2; border-radius: 8px; }
+.count-filters button { height: 30px; padding: 0 10px; border: 0; background: transparent; border-radius: 6px; font-size: 11px; color: #5d6d63; cursor: pointer; }
+.count-filters button.active { background: #fff; color: #1f3b2c; font-weight: 600; box-shadow: 0 1px 2px rgba(20, 40, 30, 0.08); }
+.count-progress { position: relative; margin: 0 0 8px; padding-bottom: 6px; font-size: 11px; color: #6f7d74; }
+.count-progress b { color: #1f3b2c; }
+.count-progress span { position: absolute; left: 0; bottom: 0; height: 3px; background: #2e8064; border-radius: 3px; transition: width 0.2s; }
+.count-sheet { max-height: 50vh; }
+.count-family { position: sticky; top: 0; z-index: 1; margin: 6px 0 0; padding: 6px 0 4px; background: #fff; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #7c8983; border-bottom: 1px solid #e8eee9; }
+.count-line { display: grid; grid-template-columns: 1fr 84px 96px; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid #eef2ee; }
+.count-line.invalid input { border-color: #d98b7a; background: #fff7f5; }
+.count-line-name { font-size: 12px; color: #26372d; min-width: 0; }
+.count-line-name small { display: block; margin-top: 2px; color: #8a978f; font-size: 10px; }
+.count-line-name small b { color: #2e8064; font-weight: 600; }
+.count-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.count-field input { height: 34px; padding: 0 8px; border: 1px solid #dce5dd; border-radius: 7px; font-size: 13px; color: #26372d; background: #fff; text-align: right; min-width: 0; }
+.count-field input:focus { outline: 2px solid #b9dcc9; border-color: #2e8064; }
+.count-field small { font-size: 9px; color: #8a978f; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count-others { width: 100%; margin: 10px 0 4px; padding: 8px; border: 1px dashed #d5dfd7; border-radius: 8px; background: #fafcfa; color: #5d6d63; font-size: 11px; cursor: pointer; }
 .count-search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; margin: 2px 0 8px; color: #96a29a; border: 1px solid #dfe7e1; border-radius: 8px; }
 .count-search input { flex: 1; border: 0; outline: 0; font-size: 12px; color: #17251f; }
 .count-row { grid-template-columns: 1fr 76px 132px; }
@@ -54,6 +74,7 @@
 .op-modal-actions .op-modal-submit { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 @media (max-width: 560px) {
   .count-row { grid-template-columns: 1fr 64px 110px; }
+  .count-line { grid-template-columns: 1fr 70px 78px; }
   .count-totals { grid-template-columns: 1fr 1fr; }
 }
 .op-modal-line-row.with-unit { grid-template-columns: 1fr 70px 120px 28px; }

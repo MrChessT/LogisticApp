@@ -82,6 +82,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0015 | Hábitos del asistente por usuario (locales y productos más usados) |
 | 0016 | Catálogo en familias y tipos, bebidas por unidades |
 | 0017 | Historial de precios completo (cada cambio de precio, también los manuales) y surtido de cada local al día (lo que se mueve en un local entra en su surtido) |
+| 0018 | Catálogo profesional: índices en todas las claves ajenas que se consultan, IVA por producto (`vat_rate`), formatos coherentes (cajas con unidades enteras; no se cambia la unidad de un producto con movimientos ni el tamaño de un formato ya usado), `v_product_costs` (precio por caja, por unidad que se cuenta y con IVA) y `catalog_health()` (lo que da cifras falsas o impide trabajar) |
 
 **Aplicar en el proyecto real:** `npm run db:bundle -- 0008` genera `supabase/scripts/aplicar.sql` con las migraciones desde la 0008, en una sola transacción. Se pega en Supabase → SQL Editor → Run.
 
@@ -89,8 +90,16 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 
 **Datos de ejemplo:** `supabase/seed/01…04` en orden (organización y locales, productos, catálogo de Vivero, stock de apertura).
 
+**Preparar el lanzamiento:** `supabase/scripts/preparar_lanzamiento.sql` (después de la 0018) borra las operaciones de prueba, conserva la apertura de referencia del Vivero y recalcula el stock, quita productos basura y de demostración, da de alta lo que el catálogo no pudo crear y restaura los precios del catálogo. Una transacción; al terminar enseña lo que queda por revisar (`catalog_health`).
+
+**Importar un inventario de otro sistema:** `python3 scripts/importar_inventario.py <carpeta .xlsx> <correcciones.json> <salida.sql> [revision.csv]` lee los informes «Inventario» y «Almacén detallado», limpia nombres (sufijos de local, EAN, lotes, mayúsculas), une duplicados, asigna familia → tipo, unidad y formatos según las convenciones de abajo, y genera un SQL que crea o reutiliza los productos y carga el stock contado como apertura por local y espacio, más un CSV para revisar cada decisión. Las correcciones propias del negocio (fusiones, productos que ya existen, familias, unidades) van en el JSON. **Los .xlsx, el JSON y el SQL generado contienen datos del negocio: no se suben al repositorio.**
+
+**Convenciones del catálogo:** las cantidades se guardan en unidad base (ml, g, ud). Refrescos, cervezas en botella, aguas y energéticas se cuentan por unidades y se compran en cajas («Caja 24» = 24 ud); destilados, vino y champán, en ml con su botella como formato de conteo y la caja de 6 como formato de compra; la fruta a granel, en g con el kg como formato. Los precios de proveedor van por formato y sin IVA.
+
 ## Asistente
 
+- **Tareas** (`src/copiloto/skills/tareas.ts`, menú Funciones o `/preparar`, `/equilibrar`, `/revisar`, `/parte`): trabajo que el panel no hace solo. *Preparar pedidos* calcula lo de la semana en todos los locales por proveedor y en cajas, y deja cada pedido en borrador con un toque; *Equilibrar locales* propone traspasos de donde sobra a donde falta (en botellas o unidades enteras); *Revisar catálogo* lista lo que da cifras falsas; *Parte de ayer* resume consumo, mermas, compras y alertas por local. Sin Jev hasta el borrador.
+- Cantidades compuestas: «3 cajas y 5 sueltas», «1 caja y 2 botellas», «2 cajas + 3 de red bull» son una sola cantidad (cajas + sueltas del mismo producto), en el chat y en la hoja de inventario.
 - `src/copiloto/jev/catalog.ts`: todas las preguntas a Jev (cambiar un texto sube `CATALOG_VERSION`). `gates/thresholds.ts`: umbrales de confianza.
 - `agent/`: interpretación y bucle; `drafts/`: borradores, comprobaciones y confirmación; `tools/` y `analytics/`: cálculos.
 - `src/app/api/copiloto/[...ruta]/route.ts`: `chat` (SSE), `actions/confirm`, `suggestions`, `analytics`, `reorder` y `health`.
@@ -98,7 +107,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 
 ## Despliegue
 
-Vercel (`vercel.json`). En producción solo hacen falta las dos variables de Supabase: Jev se autentica con el token OIDC del propio despliegue (Vercel AI Gateway), sin guardar claves.
+Vercel (`vercel.json`). Variables: las dos de Supabase y **`TYPESAFE_API_KEY`** (tipo *Sensitive*, Production y Preview). Con ella Jev va directo a TypeSafe: en la evaluación del 1-10-2026 respondió con mediana de 159 ms y p90 de 209 ms, frente a un p90 de 30 s (máximo 64 s) por Vercel AI Gateway. Sin ella, Jev usa el AI Gateway con el token OIDC del despliegue, que exige el gateway activo y con saldo en el equipo. Si Jev falla, `GET /api/copiloto/health` (con sesión iniciada) dice por qué camino va y qué revisar, y los registros de Vercel también.
 
 La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la propia app y el proyecto de Supabase de `NEXT_PUBLIC_SUPABASE_URL`, sin iframes, `noindex`. Si el navegador tiene que hablar con otro dominio, hay que añadirlo ahí.
 
@@ -107,6 +116,6 @@ La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la
 - Supabase → Authentication → URL Configuration: *Site URL* con el dominio real y `https://<dominio>/auth/callback` en *Redirect URLs* (enlace mágico y recuperar contraseña).
 - Supabase → Authentication → Sign In / Providers: desactivar *Allow new users to sign up*. Los usuarios los da de alta un administrador; el enlace mágico ya no crea cuentas.
 - Supabase → Authentication → SMTP: un SMTP propio (el de Supabase solo manda unos pocos correos por hora).
-- Migraciones hasta la 0017 aplicadas (`npm run db:bundle -- <primera sin aplicar>`).
+- Migraciones hasta la 0018 aplicadas (`npm run db:bundle -- 0018`) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
 - Términos de uso y política de privacidad: la pantalla de acceso los menciona, pero aún no existen.
 - Límite de peticiones del asistente: está en memoria de cada instancia; con mucho tráfico, moverlo a un almacén compartido.
