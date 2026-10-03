@@ -78,3 +78,15 @@
   .count-totals { grid-template-columns: 1fr 1fr; }
 }
 .op-modal-line-row.with-unit { grid-template-columns: 1fr 70px 120px 28px; }
+/* Buscador de productos en los formularios. */
+.op-modal-field { display: block; margin-bottom: 14px; }
+.op-modal-field > span { display: block; margin-bottom: 6px; font-size: 11px; color: #56645c; font-weight: 600; }
+.op-receipt-line { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid #eef2ee; }
+.op-receipt-line .op-modal-line-row.with-price { grid-template-columns: 1fr 70px 90px 28px; }
+.op-modal-line-row > .product-picker { min-width: 0; }
+.op-modal-line-row select, .op-modal-line-row input { margin-top: 0; }
+@media (max-width: 560px) {
+  /* Móvil: el buscador ocupa la fila; debajo, cantidad, formato y quitar. */
+  .op-modal-line-row.with-unit { grid-template-columns: 70px 1fr 28px; }
+  .op-modal-line-row.with-unit > .product-picker { grid-column: 1 / -1; }
+}

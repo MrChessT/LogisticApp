@@ -5,14 +5,17 @@ import Decimal from "decimal.js";
 import { ArrowLeft, ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { readAll } from "@/lib/supabase/read-all";
-import { daysAgo, euros, normalizeText, quantity } from "@/lib/format";
+import { daysAgo, euros, quantity } from "@/lib/format";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
 import "../productos/productos.css";
 import "./stock.css";
 
 // Existencias por local: filtro por local, estado y texto; exportación CSV; último inventario cerrado.
+// Filtros, orden y páginas se resuelven en el servidor (stock_search, migración 0020): la pantalla
+// descarga solo la página que enseña y los totales ya calculados, no todo el stock de todos los locales.
+
+const PAGE = 100;
 
 type Status = "ok" | "low" | "critical";
 type StockRow = {
@@ -36,23 +39,55 @@ type ValuationRow = {
   product_name: string;
   category_name: string | null;
   base_unit: string;
-  qty: number;
-  stock_value: number | null;
-  min_qty: number | null;
-  below_min: boolean;
-  family_name?: string | null;
-  dimension?: UnitDimension | null;
-  count_pack_name?: string | null;
-  count_pack_qty?: number | null;
-  purchase_pack_name?: string | null;
-  purchase_pack_qty?: number | null;
+  qty: string;
+  stock_value: string | null;
+  min_qty: string | null;
+  family_name: string | null;
+  dimension: UnitDimension | null;
+  count_pack_name: string | null;
+  count_pack_qty: string | null;
+  purchase_pack_name: string | null;
+  purchase_pack_qty: string | null;
+  status: Status;
 };
+type Summary = { rows: number; value: string; attention: number };
+type SearchResult = { total: number; summary: Summary; items: ValuationRow[] };
+
+function toRow(row: ValuationRow): StockRow {
+  const packs = countingPacks(row);
+  return {
+    id: row.product_id,
+    locationId: row.location_id,
+    locationName: row.location_name ?? "",
+    name: row.product_name,
+    category: row.family_name && row.category_name ? `${row.family_name} · ${row.category_name}` : row.category_name ?? "Sin categoría",
+    quantity: row.dimension ? formatStock(row.qty, packs) : quantity(row.qty, row.base_unit),
+    value: euros(row.stock_value ?? "0"),
+    valueNumber: new Decimal(row.stock_value ?? "0").toFixed(2),
+    minimum: row.min_qty && new Decimal(row.min_qty).gt(0) ? (row.dimension ? formatStock(row.min_qty, packs) : quantity(row.min_qty, row.base_unit)) : "—",
+    status: row.status,
+  };
+}
+
+async function searchStock(location: string, search: string, status: string, offset: number, limit = PAGE): Promise<SearchResult> {
+  const supabase = createClient();
+  if (!supabase) throw new Error("Configura las variables de Supabase para cargar el stock.");
+  const { data, error } = await supabase.rpc("stock_search", {
+    p_location: location || null,
+    p_search: search.trim() || null,
+    p_status: status || null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error || !data) throw new Error("No se pudo cargar el stock del local seleccionado.");
+  return data as unknown as SearchResult;
+}
 
 function countingPacks(row: ValuationRow): CountingPacks {
   return {
     dimension: row.dimension ?? "count",
-    countPack: row.count_pack_name && row.count_pack_qty ? { name: row.count_pack_name, qtyBase: String(row.count_pack_qty) } : null,
-    purchasePack: row.purchase_pack_name && row.purchase_pack_qty ? { name: row.purchase_pack_name, qtyBase: String(row.purchase_pack_qty) } : null,
+    countPack: row.count_pack_name && row.count_pack_qty ? { name: row.count_pack_name, qtyBase: row.count_pack_qty } : null,
+    purchasePack: row.purchase_pack_name && row.purchase_pack_qty ? { name: row.purchase_pack_name, qtyBase: row.purchase_pack_qty } : null,
   };
 }
 
@@ -78,10 +113,15 @@ export default function StockPage() {
   const [location, setLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [rows, setRows] = useState<StockRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [lastCount, setLastCount] = useState<{ at: string; location: string } | null>(null);
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | Status>("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const requestId = useRef(0);
@@ -99,59 +139,88 @@ export default function StockPage() {
     void start();
   }, []);
 
+  // La búsqueda va al servidor cuando se deja de escribir un momento.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(query), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  // Último inventario cerrado: solo cambia con el local.
+  useEffect(() => {
+    if (location === null) return;
+    const selected = location;
+    let cancelled = false;
+    async function run() {
+      const supabase = createClient();
+      if (!supabase) return;
+      let countQuery = supabase.from("inventory_counts").select("closed_at, locations(name)").eq("status", "closed").order("closed_at", { ascending: false }).limit(1);
+      if (selected) countQuery = countQuery.eq("location_id", selected);
+      const { data } = await countQuery;
+      if (cancelled) return;
+      const last = (data ?? [])[0] as { closed_at: string | null; locations: { name: string } | null } | undefined;
+      setLastCount(last?.closed_at ? { at: last.closed_at, location: last.locations?.name ?? "" } : null);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [location, reloadKey]);
+
+  // Primera página con los filtros actuales (cambiar un filtro vuelve a empezar).
   useEffect(() => {
     if (location === null) return;
     const id = ++requestId.current;
-    const selected = location;
     async function run() {
       await Promise.resolve();
       setLoading(true);
       setError("");
-      const supabase = createClient();
-      if (!supabase) {
-        setError("Configura las variables de Supabase para cargar el stock.");
-        setLoading(false);
-        return;
+      try {
+        const result = await searchStock(location ?? "", search, status, 0);
+        if (id !== requestId.current) return;
+        setRows(result.items.map(toRow));
+        setTotal(result.total);
+        setSummary(result.summary);
+      } catch (err) {
+        if (id === requestId.current) setError(err instanceof Error ? err.message : "No se pudo cargar el stock.");
+      } finally {
+        if (id === requestId.current) setLoading(false);
       }
-      const BASE = "location_id, location_name, product_id, product_name, category_name, base_unit, qty, stock_value, min_qty, below_min";
-      // Con la migración 0016 la vista trae familia y formatos («12 botellas», «2 cajas + 5 ud»).
-      const FULL = `${BASE}, family_name, dimension, count_pack_name, count_pack_qty, purchase_pack_name, purchase_pack_qty`;
-      // «Todos los locales» son productos × locales: puede pasar de 1000 filas, se lee por páginas.
-      const stockQueryFor = (columns: string) =>
-        readAll((from, to) => {
-          const q = supabase.from("v_stock_valuation").select(columns).order("product_name").order("product_id").order("location_id");
-          return (selected ? q.eq("location_id", selected) : q).range(from, to);
-        });
-      let countQuery = supabase.from("inventory_counts").select("closed_at, locations(name)").eq("status", "closed").order("closed_at", { ascending: false }).limit(1);
-      if (selected) countQuery = countQuery.eq("location_id", selected);
-      const [full, count] = await Promise.all([stockQueryFor(FULL), countQuery]);
-      const stock = full.error ? await stockQueryFor(BASE) : full; // migración 0016 aún sin aplicar
-      if (id !== requestId.current) return;
-      if (stock.error) {
-        setError("No se pudo cargar el stock del local seleccionado.");
-        setLoading(false);
-        return;
-      }
-      setRows(
-        ((stock.data ?? []) as unknown as ValuationRow[]).map((row) => ({
-          id: row.product_id,
-          locationId: row.location_id,
-          locationName: row.location_name ?? "",
-          name: row.product_name,
-          category: row.family_name && row.category_name ? `${row.family_name} · ${row.category_name}` : row.category_name ?? "Sin categoría",
-          quantity: row.dimension ? formatStock(row.qty, countingPacks(row)) : quantity(row.qty, row.base_unit),
-          value: euros(String(row.stock_value ?? 0)),
-          valueNumber: new Decimal(String(row.stock_value ?? 0)).toFixed(2),
-          minimum: row.min_qty ? (row.dimension ? formatStock(row.min_qty, countingPacks(row)) : quantity(row.min_qty, row.base_unit)) : "—",
-          status: row.qty < 0 || (row.below_min && row.qty <= 0) ? "critical" : row.below_min ? "low" : "ok",
-        })),
-      );
-      const last = (count.data ?? [])[0] as { closed_at: string | null; locations: { name: string } | null } | undefined;
-      setLastCount(last?.closed_at ? { at: last.closed_at, location: last.locations?.name ?? "" } : null);
-      setLoading(false);
     }
     void run();
-  }, [location, reloadKey]);
+  }, [location, search, status, reloadKey]);
+
+  async function loadMore() {
+    const id = requestId.current;
+    setLoadingMore(true);
+    try {
+      const result = await searchStock(location ?? "", search, status, rows.length);
+      if (id !== requestId.current) return;
+      setRows((current) => [...current, ...result.items.map(toRow)]);
+      setTotal(result.total);
+    } catch {
+      setError("No se pudieron cargar más productos.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  /** El CSV lleva todo lo filtrado, no solo lo que se ve: se pide por páginas grandes. */
+  async function exportAll() {
+    setExporting(true);
+    try {
+      const all: StockRow[] = [];
+      for (let offset = 0; offset < Math.max(total, 1); offset += 500) {
+        const result = await searchStock(location ?? "", search, status, offset, 500);
+        all.push(...result.items.map(toRow));
+        if (result.items.length < 500) break;
+      }
+      exportCsv(all, allLocations ? "todos" : locationLabel);
+    } catch {
+      setError("No se pudo exportar el stock.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function changeLocation(id: string) {
     saveLocation(id);
@@ -159,9 +228,6 @@ export default function StockPage() {
     setLocation(id);
   }
 
-  const filtered = rows.filter((row) => (!status || row.status === status) && (!query || normalizeText(`${row.name} ${row.category}`).includes(normalizeText(query))));
-  const totalValue = rows.reduce((acc, r) => acc.plus(r.valueNumber), new Decimal(0));
-  const below = rows.filter((r) => r.status !== "ok").length;
   const locationLabel = locations.find((l) => l.id === location)?.name ?? "todos los locales";
   const allLocations = !location;
 
@@ -192,25 +258,25 @@ export default function StockPage() {
               </select>
               <ChevronDown size={14} />
             </div>
-            <button className="export-button" disabled={filtered.length === 0} onClick={() => exportCsv(filtered, allLocations ? "todos" : locationLabel)}>
-              <Download size={15} /> Exportar
+            <button className="export-button" disabled={total === 0 || exporting} onClick={() => void exportAll()}>
+              <Download size={15} /> {exporting ? "Exportando..." : "Exportar"}
             </button>
           </div>
         </div>
         <div className="stock-summary">
           <div>
             <span>Valor total</span>
-            <strong>{loading && rows.length === 0 ? "..." : euros(totalValue)}</strong>
+            <strong>{summary ? euros(summary.value) : "..."}</strong>
             <small>a coste medio</small>
           </div>
           <div>
             <span>Productos con stock</span>
-            <strong>{loading && rows.length === 0 ? "..." : rows.length}</strong>
+            <strong>{summary ? summary.rows : "..."}</strong>
             <small>en {locationLabel}</small>
           </div>
           <div>
             <span>Bajo mínimo</span>
-            <strong className="red-text">{loading && rows.length === 0 ? "..." : below}</strong>
+            <strong className="red-text">{summary ? summary.attention : "..."}</strong>
             <small>requieren revisión</small>
           </div>
           <div>
@@ -234,7 +300,7 @@ export default function StockPage() {
                 <option value="ok">Correcto</option>
               </select>
             </label>
-            <span className="table-result-count">{filtered.length} productos</span>
+            <span className="table-result-count">{loading ? "..." : `${total} productos`}</span>
           </div>
           <div className="stock-table">
             <div className="stock-head">
@@ -245,7 +311,7 @@ export default function StockPage() {
               <span>Estado</span>
               <span />
             </div>
-            {!loading && !error && filtered.map((row) => (
+            {!loading && !error && rows.map((row) => (
               <Link className="stock-data-row" key={`${row.id}-${row.locationId}`} href={`/productos?producto=${row.id}`} title="Abrir ficha del producto">
                 <div className="stock-product">
                   <span className={`stock-thumb ${row.status}`} />
@@ -261,11 +327,16 @@ export default function StockPage() {
                 <span className="stock-open" aria-hidden="true"><ChevronRight size={17} /></span>
               </Link>
             ))}
-            {!loading && !error && filtered.length === 0 && (
+            {!loading && !error && rows.length === 0 && (
               <div className="catalog-empty">
                 <strong>No hay stock para mostrar</strong>
-                <span>{rows.length > 0 ? "Prueba otro filtro o limpia la búsqueda." : "Registra una recepción o una apertura de stock para empezar."}</span>
+                <span>{summary && summary.rows > 0 ? "Prueba otro filtro o limpia la búsqueda." : "Registra una recepción o una apertura de stock para empezar."}</span>
               </div>
+            )}
+            {!loading && !error && rows.length < total && (
+              <button className="stock-more" disabled={loadingMore} onClick={() => void loadMore()}>
+                {loadingMore ? "Cargando..." : `Ver ${Math.min(PAGE, total - rows.length)} más (${rows.length} de ${total})`}
+              </button>
             )}
             {loading && <div className="catalog-empty"><strong>Cargando stock...</strong></div>}
             {!loading && error && (

@@ -1,14 +1,27 @@
+// Crear un Intl.DateTimeFormat cuesta ~80 µs: con miles de movimientos (informes, consumo) dominaba el
+// tiempo de respuesta. Se crea uno por zona horaria y se reutiliza.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+function formatterFor(timezone: string): Intl.DateTimeFormat {
+  let formatter = formatters.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    formatters.set(timezone, formatter);
+  }
+  return formatter;
+}
+
 export function businessDay(occurredAt: Date, timezone: string, cutoff: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(occurredAt).reduce<Record<string, string>>((result, part) => {
+  const parts = formatterFor(timezone).formatToParts(occurredAt).reduce<Record<string, string>>((result, part) => {
     result[part.type] = part.value;
     return result;
   }, {});

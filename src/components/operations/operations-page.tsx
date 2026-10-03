@@ -18,9 +18,11 @@ import {
 import { useEffect, useState } from "react";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
-import { readAll } from "@/lib/supabase/read-all";
 import { euros as formatCurrency } from "@/lib/format";
-import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
+import { formatStock, type UnitDimension } from "@/lib/units";
+import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
+import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
+import { ProductPicker } from "@/components/product-picker/product-picker";
 import "./operations.css";
 import "./operations-modal.css";
 import { CountModal } from "./count-modal";
@@ -29,49 +31,15 @@ type OperationKind = "recepciones" | "traspasos" | "inventarios" | "mermas";
 type StatusColor = "green" | "orange" | "purple" | "red";
 
 type Location = { id: string; name: string };
-type PackRow = { id?: string; name: string; qty_base: number | string; is_count_default: boolean; is_purchase_default?: boolean; active: boolean };
-/** Cómo se escribe una cantidad: en botellas, cajas, unidades… (factor = unidades base por cada una). */
-type UnitChoice = { id: string; label: string; factor: string };
-type ProductOption = { id: string; name: string; base_unit: string; dimension: UnitDimension; units: UnitChoice[]; packs: CountingPacks; family: string | null };
-type CategoryRef = { name: string; parent: { name: string } | null } | null;
-
-const BASE_LABEL: Record<UnitDimension, string> = { count: "Unidades", volume: "ml", mass: "g" };
-
-/** Formatos para escribir cantidades: primero como se cuenta (botella, o unidades en refrescos), luego cajas; ml/g al final. */
-function unitChoices(dimension: UnitDimension, packs: PackRow[]): UnitChoice[] {
-  const active = packs.filter((k) => k.active && new Decimal(String(k.qty_base)).gt(0));
-  const base: UnitChoice = { id: "base", label: BASE_LABEL[dimension], factor: "1" };
-  const byPack = [...active]
-    .filter((k) => dimension !== "count" || new Decimal(String(k.qty_base)).gt(1))
-    .sort((a, b) => Number(b.is_count_default) - Number(a.is_count_default) || new Decimal(String(a.qty_base)).cmp(String(b.qty_base)))
-    .map((k) => ({ id: k.id ?? k.name, label: k.name, factor: String(k.qty_base) }));
-  return dimension === "count" ? [base, ...byPack] : [...byPack, base];
-}
-
-/** Cantidad escrita en botellas, cajas o unidades → unidad base (ml, g, ud) con decimal.js. */
-function toBase(products: ProductOption[], productId: string, qty: string, unitId: string): number {
-  const units = products.find((p) => p.id === productId)?.units ?? [];
-  const unit = units.find((u) => u.id === unitId) ?? units[0];
-  return new Decimal(qty).mul(unit?.factor ?? "1").toNumber();
-}
-
-function countingPacks(dimension: UnitDimension, packs: PackRow[]): CountingPacks {
-  const active = packs.filter((k) => k.active);
-  const count = active.find((k) => k.is_count_default);
-  const box = [...active]
-    .filter((k) => new Decimal(String(k.qty_base)).gt(1))
-    .sort((a, b) => Number(b.is_purchase_default ?? false) - Number(a.is_purchase_default ?? false) || new Decimal(String(b.qty_base)).cmp(String(a.qty_base)))[0];
-  return {
-    dimension,
-    countPack: count ? { name: count.name, qtyBase: String(count.qty_base) } : null,
-    purchasePack: box ? { name: box.name, qtyBase: String(box.qty_base) } : null,
-  };
-}
-type PackOption = { id: string; product_id: string; product_name: string; pack_name: string; base_unit: string };
+/** Formatos en los que se puede escribir la cantidad de un producto elegido en el buscador. */
+const unitsOf = (product: LookupProduct | null): UnitChoice[] => (product ? unitChoices(product.dimension, lookupPackRows(product)) : []);
 type SupplierOption = { id: string; name: string };
-type Reference = { orgId: string; locations: Location[]; products: ProductOption[]; packs: PackOption[]; suppliers: SupplierOption[] };
+type Reference = { orgId: string; locations: Location[]; suppliers: SupplierOption[] };
+type TransferLine = { product: LookupProduct | null; qty: string; unit: string };
+type ReceiptLine = { product: LookupProduct | null; packId: string; qty: string; price: string };
 
-/** Catálogo, locales y proveedores compartidos por las cuatro pantallas de operativa. */
+/** Locales y proveedores compartidos por las cuatro pantallas de operativa (el catálogo ya no se
+ *  descarga: cada formulario busca en el servidor solo lo que se escribe). */
 let referenceCache: (Reference & { userId: string }) | null = null;
 
 type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
@@ -131,8 +99,6 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [busyId, setBusyId] = useState("");
   const [orgId, setOrgId] = useState("");
   const [locations, setLocations] = useState<Location[]>([]);
-  const [products, setProducts] = useState<ProductOption[]>([]);
-  const [packs, setPacks] = useState<PackOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -143,11 +109,11 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   // Traspasos
   const [trFrom, setTrFrom] = useState("");
   const [trTo, setTrTo] = useState("");
-  const [trLines, setTrLines] = useState<Array<{ productId: string; qty: string; unit: string }>>([{ productId: "", qty: "", unit: "" }]);
+  const [trLines, setTrLines] = useState<TransferLine[]>([{ product: null, qty: "", unit: "" }]);
 
   // Mermas
   const [wLocation, setWLocation] = useState("");
-  const [wProduct, setWProduct] = useState("");
+  const [wProduct, setWProduct] = useState<LookupProduct | null>(null);
   const [wQty, setWQty] = useState("");
   const [wUnit, setWUnit] = useState("");
   const [wReason, setWReason] = useState("");
@@ -157,9 +123,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [rSupplier, setRSupplier] = useState("");
   const [rDocNumber, setRDocNumber] = useState("");
   const [rDocDate, setRDocDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [rLines, setRLines] = useState<Array<{ packId: string; qty: string; price: string }>>([
-    { packId: "", qty: "", price: "" },
-  ]);
+  const [rLines, setRLines] = useState<ReceiptLine[]>([{ product: null, packId: "", qty: "", price: "" }]);
 
   // Inventarios
   const [ivLocation, setIvLocation] = useState("");
@@ -168,48 +132,25 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   function applyReference(ref: Reference) {
     setOrgId(ref.orgId);
     setLocations(ref.locations);
-    setProducts(ref.products);
-    setPacks(ref.packs);
     setSuppliers(ref.suppliers);
   }
 
   async function loadReference() {
     const supabase = createClient();
     if (!supabase) return null;
-    // Lo último que se cargó se pinta al instante (al volver a esta pantalla o pasar a otra
-    // operativa) y se refresca igualmente en segundo plano.
     // La sesión se lee del navegador (sin red): la caché nunca se enseña a otro usuario.
     const userId = (await supabase.auth.getSession()).data.session?.user.id ?? "";
+    // Lo último que se cargó se pinta al instante (al volver a esta pantalla o pasar a otra
+    // operativa) y se refresca igualmente en segundo plano.
     if (referenceCache?.userId === userId) applyReference(referenceCache);
-    // Datos de referencia independientes entre sí: una sola ronda de peticiones en paralelo.
-    const [{ data: membership }, { data: locationRows }, { data: productRows }, { data: supplierRows }] = await Promise.all([
+    const [{ data: membership }, { data: locationRows }, { data: supplierRows }] = await Promise.all([
       supabase.from("memberships").select("org_id").limit(1).maybeSingle(),
       supabase.from("locations").select("id, name").eq("active", true).order("name"),
-      readAll((from, to) =>
-        supabase.from("products").select("id, name, base_unit, dimension, product_packs(id, name, qty_base, is_count_default, is_purchase_default, active), category:categories(name, parent:parent_id(name))").eq("active", true).order("name").order("id").range(from, to),
-      ),
       supabase.from("suppliers").select("id, name").eq("active", true).order("name"),
     ]);
-    const rawProducts = (productRows ?? []) as unknown as Array<{ id: string; name: string; base_unit: string; dimension: UnitDimension; product_packs: PackRow[] | null; category: CategoryRef }>;
     const ref: Reference = {
       orgId: membership?.org_id ?? "",
       locations: (locationRows ?? []) as Location[],
-      products: rawProducts.map((p) => ({
-        id: p.id,
-        name: p.name,
-        base_unit: p.base_unit,
-        dimension: p.dimension,
-        units: unitChoices(p.dimension, p.product_packs ?? []),
-        packs: countingPacks(p.dimension, p.product_packs ?? []),
-        // Familia (Destilados, Refrescos…): la hoja de inventario se agrupa por ella.
-        family: p.category?.parent?.name ?? p.category?.name ?? null,
-      })),
-      // Formatos de compra para las recepciones: salen de los mismos productos (antes, otra consulta).
-      packs: rawProducts.flatMap((p) =>
-        (p.product_packs ?? [])
-          .filter((k) => k.is_purchase_default && k.id)
-          .map((k) => ({ id: k.id as string, product_id: p.id, product_name: p.name, pack_name: k.name, base_unit: p.base_unit })),
-      ),
       suppliers: (supplierRows ?? []) as SupplierOption[],
     };
     referenceCache = { ...ref, userId };
@@ -399,9 +340,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setFormError("");
     setTrFrom("");
     setTrTo("");
-    setTrLines([{ productId: "", qty: "", unit: "" }]);
+    setTrLines([{ product: null, qty: "", unit: "" }]);
     setWLocation("");
-    setWProduct("");
+    setWProduct(null);
     setWQty("");
     setWUnit("");
     setWReason("");
@@ -409,7 +350,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setRSupplier("");
     setRDocNumber("");
     setRDocDate(new Date().toISOString().slice(0, 10));
-    setRLines([{ packId: "", qty: "", price: "" }]);
+    setRLines([{ product: null, packId: "", qty: "", price: "" }]);
     setIvLocation("");
   }
 
@@ -428,8 +369,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     if (!trFrom || !trTo) { setFormError("Elige local de origen y destino."); return; }
     if (trFrom === trTo) { setFormError("El origen y el destino deben ser distintos."); return; }
     const validLines = trLines
-      .filter((line) => line.productId && Number(line.qty) > 0)
-      .map((line) => ({ productId: line.productId, qty: toBase(products, line.productId, line.qty, line.unit) }));
+      .filter((line) => line.product && Number(line.qty) > 0)
+      .map((line) => ({ productId: line.product!.id, qty: toBaseQty(unitsOf(line.product), line.qty, line.unit) }));
     if (validLines.length === 0) { setFormError("Añade al menos una línea con cantidad."); return; }
 
     setSaving(true);
@@ -458,6 +399,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
 
     setSaving(false);
     setModalOpen(false);
+    clearLookupCache();
     await loadRows();
   }
 
@@ -512,9 +454,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     if (!supabase) { setFormError("Supabase no está configurado."); setSaving(false); return; }
     const { error } = await supabase.rpc("register_movement", {
       p_location: wLocation,
-      p_product: wProduct,
+      p_product: wProduct.id,
       p_type: "waste",
-      p_qty: toBase(products, wProduct, wQty, wUnit),
+      p_qty: toBaseQty(unitsOf(wProduct), wQty, wUnit),
       p_reason: wReason.trim() || null,
       p_client_ref: newRef(),
     });
@@ -525,6 +467,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     }
     setSaving(false);
     setModalOpen(false);
+    clearLookupCache();
     await loadRows();
   }
 
@@ -573,6 +516,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
 
     setSaving(false);
     setModalOpen(false);
+    clearLookupCache();
     await loadRows();
   }
 
@@ -590,6 +534,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     }
     setSaving(false);
     setModalOpen(false);
+    clearLookupCache();
     await loadRows();
   }
 
@@ -728,19 +673,21 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                 <div className="op-modal-lines">
                   {trLines.map((line, index) => (
                     <div className="op-modal-line-row with-unit" key={index}>
-                      <select value={line.productId} onChange={(e) => setTrLines(trLines.map((l, i) => i === index ? { ...l, productId: e.target.value, unit: products.find((p) => p.id === e.target.value)?.units[0]?.id ?? "" } : l))}>
-                        <option value="">Producto</option>
-                        {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
+                      <ProductPicker
+                        value={line.product}
+                        options={{ locationId: trFrom || null }}
+                        ariaLabel={`Producto de la línea ${index + 1}`}
+                        onChange={(product) => setTrLines(trLines.map((l, i) => i === index ? { ...l, product, unit: unitsOf(product)[0]?.id ?? "" } : l))}
+                      />
                       <input type="number" min="0" step="any" placeholder="Cant." value={line.qty} onChange={(e) => setTrLines(trLines.map((l, i) => i === index ? { ...l, qty: e.target.value } : l))} />
-                      <select value={line.unit} aria-label="Formato" disabled={!line.productId} onChange={(e) => setTrLines(trLines.map((l, i) => i === index ? { ...l, unit: e.target.value } : l))}>
-                        {(products.find((p) => p.id === line.productId)?.units ?? []).map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+                      <select value={line.unit} aria-label="Formato" disabled={!line.product} onChange={(e) => setTrLines(trLines.map((l, i) => i === index ? { ...l, unit: e.target.value } : l))}>
+                        {unitsOf(line.product).map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
                       </select>
                       <button onClick={() => setTrLines(trLines.filter((_, i) => i !== index))} aria-label="Quitar línea"><Trash2 size={14} /></button>
                     </div>
                   ))}
                 </div>
-                <button className="op-modal-add-line" onClick={() => setTrLines([...trLines, { productId: "", qty: "", unit: "" }])}><Plus size={14} /> Añadir línea</button>
+                <button className="op-modal-add-line" onClick={() => setTrLines([...trLines, { product: null, qty: "", unit: "" }])}><Plus size={14} /> Añadir línea</button>
                 <button className="op-modal-submit" onClick={handleCreateTransfer} disabled={saving}>{saving ? "Creando..." : "Crear traspaso"}</button>
               </>
             )}
@@ -753,18 +700,21 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                     {locations.map((loc) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                   </select>
                 </label>
-                <label>Producto
-                  <select value={wProduct} onChange={(e) => { setWProduct(e.target.value); setWUnit(products.find((p) => p.id === e.target.value)?.units[0]?.id ?? ""); }}>
-                    <option value="">Elige un producto</option>
-                    {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </label>
+                <div className="op-modal-field">
+                  <span>Producto</span>
+                  <ProductPicker
+                    value={wProduct}
+                    options={{ locationId: wLocation || null }}
+                    placeholder="Busca el producto (nombre o código)"
+                    onChange={(product) => { setWProduct(product); setWUnit(unitsOf(product)[0]?.id ?? ""); }}
+                  />
+                </div>
                 <label>Cantidad
                   <input type="number" min="0" step="any" value={wQty} onChange={(e) => setWQty(e.target.value)} placeholder="0" />
                 </label>
                 <label>Formato
                   <select value={wUnit} disabled={!wProduct} onChange={(e) => setWUnit(e.target.value)}>
-                    {(products.find((p) => p.id === wProduct)?.units ?? []).map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+                    {unitsOf(wProduct).map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
                   </select>
                 </label>
                 <label>Motivo
@@ -800,18 +750,36 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                 </div>
                 <div className="op-modal-lines">
                   {rLines.map((line, index) => (
-                    <div className="op-modal-line-row with-price" key={index}>
-                      <select value={line.packId} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, packId: e.target.value } : l))}>
-                        <option value="">Producto</option>
-                        {packs.map((p) => <option key={p.id} value={p.id}>{p.product_name} · {p.pack_name}</option>)}
-                      </select>
-                      <input type="number" min="0" step="any" placeholder="Uds." value={line.qty} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, qty: e.target.value } : l))} />
-                      <input type="number" min="0" step="any" placeholder="Precio €" value={line.price} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, price: e.target.value } : l))} />
-                      <button onClick={() => setRLines(rLines.filter((_, i) => i !== index))} aria-label="Quitar línea"><Trash2 size={14} /></button>
+                    <div className="op-receipt-line" key={index}>
+                      <ProductPicker
+                        value={line.product}
+                        options={{ locationId: rLocation || null, supplierId: rSupplier || null }}
+                        ariaLabel={`Producto de la línea ${index + 1}`}
+                        renderMeta={(p) => {
+                          const price = purchasePack(p)?.price;
+                          return price ? formatCurrency(price) : null;
+                        }}
+                        onChange={(product) => {
+                          const pack = product ? purchasePack(product) : null;
+                          setRLines(rLines.map((l, i) => i === index ? { ...l, product, packId: pack?.id ?? "", price: pack?.price ? String(Number(pack.price)) : l.price } : l));
+                        }}
+                      />
+                      <div className="op-modal-line-row with-price">
+                        <select value={line.packId} aria-label="Formato de compra" disabled={!line.product} onChange={(e) => {
+                          const pack = line.product?.packs.find((k) => k.id === e.target.value);
+                          setRLines(rLines.map((l, i) => i === index ? { ...l, packId: e.target.value, price: pack?.price ? String(Number(pack.price)) : l.price } : l));
+                        }}>
+                          {!line.product && <option value="">Formato</option>}
+                          {(line.product?.packs ?? []).map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+                        </select>
+                        <input type="number" min="0" step="any" placeholder="Uds." value={line.qty} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, qty: e.target.value } : l))} />
+                        <input type="number" min="0" step="any" placeholder="Precio €" value={line.price} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, price: e.target.value } : l))} />
+                        <button onClick={() => setRLines(rLines.filter((_, i) => i !== index))} aria-label="Quitar línea"><Trash2 size={14} /></button>
+                      </div>
                     </div>
                   ))}
                 </div>
-                <button className="op-modal-add-line" onClick={() => setRLines([...rLines, { packId: "", qty: "", price: "" }])}><Plus size={14} /> Añadir línea</button>
+                <button className="op-modal-add-line" onClick={() => setRLines([...rLines, { product: null, packId: "", qty: "", price: "" }])}><Plus size={14} /> Añadir línea</button>
                 <button className="op-modal-submit" onClick={handleCreateReceipt} disabled={saving}>{saving ? "Registrando..." : "Registrar recepción"}</button>
               </>
             )}
@@ -834,7 +802,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       )}
 
       {countModal && (
-        <CountModal count={countModal} products={products} onClose={() => setCountModal(null)} onChanged={() => void loadRows()} />
+        <CountModal count={countModal} onClose={() => setCountModal(null)} onChanged={() => void loadRows()} />
       )}
     </main>
   );

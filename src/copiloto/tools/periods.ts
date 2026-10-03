@@ -1,17 +1,29 @@
 import type { Periodo } from "../jev/catalog";
 import type { Period } from "./types";
 
+// Un Intl.DateTimeFormat por zona horaria: crearlo en cada llamada costaba ~80 µs por movimiento.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+function formatterFor(timezone: string): Intl.DateTimeFormat {
+  let formatter = formatters.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    formatters.set(timezone, formatter);
+  }
+  return formatter;
+}
+
 /** Día de negocio (misma lógica que src/lib/business-day.ts de la app). */
 export function businessDay(occurredAt: Date, timezone: string, cutoff: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  })
+  const parts = formatterFor(timezone)
     .formatToParts(occurredAt)
     .reduce<Record<string, string>>((acc, part) => {
       acc[part.type] = part.value;

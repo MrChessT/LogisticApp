@@ -6,3 +6,6 @@ a.stock-data-row:hover { background: #f7faf7; }
 .stock-status-filter { border: 0; outline: 0; background: transparent; color: inherit; font-size: 11px; cursor: pointer; }
 .export-button:disabled { opacity: .5; cursor: not-allowed; }
 .stock-summary small a { color: #2e8064; font-weight: 600; text-decoration: none; }
+/* Más resultados: la tabla se carga por páginas desde el servidor. */
+.stock-more { display: block; width: calc(100% - 32px); margin: 12px 16px 16px; height: 38px; border: 1px dashed #cfdad2; border-radius: 8px; background: #fafcfa; color: #2e8064; font-size: 12px; font-weight: 700; cursor: pointer; }
+.stock-more:disabled { opacity: .6; cursor: default; }

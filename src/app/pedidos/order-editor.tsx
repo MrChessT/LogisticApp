@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Decimal from "decimal.js";
-import { Check, Copy, Mail, MessageCircle, PackageCheck, Plus, Search, Send, Trash2, X, XCircle } from "lucide-react";
+import { Check, Copy, Mail, MessageCircle, PackageCheck, Send, Trash2, X, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { decimalText as num, euros, inputText, normalizeText, parseDecimal as parse } from "@/lib/format";
+import { decimalText as num, euros, inputText, parseDecimal as parse } from "@/lib/format";
+import { purchasePack, type LookupProduct } from "@/lib/product-lookup";
+import { ProductPicker } from "@/components/product-picker/product-picker";
 import { canManage, orderText, orderTotal, saveDraft, STATUS_LABEL, type Order, type OrderLine, type Reference } from "./orders-data";
 
 // Ficha de un pedido. Borrador: se edita y se envía (encargado). Enviado o parcial: se recibe
@@ -43,7 +45,6 @@ export function OrderEditor({
   const [note, setNote] = useState(order?.note ?? "");
   const [expectedDate, setExpectedDate] = useState(order?.expectedDate ?? "");
   const [lines, setLines] = useState<OrderLine[]>(order?.lines ?? []);
-  const [search, setSearch] = useState("");
   const [receive, setReceive] = useState<Record<string, { qty: string; price: string }>>({});
   const [docNumber, setDocNumber] = useState("");
   const [closeOrder, setCloseOrder] = useState(false);
@@ -68,18 +69,22 @@ export function OrderEditor({
   };
   const total = orderTotal(current);
 
-  const results = useMemo(() => {
-    if (search.trim().length < 2) return [];
-    const used = new Set(lines.map((l) => l.packId));
-    return [...reference.packs.values()]
-      .filter((p) => !used.has(p.id) && normalizeText(`${p.productName} ${p.name}`).includes(normalizeText(search)))
-      .slice(0, 8);
-  }, [search, lines, reference.packs]);
+  // Productos que ya están en el pedido (por su formato de compra): no se ofrecen otra vez.
+  const usedPacks = useMemo(() => new Set(lines.map((l) => l.packId)), [lines]);
 
-  function addPack(packId: string) {
-    const price = reference.lastPrices.get(`${supplierId}:${packId}`) ?? "";
-    setLines((ls) => [...ls, { packId, packsQty: "1", packPrice: price ? inputText(price) : "", receivedPacks: "0" }]);
-    setSearch("");
+  /** Añade el producto en su formato de compra, con el último precio de este proveedor. */
+  function addProduct(product: LookupProduct | null) {
+    const pack = product ? purchasePack(product) : null;
+    if (!product || !pack) {
+      if (product) setError(`«${product.name}» no tiene formatos: añádelos en su ficha.`);
+      return;
+    }
+    if (usedPacks.has(pack.id)) return setError(`«${product.name}» ya está en el pedido.`);
+    setError("");
+    setLines((ls) => [
+      ...ls,
+      { packId: pack.id, productName: product.name, packName: pack.name, packsQty: "1", packPrice: pack.price ? inputText(pack.price) : "", receivedPacks: "0" },
+    ]);
   }
 
   function patchLine(packId: string, patch: Partial<OrderLine>) {
@@ -91,7 +96,7 @@ export function OrderEditor({
     if (!supplierId) return "Elige el proveedor.";
     if (lines.length === 0) return "Añade al menos un producto.";
     for (const l of lines) {
-      const name = reference.packs.get(l.packId)?.productName ?? "un producto";
+      const name = l.productName ?? "un producto";
       if (!(parse(l.packsQty) ?? new Decimal(0)).gt(0)) return `Revisa la cantidad de ${name}.`;
       if (l.packPrice.trim() && parse(l.packPrice) === null) return `Revisa el precio de ${name}.`;
     }
@@ -149,7 +154,7 @@ export function OrderEditor({
     const initial: Record<string, { qty: string; price: string }> = {};
     for (const l of lines) {
       const remaining = Decimal.max(0, new Decimal(l.packsQty).minus(l.receivedPacks));
-      initial[l.packId] = { qty: remaining.gt(0) ? inputText(remaining) : "", price: inputText(l.packPrice || (reference.lastPrices.get(`${supplierId}:${l.packId}`) ?? "0")) };
+      initial[l.packId] = { qty: remaining.gt(0) ? inputText(remaining) : "", price: inputText(l.packPrice || "0") };
     }
     setReceive(initial);
     setMode("receive");
@@ -242,7 +247,7 @@ export function OrderEditor({
                 )}
               </div>
               {lines.map((l) => {
-                const pack = reference.packs.get(l.packId);
+                const pack = { productName: l.productName, name: l.packName };
                 const amount = new Decimal(parse(l.packsQty) ?? 0).mul(parse(l.packPrice) ?? 0);
                 if (mode === "receive") {
                   const r = receive[l.packId] ?? { qty: "", price: "" };
@@ -279,20 +284,17 @@ export function OrderEditor({
 
             {mode === "edit" && (
               <div className="order-search">
-                <Search size={15} />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Añadir producto: escribe su nombre" />
-                {results.length > 0 && (
-                  <ul className="order-results">
-                    {results.map((p) => (
-                      <li key={p.id}>
-                        <button type="button" onClick={() => addPack(p.id)}>
-                          <Plus size={13} /> <b>{p.productName}</b> <small>{p.name}</small>
-                          {reference.lastPrices.get(`${supplierId}:${p.id}`) && <em>{euros(reference.lastPrices.get(`${supplierId}:${p.id}`)!)}</em>}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ProductPicker
+                  value={null}
+                  onChange={addProduct}
+                  clearOnSelect
+                  options={{ locationId, supplierId: supplierId || null }}
+                  placeholder="Añadir producto: escribe su nombre o escanea el código"
+                  renderMeta={(p) => {
+                    const pack = purchasePack(p);
+                    return pack ? `${pack.name}${pack.price ? ` · ${euros(pack.price)}` : ""}` : null;
+                  }}
+                />
               </div>
             )}
 

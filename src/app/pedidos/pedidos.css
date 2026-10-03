@@ -18,13 +18,9 @@
 .receive-row { grid-template-columns: minmax(180px, 1.6fr) 70px 90px 100px 120px; }
 .order-row > span:first-child small, .receive-row > span:first-child small, .suggest-row > span small { display: block; margin-top: 2px; color: #8a978f; font-size: 10px; }
 .order-row input, .receive-row input { text-align: right; }
-.order-search { position: relative; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; color: #96a29a; border: 1px dashed #cfdad2; border-radius: 8px; }
-.order-search input { flex: 1; height: 34px; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
-.order-results { position: absolute; z-index: 5; top: 40px; left: 0; right: 0; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #dfe7e1; border-radius: 9px; box-shadow: 0 12px 30px rgba(26, 55, 37, .12); }
-.order-results button { width: 100%; display: flex; align-items: center; gap: 6px; padding: 8px 9px; text-align: left; color: #24372d; background: transparent; border-radius: 6px; font-size: 12px; }
-.order-results button:hover { background: #f1f6f2; }
-.order-results small { color: #8a978f; }
-.order-results em { margin-left: auto; color: #2e8064; font-style: normal; font-weight: 600; }
+/* Añadir producto: buscador en el servidor (components/product-picker). */
+.order-search { position: relative; margin-top: 8px; }
+.order-search .product-picker-field { border-style: dashed; border-color: #cfdad2; }
 .order-total { margin: 4px 0 0; text-align: right; color: #53655a; font-size: 12px; }
 .order-total b { color: #24372d; font-size: 14px; }
 .receive-extra { margin-top: 10px; align-items: end; }
