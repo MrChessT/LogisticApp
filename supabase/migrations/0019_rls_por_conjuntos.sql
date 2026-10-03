@@ -37,39 +37,57 @@ grant execute on function my_manager_org_ids(), my_admin_org_ids(), my_managed_l
 -- Tablas de organización ----------------------------------------------------------------------
 
 drop policy if exists cat_write on categories;
+drop policy if exists cat_insert on categories;
 create policy cat_insert on categories for insert with check (org_id in (select my_manager_org_ids()));
+drop policy if exists cat_update on categories;
 create policy cat_update on categories for update
   using (org_id in (select my_manager_org_ids())) with check (org_id in (select my_manager_org_ids()));
+drop policy if exists cat_delete on categories;
 create policy cat_delete on categories for delete using (org_id in (select my_manager_org_ids()));
 
 drop policy if exists sup_write on suppliers;
+drop policy if exists sup_insert on suppliers;
 create policy sup_insert on suppliers for insert with check (org_id in (select my_manager_org_ids()));
+drop policy if exists sup_update on suppliers;
 create policy sup_update on suppliers for update
   using (org_id in (select my_manager_org_ids())) with check (org_id in (select my_manager_org_ids()));
+drop policy if exists sup_delete on suppliers;
 create policy sup_delete on suppliers for delete using (org_id in (select my_manager_org_ids()));
 
 drop policy if exists prod_write on products;
+drop policy if exists prod_insert on products;
 create policy prod_insert on products for insert with check (org_id in (select my_manager_org_ids()));
+drop policy if exists prod_update on products;
 create policy prod_update on products for update
   using (org_id in (select my_manager_org_ids())) with check (org_id in (select my_manager_org_ids()));
+drop policy if exists prod_delete on products;
 create policy prod_delete on products for delete using (org_id in (select my_manager_org_ids()));
 
 drop policy if exists loc_write on locations;
+drop policy if exists loc_insert on locations;
 create policy loc_insert on locations for insert with check (org_id in (select my_admin_org_ids()));
+drop policy if exists loc_update on locations;
 create policy loc_update on locations for update
   using (org_id in (select my_admin_org_ids())) with check (org_id in (select my_admin_org_ids()));
+drop policy if exists loc_delete on locations;
 create policy loc_delete on locations for delete using (org_id in (select my_admin_org_ids()));
 
 drop policy if exists mem_write on memberships;
+drop policy if exists mem_insert on memberships;
 create policy mem_insert on memberships for insert with check (org_id in (select my_admin_org_ids()));
+drop policy if exists mem_update on memberships;
 create policy mem_update on memberships for update
   using (org_id in (select my_admin_org_ids())) with check (org_id in (select my_admin_org_ids()));
+drop policy if exists mem_delete on memberships;
 create policy mem_delete on memberships for delete using (org_id in (select my_admin_org_ids()));
 
 drop policy if exists memloc_write on membership_locations;
+drop policy if exists memloc_insert on membership_locations;
 create policy memloc_insert on membership_locations for insert with check (org_id in (select my_admin_org_ids()));
+drop policy if exists memloc_update on membership_locations;
 create policy memloc_update on membership_locations for update
   using (org_id in (select my_admin_org_ids())) with check (org_id in (select my_admin_org_ids()));
+drop policy if exists memloc_delete on membership_locations;
 create policy memloc_delete on membership_locations for delete using (org_id in (select my_admin_org_ids()));
 
 -- Formatos y precios (dependen del producto / proveedor) -------------------------------------
@@ -79,11 +97,14 @@ create policy pack_select on product_packs for select
   using (product_id in (select id from products where org_id in (select my_org_ids())));
 
 drop policy if exists pack_write on product_packs;
+drop policy if exists pack_insert on product_packs;
 create policy pack_insert on product_packs for insert
   with check (product_id in (select id from products where org_id in (select my_manager_org_ids())));
+drop policy if exists pack_update on product_packs;
 create policy pack_update on product_packs for update
   using (product_id in (select id from products where org_id in (select my_manager_org_ids())))
   with check (product_id in (select id from products where org_id in (select my_manager_org_ids())));
+drop policy if exists pack_delete on product_packs;
 create policy pack_delete on product_packs for delete
   using (product_id in (select id from products where org_id in (select my_manager_org_ids())));
 
@@ -92,11 +113,14 @@ create policy sprice_select on supplier_prices for select
   using (supplier_id in (select id from suppliers where org_id in (select my_org_ids())));
 
 drop policy if exists sprice_write on supplier_prices;
+drop policy if exists sprice_insert on supplier_prices;
 create policy sprice_insert on supplier_prices for insert
   with check (supplier_id in (select id from suppliers where org_id in (select my_manager_org_ids())));
+drop policy if exists sprice_update on supplier_prices;
 create policy sprice_update on supplier_prices for update
   using (supplier_id in (select id from suppliers where org_id in (select my_manager_org_ids())))
   with check (supplier_id in (select id from suppliers where org_id in (select my_manager_org_ids())));
+drop policy if exists sprice_delete on supplier_prices;
 create policy sprice_delete on supplier_prices for delete
   using (supplier_id in (select id from suppliers where org_id in (select my_manager_org_ids())));
 
@@ -107,20 +131,26 @@ create policy phist_select on price_history for select
 -- Tablas por local ------------------------------------------------------------------------------
 
 drop policy if exists locprod_write on location_products;
+drop policy if exists locprod_insert on location_products;
 create policy locprod_insert on location_products for insert
   with check (location_id in (select my_managed_location_ids()));
+drop policy if exists locprod_update on location_products;
 create policy locprod_update on location_products for update
   using (location_id in (select my_managed_location_ids()))
   with check (location_id in (select my_managed_location_ids()));
+drop policy if exists locprod_delete on location_products;
 create policy locprod_delete on location_products for delete
   using (location_id in (select my_managed_location_ids()));
 
 drop policy if exists area_write on storage_areas;
+drop policy if exists area_insert on storage_areas;
 create policy area_insert on storage_areas for insert
   with check (location_id in (select my_managed_location_ids()));
+drop policy if exists area_update on storage_areas;
 create policy area_update on storage_areas for update
   using (location_id in (select my_managed_location_ids()))
   with check (location_id in (select my_managed_location_ids()));
+drop policy if exists area_delete on storage_areas;
 create policy area_delete on storage_areas for delete
   using (location_id in (select my_managed_location_ids()));
 
@@ -135,14 +165,17 @@ create policy cntl_select on count_lines for select
   using (count_id in (select id from inventory_counts where location_id in (select my_location_ids())));
 
 drop policy if exists cntl_write on count_lines;
+drop policy if exists cntl_insert on count_lines;
 create policy cntl_insert on count_lines for insert
   with check (count_id in (select id from inventory_counts
                            where status = 'open' and location_id in (select my_location_ids())));
+drop policy if exists cntl_update on count_lines;
 create policy cntl_update on count_lines for update
   using (count_id in (select id from inventory_counts
                       where status = 'open' and location_id in (select my_location_ids())))
   with check (count_id in (select id from inventory_counts
                            where status = 'open' and location_id in (select my_location_ids())));
+drop policy if exists cntl_delete on count_lines;
 create policy cntl_delete on count_lines for delete
   using (count_id in (select id from inventory_counts
                       where status = 'open' and location_id in (select my_location_ids())));
@@ -156,14 +189,17 @@ create policy rcpl_select on receipt_lines for select
   using (receipt_id in (select id from goods_receipts where location_id in (select my_location_ids())));
 
 drop policy if exists rcpl_write on receipt_lines;
+drop policy if exists rcpl_insert on receipt_lines;
 create policy rcpl_insert on receipt_lines for insert
   with check (receipt_id in (select id from goods_receipts
                              where status = 'open' and location_id in (select my_location_ids())));
+drop policy if exists rcpl_update on receipt_lines;
 create policy rcpl_update on receipt_lines for update
   using (receipt_id in (select id from goods_receipts
                         where status = 'open' and location_id in (select my_location_ids())))
   with check (receipt_id in (select id from goods_receipts
                              where status = 'open' and location_id in (select my_location_ids())));
+drop policy if exists rcpl_delete on receipt_lines;
 create policy rcpl_delete on receipt_lines for delete
   using (receipt_id in (select id from goods_receipts
                         where status = 'open' and location_id in (select my_location_ids())));
@@ -173,14 +209,17 @@ create policy pol_select on purchase_order_lines for select
   using (order_id in (select id from purchase_orders where location_id in (select my_location_ids())));
 
 drop policy if exists pol_write on purchase_order_lines;
+drop policy if exists pol_insert on purchase_order_lines;
 create policy pol_insert on purchase_order_lines for insert
   with check (order_id in (select id from purchase_orders
                            where status = 'draft' and location_id in (select my_location_ids())));
+drop policy if exists pol_update on purchase_order_lines;
 create policy pol_update on purchase_order_lines for update
   using (order_id in (select id from purchase_orders
                       where status = 'draft' and location_id in (select my_location_ids())))
   with check (order_id in (select id from purchase_orders
                            where status = 'draft' and location_id in (select my_location_ids())));
+drop policy if exists pol_delete on purchase_order_lines;
 create policy pol_delete on purchase_order_lines for delete
   using (order_id in (select id from purchase_orders
                       where status = 'draft' and location_id in (select my_location_ids())));
@@ -192,14 +231,17 @@ create policy trl_select on transfer_lines for select
                             or to_location_id in (select my_location_ids())));
 
 drop policy if exists trl_write on transfer_lines;
+drop policy if exists trl_insert on transfer_lines;
 create policy trl_insert on transfer_lines for insert
   with check (transfer_id in (select id from transfers
                               where status = 'draft' and from_location_id in (select my_location_ids())));
+drop policy if exists trl_update on transfer_lines;
 create policy trl_update on transfer_lines for update
   using (transfer_id in (select id from transfers
                          where status = 'draft' and from_location_id in (select my_location_ids())))
   with check (transfer_id in (select id from transfers
                               where status = 'draft' and from_location_id in (select my_location_ids())));
+drop policy if exists trl_delete on transfer_lines;
 create policy trl_delete on transfer_lines for delete
   using (transfer_id in (select id from transfers
                          where status = 'draft' and from_location_id in (select my_location_ids())));
