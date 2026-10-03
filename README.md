@@ -1,4 +1,4 @@
-# Nexo Copiloto
+# LogisticApp
 
 Inventario multilocal para hostelería con un asistente que decide con **Jev** (TypeSafe AI).
 Cliente de referencia: Parador Eventos (Parador, Pickels, Vivero y La Oliva).

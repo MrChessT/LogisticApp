@@ -3,7 +3,7 @@ import { LruCache } from "@/copiloto/cache/lru";
 import { handleCopiloto } from "@/copiloto/http";
 import { createClient } from "@/lib/supabase/server";
 
-// Asistente (Nexo Copiloto) integrado en la app: mismo despliegue, sin servicio aparte.
+// Asistente de LogisticApp integrado en la app: mismo despliegue, sin servicio aparte.
 // El usuario se identifica con su sesión de Supabase (cookies) y todo se ejecuta con su JWT.
 
 export const dynamic = "force-dynamic";

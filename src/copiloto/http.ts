@@ -29,7 +29,7 @@ export interface RequestUser extends AuthUser {
 }
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "X-Nexo-Contract": CONTRACT_VERSION, ...headers } });
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "X-LogisticApp-Contract": CONTRACT_VERSION, ...headers } });
 
 const fail = (status: number, error: ErrorEvent, headers: Record<string, string> = {}) => json(error, status, headers);
 
@@ -133,7 +133,7 @@ async function chat(request: Request, user: RequestUser): Promise<Response> {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
-      "X-Nexo-Contract": CONTRACT_VERSION,
+      "X-LogisticApp-Contract": CONTRACT_VERSION,
     },
   });
 }

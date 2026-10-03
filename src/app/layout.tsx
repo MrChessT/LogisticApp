@@ -8,9 +8,9 @@ const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans", display: "sw
 const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Nexo | Inventario inteligente", template: "%s | Nexo" },
+  title: { default: "LogisticApp | Inventario inteligente", template: "%s | LogisticApp" },
   description: "Control de stock multilocal para hostelería",
-  applicationName: "Nexo",
+  applicationName: "LogisticApp",
   // App privada: nada que indexar.
   robots: { index: false, follow: false },
 };

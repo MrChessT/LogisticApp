@@ -1,4 +1,4 @@
-# Contrato Nexo Copiloto ↔ Nexo Inventario
+# Contrato asistente ↔ app (LogisticApp)
 
 Versión del contrato: **1.0.0-draft**. La app solo depende de este documento. El servicio publica estos mismos tipos en `src/contract/` (TypeScript + zod) y valida con ellos toda la entrada y la salida.
 
@@ -11,7 +11,7 @@ Versión del contrato: **1.0.0-draft**. La app solo depende de este documento. E
 - **Probabilidades y confianza:** `number` entre 0 y 1. No son cantidades de inventario.
 - **Fechas:** ISO 8601 con zona horaria (`2026-09-23T10:15:00+02:00`). Los días de negocio van como `YYYY-MM-DD`.
 - **Idioma:** los textos para mostrar (`label`, `text`, `message`) llegan ya en español.
-- **Compatibilidad:** los campos nuevos serán opcionales. Un cambio incompatible sube la versión mayor, que el servicio anuncia en la cabecera `X-Nexo-Contract`.
+- **Compatibilidad:** los campos nuevos serán opcionales. Un cambio incompatible sube la versión mayor, que el servicio anuncia en la cabecera `X-LogisticApp-Contract`.
 
 ## Tipos comunes
 

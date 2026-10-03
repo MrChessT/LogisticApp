@@ -564,7 +564,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     <main className="operations-page">
       <header className="operations-topbar">
         <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="operations-brand"><span>NEXO</span> · {titles[kind]}</span>
+        <span className="operations-brand"><span>LogisticApp</span> · {titles[kind]}</span>
         <span />
       </header>
       <div className="operations-content">

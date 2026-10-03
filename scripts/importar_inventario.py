@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Importa a Nexo un inventario exportado de otro sistema (informes «Inventario» y «Almacén detallado» en .xlsx).
+"""Importa a LogisticApp un inventario exportado de otro sistema (informes «Inventario» y «Almacén detallado» en .xlsx).
 
 Uso:
     pip install openpyxl
@@ -7,7 +7,7 @@ Uso:
 
 Genera un script SQL (una transacción, repetible) que:
   · crea o reutiliza los productos con nombre limpio, familia → tipo, unidad de medida y formatos
-    (botella, caja, kg…) coherentes con las convenciones de Nexo;
+    (botella, caja, kg…) coherentes con las convenciones de LogisticApp;
   · crea los espacios de almacén de cada local (Bebidas, Comida, Sala…);
   · carga el stock contado como APERTURA (movimiento inmutable) por local y espacio, valorado al coste
     unitario del inventario cuando lo hay;
@@ -43,7 +43,7 @@ from collections import Counter, defaultdict
 
 warnings.filterwarnings("ignore")
 
-# Familias de Nexo (mismo orden que el catálogo y la hoja de inventario).
+# Familias de LogisticApp (mismo orden que el catálogo y la hoja de inventario).
 FAMILIES = [
     "Destilados", "Champán", "Vinos", "Cervezas", "Refrescos y mixers", "Energéticas", "Aguas",
     "Zumos y siropes", "Café e infusiones", "Hielo", "Fruta y guarnición", "Snacks y picoteo", "Comida",
@@ -52,7 +52,7 @@ FAMILIES = [
 
 ALCOHOL_FAMILIES = {"Destilados", "Champán", "Vinos"}
 
-# Familia del sistema de origen → (familia, tipo) de Nexo. El tipo de destilados sale del nombre.
+# Familia del sistema de origen → (familia, tipo) de LogisticApp. El tipo de destilados sale del nombre.
 SOURCE_FAMILY = {
     "licores": ("Destilados", None),
     "vinos tintos": ("Vinos", "Tinto"),
@@ -111,7 +111,7 @@ SPIRIT_TYPES = [
     (r"\bvermu|\bvermut\b|\bmartini\b|\bcarpano\b", "Vermut"),
 ]
 
-# Almacén del sistema de origen → espacio del local en Nexo.
+# Almacén del sistema de origen → espacio del local en LogisticApp.
 AREAS = [("BEBIDAS", "Bebidas"), ("COMIDA", "Comida"), ("SALA", "Sala"), ("CRISTALERIA", "Menaje")]
 
 MINOR_WORDS = {"de", "del", "la", "las", "el", "los", "y", "con", "sin", "al", "a", "en", "da", "do"}
@@ -334,7 +334,7 @@ def build(folder: str, fixes: dict) -> tuple[list[dict], list[dict]]:
             label = {"Uni": "Unidad", "Bote": "Bote", "Bolsa": "Bolsa", "Lata": "Lata", "Caja": "Caja", "Bandeja": "Bandeja", "Cubo": "Cubo", "Paquete": "Paquete", "Botella": "Botella"}.get(unit, "Unidad")
             packs.append({"name": label, "qty": 1, "count": True, "purchase": True})
 
-        # Productos que ya están en Nexo: se reutilizan (no se duplica ni se cambia su unidad).
+        # Productos que ya están en LogisticApp: se reutilizan (no se duplica ni se cambia su unidad).
         existing_name = fix(existing)
         if not existing_name and norm(name) in taken:
             name = f"{name} ({'kg' if dimension == 'mass' else 'L' if dimension == 'volume' else 'ud'})"
@@ -433,7 +433,7 @@ begin
 
   -- Locales y espacios.
   if exists (select 1 from imp_stock s where not exists (select 1 from locations l where l.org_id = v_org and l.name = s.venue)) then
-    raise exception 'Hay locales del inventario que no existen en Nexo: %',
+    raise exception 'Hay locales del inventario que no existen en LogisticApp: %',
       (select string_agg(distinct venue, ', ') from imp_stock s where not exists (select 1 from locations l where l.org_id = v_org and l.name = s.venue));
   end if;
   insert into storage_areas (location_id, name, sort_order)
@@ -525,7 +525,7 @@ def main() -> None:
     if len(sys.argv) > 4:
         with open(sys.argv[4], "w", encoding="utf-8", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["Producto en Nexo", "Ya existía", "Familia", "Tipo", "Se mide en", "Formatos", "Supuesto", "Notas", "Nombres en el origen"])
+            w.writerow(["Producto en LogisticApp", "Ya existía", "Familia", "Tipo", "Se mide en", "Formatos", "Supuesto", "Notas", "Nombres en el origen"])
             for p in sorted(products, key=lambda x: (FAMILIES.index(x["family"]) if x["family"] in FAMILIES else 99, x["type"] or "", x["name"])):
                 w.writerow([
                     p["existing"] or p["name"], "sí" if p["existing"] else "", p["family"], p["type"] or "",

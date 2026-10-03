@@ -1,4 +1,4 @@
-# Nexo Copiloto: propuesta de arquitectura (fase 1)
+# Asistente de LogisticApp: propuesta de arquitectura (fase 1)
 
 ## Decisiones tomadas con tus respuestas
 
