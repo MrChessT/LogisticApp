@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +13,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Un enlace de acceso caducado o ya usado vuelve aquí con ?error=enlace.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("error") !== "enlace") return;
+    const timer = window.setTimeout(() => setMessage("Ese enlace ya se usó o ha caducado. Entra con tu contraseña o pide un enlace nuevo a tu encargado."), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

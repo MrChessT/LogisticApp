@@ -564,6 +564,39 @@ export type Database = {
         }>;
       };
       create_organization: { Args: { p_name: string; p_business_type?: string }; Returns: string };
+      team_members: {
+        Args: { p_org?: string | null };
+        Returns: Array<{
+          user_id: string;
+          full_name: string | null;
+          email: string | null;
+          role: "owner" | "admin" | "manager" | "staff";
+          all_locations: boolean;
+          location_ids: string[];
+          last_sign_in_at: string | null;
+          pending: boolean;
+          created_at: string;
+          is_self: boolean;
+          can_edit: boolean;
+        }>;
+      };
+      team_check_assign: {
+        Args: { p_role: "owner" | "admin" | "manager" | "staff"; p_all_locations: boolean; p_locations: string[]; p_org?: string | null };
+        Returns: string;
+      };
+      team_set_member: {
+        Args: {
+          p_user: string;
+          p_role: "owner" | "admin" | "manager" | "staff";
+          p_all_locations?: boolean;
+          p_locations?: string[];
+          p_full_name?: string | null;
+          p_org?: string | null;
+        };
+        Returns: undefined;
+      };
+      team_remove_member: { Args: { p_user: string; p_org?: string | null }; Returns: undefined };
+      auth_user_id_by_email: { Args: { p_email: string }; Returns: string | null };
       product_lookup: {
         Args: { p_search?: string | null; p_location?: string | null; p_supplier?: string | null; p_limit?: number };
         Returns: Json;

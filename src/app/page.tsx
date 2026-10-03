@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Truck,
+  Users,
   Warehouse,
   X,
   XCircle,
@@ -47,7 +48,7 @@ type HomeStockRow = {
 };
 
 type Location = { id: string; name: string };
-type Identity = { name: string; initials: string; role: string; org: string; locations: Location[] };
+type Identity = { name: string; initials: string; role: string; roleKey: string; org: string; locations: Location[] };
 
 type DashboardStockRow = {
   name: string;
@@ -71,7 +72,7 @@ type MovementType = "opening" | "purchase" | "consumption" | "waste" | "transfer
 
 type BrowserClient = NonNullable<ReturnType<typeof createClient>>;
 
-const ROLE_LABEL: Record<string, string> = { owner: "Propietario", admin: "Administrador", manager: "Encargado", staff: "Equipo" };
+const ROLE_LABEL: Record<string, string> = { owner: "Propietario", admin: "Administrador", manager: "Encargado", staff: "Personal" };
 
 const movementIcon: Record<MovementType, typeof Truck> = {
   purchase: ShoppingCart,
@@ -145,6 +146,7 @@ async function loadIdentity(supabase: BrowserClient): Promise<Identity | null> {
     name,
     initials: initialsOf(name),
     role: ROLE_LABEL[member?.role ?? ""] ?? "",
+    roleKey: member?.role ?? "",
     org: member?.organizations?.name ?? "Tu organización",
     locations: (locations.data ?? []) as Location[],
   };
@@ -301,7 +303,8 @@ export default function Dashboard() {
       }
       setIdentity(loaded);
       const stored = readLocation();
-      setLocation(loaded.locations.some((l) => l.id === stored) ? stored : "");
+      // Con un solo local no hay «todos»: se abre directamente el suyo.
+      setLocation(loaded.locations.length === 1 ? loaded.locations[0]!.id : loaded.locations.some((l) => l.id === stored) ? stored : "");
     }
     void start();
   }, []);
@@ -404,6 +407,9 @@ export default function Dashboard() {
           <Link className="nav-item" href="/productos"><Package size={18} /><span>Productos</span></Link>
           <Link className="nav-item" href="/proveedores"><Truck size={18} /><span>Proveedores</span></Link>
           <Link className="nav-item" href={withLocal("/informes")}><SlidersHorizontal size={18} /><span>Informes</span></Link>
+          {identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
+            <Link className="nav-item" href="/equipo"><Users size={18} /><span>Equipo</span></Link>
+          )}
         </nav>
 
         <div className="sidebar-bottom">
@@ -437,7 +443,7 @@ export default function Dashboard() {
               <div className="location-select">
                 <Warehouse size={17} />
                 <select value={location} onChange={(event) => changeLocation(event.target.value)} aria-label="Seleccionar local">
-                  <option value="">Todos los locales</option>
+                  {(identity?.locations.length ?? 0) !== 1 && <option value="">{identity && ["owner", "admin"].includes(identity.roleKey) ? "Todos los locales" : "Mis locales"}</option>}
                   {identity?.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                 </select>
                 <ChevronDown size={15} />

@@ -228,7 +228,7 @@ export default function StockPage() {
     setLocation(id);
   }
 
-  const locationLabel = locations.find((l) => l.id === location)?.name ?? "todos los locales";
+  const locationLabel = locations.find((l) => l.id === location)?.name ?? (locations.length === 1 ? locations[0]!.name : "todos los locales");
   const allLocations = !location;
 
   return (
@@ -243,7 +243,7 @@ export default function StockPage() {
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
-            <p className="eyebrow">Existencias · {allLocations ? "Todos los locales" : locationLabel}</p>
+            <p className="eyebrow">Existencias · {allLocations && locations.length !== 1 ? "Todos los locales" : locationLabel}</p>
             <h1>Stock</h1>
             <p className="catalog-subtitle">Lo que tienes, lo que vale y lo que está por debajo del mínimo.</p>
           </div>
@@ -251,8 +251,9 @@ export default function StockPage() {
             <div className="stock-location">
               <Warehouse size={16} />
               <select value={location ?? ""} onChange={(event) => changeLocation(event.target.value)} aria-label="Local">
-                <option value="">Todos los locales</option>
-                {locations.map((l) => (
+                {/* Con un único local, «todos» es ese local: no se repite. */}
+                <option value="">{locations.length === 1 ? locations[0]!.name : "Todos los locales"}</option>
+                {locations.length > 1 && locations.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>
