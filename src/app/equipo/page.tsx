@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, KeyRound, Mail, MessageCircle, Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, KeyRound, Mail, MessageCircle, Plus, Search, ShieldCheck, Tablet, Trash2, UserPlus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { daysAgo, normalizeText } from "@/lib/format";
-import { assignableRoles, managesTeam, ROLE_HELP, ROLE_LABEL, seesAllLocations, teamErrorMessage, type Role } from "@/lib/team";
+import { assignableRoles, managesScreens, managesTeam, ROLE_HELP, ROLE_LABEL, seesAllLocations, teamErrorMessage, type Role } from "@/lib/team";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./equipo.css";
@@ -15,6 +15,7 @@ import "./equipo.css";
 //   Administración (propietario, administrador): todos los locales; gestiona encargados y personal.
 //   Encargado: solo sus locales; gestiona al personal de sus locales.
 //   Personal: no ve esta pantalla.
+// Pantallas de almacén (migración 0024): una cuenta por tablet, en un local, que solo apunta salidas.
 
 type Member = {
   userId: string;
@@ -27,6 +28,7 @@ type Member = {
   pending: boolean;
   isSelf: boolean;
   canEdit: boolean;
+  canValidate: boolean;
 };
 type Location = { id: string; name: string };
 type Filter = "todos" | "direccion" | "manager" | "staff" | "pendientes";
@@ -58,6 +60,7 @@ async function loadTeam(): Promise<{ actor: Role | null; members: Member[]; loca
       pending: m.pending,
       isSelf: m.is_self,
       canEdit: m.can_edit,
+      canValidate: m.can_validate ?? false,
     })),
   };
 }
@@ -78,6 +81,7 @@ export default function TeamPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("todos");
   const [editing, setEditing] = useState<Member | "new" | null>(null);
+  const [editingScreen, setEditingScreen] = useState<Member | "new" | null>(null);
   const [notice, setNotice] = useState("");
 
   async function reload() {
@@ -101,8 +105,11 @@ export default function TeamPage() {
   }, []);
 
   const locationName = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
+  // Las pantallas no son personas: van en su propia sección.
+  const people = useMemo(() => (members ?? []).filter((m) => m.role !== "kiosk"), [members]);
+  const screens = useMemo(() => (members ?? []).filter((m) => m.role === "kiosk"), [members]);
   const counts = useMemo(() => {
-    const list = members ?? [];
+    const list = people;
     return {
       todos: list.length,
       direccion: list.filter((m) => m.role === "owner" || m.role === "admin").length,
@@ -110,8 +117,8 @@ export default function TeamPage() {
       staff: list.filter((m) => m.role === "staff").length,
       pendientes: list.filter((m) => m.pending).length,
     };
-  }, [members]);
-  const visible = (members ?? []).filter(
+  }, [people]);
+  const visible = people.filter(
     (m) =>
       (filter === "todos" ||
         (filter === "direccion" && (m.role === "owner" || m.role === "admin")) ||
@@ -120,6 +127,7 @@ export default function TeamPage() {
       (!query || normalizeText(`${m.name} ${m.email}`).includes(normalizeText(query))),
   );
   const canInvite = assignableRoles(actor).length > 0;
+  const canScreens = managesScreens(actor);
   const admin = seesAllLocations(actor);
 
   if (actor !== undefined && !managesTeam(actor)) {
@@ -231,6 +239,33 @@ export default function TeamPage() {
             )}
           </div>
         </section>
+        {canScreens && (
+          <section className="catalog-panel team-screens">
+            <header className="team-screens-head">
+              <div>
+                <h2><Tablet size={17} /> Pantallas de almacén</h2>
+                <p>Tablets fijas en el almacén: apuntan lo que sale a barra sin ver precios ni nada más. Lo apuntado queda pendiente hasta que alguien con PIN lo valida.</p>
+              </div>
+              <button className="ghost-button" onClick={() => setEditingScreen("new")}><Plus size={15} /> Añadir pantalla</button>
+            </header>
+            {screens.length === 0 ? (
+              <p className="team-screens-empty">Todavía no hay ninguna. Añade una y abre su enlace en la tablet del almacén.</p>
+            ) : (
+              <div className="team-screen-list">
+                {screens.map((m) => (
+                  <button key={m.userId} className="team-screen" onClick={() => m.canEdit && setEditingScreen(m)} disabled={!m.canEdit}>
+                    <span className="team-screen-icon"><Tablet size={18} /></span>
+                    <span className="team-screen-copy">
+                      <strong>{m.name}</strong>
+                      <small>{m.locationIds.map((id) => locationName.get(id) ?? "Otro local").join(", ")}</small>
+                    </span>
+                    {m.pending ? <span className="team-pending">Sin abrir aún</span> : <small className="team-screen-seen">{m.lastSignIn ? `Vinculada ${daysAgo(m.lastSignIn).toLowerCase()}` : "Vinculada"}</small>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
         <p className="team-footnote">
           Lo que ve cada uno lo decide la base de datos: la administración ve todos los locales; encargados y personal, solo los suyos, también en informes y en el asistente.
         </p>
@@ -242,6 +277,17 @@ export default function TeamPage() {
           member={editing === "new" ? null : editing}
           locations={locations}
           onClose={() => setEditing(null)}
+          onChanged={(message) => {
+            setNotice(message);
+            void reload();
+          }}
+        />
+      )}
+      {editingScreen && (
+        <ScreenEditor
+          screen={editingScreen === "new" ? null : editingScreen}
+          locations={locations}
+          onClose={() => setEditingScreen(null)}
           onChanged={(message) => {
             setNotice(message);
             void reload();
@@ -270,12 +316,12 @@ function MemberEditor({
   const [email, setEmail] = useState(member?.email ?? "");
   const [role, setRole] = useState<Role>(member?.role ?? (roles.includes("staff") ? "staff" : roles[0]!));
   const [allLocations, setAllLocations] = useState(member?.allLocations ?? false);
+  const [canValidate, setCanValidate] = useState(member?.canValidate ?? false);
   const [selected, setSelected] = useState<Set<string>>(new Set(member?.locationIds ?? (locations.length === 1 ? [locations[0]!.id] : [])));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [invite, setInvite] = useState<{ link: string; name: string; existing: boolean } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const needsLocations = role === "manager" || role === "staff";
   const canAllLocations = seesAllLocations(actor);
@@ -300,7 +346,12 @@ function MemberEditor({
     if (invalid) return setError(invalid);
     setSaving(true);
     setError("");
-    const body = { role, allLocations: needsLocations ? allLocations : true, locationIds: needsLocations && !allLocations ? [...selected] : [] };
+    const body = {
+      role,
+      allLocations: needsLocations ? allLocations : true,
+      locationIds: needsLocations && !allLocations ? [...selected] : [],
+      canValidate: role === "staff" ? canValidate : undefined,
+    };
     try {
       if (!member) {
         const res = await fetch("/api/equipo/invitar", {
@@ -327,6 +378,7 @@ function MemberEditor({
           p_all_locations: body.allLocations,
           p_locations: body.locationIds,
           p_full_name: name.trim() && name.trim() !== member.name ? name.trim() : null,
+          p_can_validate: role === "staff" ? canValidate : null,
         });
         if (err) throw new Error(teamErrorMessage(err));
         onChanged(`Acceso de ${name.trim() || member.name} actualizado.`);
@@ -371,15 +423,6 @@ function MemberEditor({
     ? `Hola ${invite.name.split(" ")[0]}: te doy acceso a LogisticApp como ${ROLE_LABEL[role].toLowerCase()} (${placeNames}). Entra con este enlace y ponte una contraseña: ${invite.link}`
     : "";
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(invite?.link ?? "");
-      setCopied(true);
-    } catch {
-      setError("No se pudo copiar: selecciona el enlace y cópialo a mano.");
-    }
-  }
-
   return (
     <div className="modal-layer editor-layer" onClick={() => !saving && onClose()}>
       <section className="product-editor team-editor" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={member ? "Acceso de una persona" : "Invitar persona"}>
@@ -397,14 +440,7 @@ function MemberEditor({
               Envía este enlace a <b>{invite.name}</b>. Al abrirlo entra directamente y se pone su contraseña. Sirve una sola vez y caduca:
               si no le funciona, genera otro desde su ficha.
             </p>
-            <div className="team-link">
-              <input readOnly value={invite.link} onFocus={(event) => event.target.select()} aria-label="Enlace de acceso" />
-              <button className="catalog-primary" onClick={() => void copy()}>{copied ? <><Check size={15} /> Copiado</> : <><Copy size={15} /> Copiar</>}</button>
-            </div>
-            <div className="team-share">
-              <a className="ghost-button" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer"><MessageCircle size={15} /> Enviar por WhatsApp</a>
-              {email && <a className="ghost-button" href={`mailto:${email}?subject=${encodeURIComponent("Tu acceso a LogisticApp")}&body=${encodeURIComponent(message)}`}><Mail size={15} /> Enviar por email</a>}
-            </div>
+            <ShareLink link={invite.link} message={message} email={email} onError={setError} />
           </div>
         ) : (
           <div className="editor-body">
@@ -448,6 +484,15 @@ function MemberEditor({
                 )}
               </div>
             )}
+            {role === "staff" && (
+              <div className="editor-section">
+                <p className="facet-title">Almacén</p>
+                <label className="check-option">
+                  <input type="checkbox" checked={canValidate} onChange={(event) => setCanValidate(event.target.checked)} /> Puede validar salidas del almacén
+                </label>
+                <p className="section-hint">Con su PIN (lo pone en «Tu cuenta») confirma lo que se ha sacado para que pase al stock. Los encargados pueden siempre.</p>
+              </div>
+            )}
             {member?.pending && <p className="section-hint team-pending-hint">Todavía no ha entrado nunca. Si su enlace caducó, genera uno nuevo.</p>}
             {member && !member.pending && member.lastSignIn && <p className="section-hint">Último acceso {daysAgo(member.lastSignIn).toLowerCase()}.</p>}
           </div>
@@ -482,6 +527,219 @@ function MemberEditor({
               <div className="footer-right">
                 <button className="catalog-primary" disabled={saving} onClick={() => void submit()}>
                   {saving ? "Guardando..." : member ? "Guardar cambios" : <><UserPlus size={15} /> Invitar</>}
+                </button>
+              </div>
+            </>
+          )}
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+/** Enlace de acceso para copiar o enviar (WhatsApp, email). */
+function ShareLink({ link, message, email, onError }: { link: string; message: string; email?: string; onError: (message: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+    } catch {
+      onError("No se pudo copiar: selecciona el enlace y cópialo a mano.");
+    }
+  }
+  return (
+    <>
+      <div className="team-link">
+        <input readOnly value={link} onFocus={(event) => event.target.select()} aria-label="Enlace de acceso" />
+        <button className="catalog-primary" onClick={() => void copy()}>{copied ? <><Check size={15} /> Copiado</> : <><Copy size={15} /> Copiar</>}</button>
+      </div>
+      <div className="team-share">
+        <a className="ghost-button" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer"><MessageCircle size={15} /> Enviar por WhatsApp</a>
+        {email && <a className="ghost-button" href={`mailto:${email}?subject=${encodeURIComponent("Tu acceso a LogisticApp")}&body=${encodeURIComponent(message)}`}><Mail size={15} /> Enviar por email</a>}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Ficha de una pantalla de almacén: nombre, local, enlace para vincular la tablet y quitarla.
+ * El enlace se puede pedir siempre (tablet nueva, sesión cerrada): la cuenta solo entra en /almacen.
+ */
+function ScreenEditor({
+  screen,
+  locations,
+  onClose,
+  onChanged,
+}: {
+  screen: Member | null;
+  locations: Location[];
+  onClose: () => void;
+  onChanged: (message: string) => void;
+}) {
+  const [locationId, setLocationId] = useState(screen?.locationIds[0] ?? (locations.length === 1 ? locations[0]!.id : ""));
+  const defaultName = (id: string) => `Pantalla · ${locations.find((l) => l.id === id)?.name ?? "almacén"}`;
+  const [name, setName] = useState(screen?.name ?? (locationId ? defaultName(locationId) : ""));
+  const [nameTouched, setNameTouched] = useState(!!screen);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
+
+  function pickLocation(id: string) {
+    setLocationId(id);
+    if (!nameTouched) setName(defaultName(id));
+  }
+
+  async function call(url: string, method: string, body: unknown) {
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as { link?: string; message?: string };
+    if (!res.ok) throw new Error(data.message ?? "No se pudo guardar.");
+    return data;
+  }
+
+  async function submit() {
+    if (!name.trim()) return setError("Ponle un nombre (por ejemplo «Pantalla · Almacén Pickles»).");
+    if (!locationId) return setError("Elige el local.");
+    setSaving(true);
+    setError("");
+    try {
+      if (!screen) {
+        const data = await call("/api/equipo/pantalla", "POST", { name: name.trim(), locationId });
+        setLink(data.link ?? null);
+        onChanged(`${name.trim()} creada. Abre su enlace en la tablet del almacén.`);
+      } else {
+        const { error: err } = (await createClient()?.rpc("team_set_member", {
+          p_user: screen.userId,
+          p_role: "kiosk",
+          p_all_locations: false,
+          p_locations: [locationId],
+          p_full_name: name.trim(),
+        })) ?? { error: null };
+        if (err) throw new Error(teamErrorMessage(err));
+        onChanged(`${name.trim()} actualizada.`);
+        onClose();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function newLink() {
+    if (!screen) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await call("/api/equipo/enlace", "POST", { userId: screen.userId });
+      setLink(data.link ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo generar el enlace.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!screen) return;
+    setSaving(true);
+    setError("");
+    try {
+      await call("/api/equipo/pantalla", "DELETE", { userId: screen.userId });
+      onChanged(`${screen.name} quitada: esa tablet ya no puede apuntar salidas.`);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo quitar la pantalla.");
+      setConfirmRemove(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const message = link ? `Enlace para la pantalla del almacén (${name.trim()}). Ábrelo en la tablet del almacén: ${link}` : "";
+
+  return (
+    <div className="modal-layer editor-layer" onClick={() => !saving && onClose()}>
+      <section className="product-editor team-editor" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={screen ? "Pantalla de almacén" : "Añadir pantalla"}>
+        <header className="editor-header">
+          <div>
+            <p className="eyebrow">Pantalla de almacén</p>
+            <h2>{link ? "Enlace de la pantalla listo" : screen ? screen.name : "Nueva pantalla"}</h2>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+        </header>
+
+        {link ? (
+          <div className="editor-body">
+            <p className="section-hint">
+              Abre este enlace <b>en la tablet del almacén</b> (o envíatelo y ábrelo allí). Entra directamente en la pantalla de salidas y se queda
+              vinculada. Sirve una sola vez: si cambias de tablet o se cierra la sesión, genera otro desde aquí.
+            </p>
+            <ShareLink link={link} message={message} onError={setError} />
+          </div>
+        ) : (
+          <div className="editor-body">
+            <div className="editor-grid">
+              <label className="span-2">
+                Nombre
+                <input
+                  autoFocus={!screen}
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    setNameTouched(true);
+                  }}
+                  placeholder="Pantalla · Almacén"
+                  maxLength={60}
+                />
+              </label>
+            </div>
+            <div className="editor-section">
+              <p className="facet-title">Local</p>
+              <p className="section-hint">Una pantalla va en un único local: solo verá sus productos y sus zonas, sin precios.</p>
+              <div className="team-location-grid" role="radiogroup" aria-label="Local">
+                {locations.map((l) => (
+                  <label key={l.id} className={`team-location ${locationId === l.id ? "active" : ""}`}>
+                    <input type="radio" name="screen-location" checked={locationId === l.id} onChange={() => pickLocation(l.id)} /> {l.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+            {screen?.pending && <p className="section-hint team-pending-hint">Todavía no se ha abierto en ninguna tablet. Genera su enlace y ábrelo allí.</p>}
+            {screen && !screen.pending && screen.lastSignIn && <p className="section-hint">Vinculada {daysAgo(screen.lastSignIn).toLowerCase()}.</p>}
+          </div>
+        )}
+
+        {error && <p className="editor-message error">{error}</p>}
+
+        <footer className="editor-footer">
+          {link ? (
+            <>
+              <span />
+              <div className="footer-right"><button className="catalog-primary" onClick={onClose}>Hecho</button></div>
+            </>
+          ) : (
+            <>
+              {screen ? (
+                confirmRemove ? (
+                  <div className="delete-confirm">
+                    <span>¿Quitar {screen.name}? Esa tablet dejará de funcionar.</span>
+                    <button className="danger-button" disabled={saving} onClick={() => void remove()}>Sí, quitar</button>
+                    <button className="ghost-button" onClick={() => setConfirmRemove(false)}>Cancelar</button>
+                  </div>
+                ) : (
+                  <div className="footer-left">
+                    <button className="ghost-button danger" disabled={saving} onClick={() => setConfirmRemove(true)}><Trash2 size={14} /> Quitar</button>
+                    <button className="ghost-button" disabled={saving} onClick={() => void newLink()}><KeyRound size={14} /> {screen.pending ? "Enlace" : "Nuevo enlace"}</button>
+                  </div>
+                )
+              ) : (
+                <span />
+              )}
+              <div className="footer-right">
+                <button className="catalog-primary" disabled={saving} onClick={() => void submit()}>
+                  {saving ? "Guardando..." : screen ? "Guardar cambios" : <><Plus size={15} /> Crear pantalla</>}
                 </button>
               </div>
             </>

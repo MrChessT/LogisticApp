@@ -20,6 +20,7 @@ const Body = z.object({
   role: z.enum(["owner", "admin", "manager", "staff"]),
   allLocations: z.boolean().default(false),
   locationIds: z.array(z.uuid()).max(100).default([]),
+  canValidate: z.boolean().optional(),
 });
 
 const fail = (status: number, message: string) => NextResponse.json({ message }, { status });
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Revisa el email, el rol y los locales.");
-  const { email, fullName, role, allLocations, locationIds } = parsed.data;
+  const { email, fullName, role, allLocations, locationIds, canValidate } = parsed.data;
 
   if (!adminConfigured()) {
     return fail(503, "Falta configurar la clave de servicio de Supabase en el servidor (SUPABASE_SERVICE_ROLE_KEY).");
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
     p_all_locations: allLocations,
     p_locations: locationIds,
     p_full_name: fullName ?? null,
+    p_can_validate: role === "staff" ? (canValidate ?? false) : null,
   });
   if (set.error) {
     // Una cuenta recién creada que no ha podido entrar al equipo no debe quedarse huérfana.

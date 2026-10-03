@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { LruCache } from "@/copiloto/cache/lru";
 import { handleCopiloto } from "@/copiloto/http";
 import { createClient } from "@/lib/supabase/server";
+import { isKiosk } from "@/lib/supabase/middleware";
 
 // Asistente de LogisticApp integrado en la app: mismo despliegue, sin servicio aparte.
 // El usuario se identifica con su sesión de Supabase (cookies) y todo se ejecuta con su JWT.
@@ -21,6 +22,8 @@ async function currentUser() {
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims?.sub;
   if (!userId) return null;
+  // Las pantallas de almacén no usan el asistente (tampoco verían datos: la base de datos las aísla).
+  if (isKiosk(data.claims)) return { userId, token: "", orgId: null, kiosk: true };
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -31,12 +34,13 @@ async function currentUser() {
     orgId = membership?.org_id ?? null;
     if (orgId) orgByUser.set(userId, orgId);
   }
-  return { userId, token: session.access_token, orgId };
+  return { userId, token: session.access_token, orgId, kiosk: false };
 }
 
 async function handle(request: NextRequest, params: Promise<{ ruta: string[] }>) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ code: "unauthenticated", message: "Inicia sesión para usar el asistente.", retryable: false }, { status: 401 });
+  if (user.kiosk) return NextResponse.json({ code: "forbidden", message: "El asistente no está disponible en la pantalla del almacén.", retryable: false }, { status: 403 });
   if (!user.orgId) return NextResponse.json({ code: "forbidden", message: "Tu usuario no pertenece a ninguna organización.", retryable: false }, { status: 403 });
   return handleCopiloto((await params).ruta.join("/"), request, { userId: user.userId, token: user.token, orgId: user.orgId });
 }

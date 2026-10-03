@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { adminConfigured, createAdminClient } from "@/lib/supabase/admin";
 import { accessLink } from "@/lib/access-link";
 
-// Nuevo enlace de acceso para alguien del equipo que aún no ha entrado (el anterior caducó o no le llegó).
+// Nuevo enlace de acceso para alguien del equipo que aún no ha entrado (el anterior caducó o no le llegó)
+// o para una pantalla de almacén (siempre: es un dispositivo, no una persona).
 // Solo para quien puede gestionar a esa persona: lo decide team_members() con la sesión de quien lo pide.
 
 export const dynamic = "force-dynamic";
@@ -25,11 +26,14 @@ export async function POST(request: NextRequest) {
   if (error) return fail(403, "No tienes permiso para gestionar el equipo.");
   const member = (team ?? []).find((m) => m.user_id === parsed.data.userId);
   if (!member?.can_edit || !member.email) return fail(403, "No puedes generar un acceso para esa persona.");
-  // Solo para quien aún no ha entrado: un enlace a una cuenta en uso permitiría entrar como otra persona.
+  // Una pantalla de almacén no es una persona: quien la gestiona puede volver a vincularla (tablet nueva,
+  // sesión cerrada…) cuando quiera. Entra solo en /almacen y la base de datos la aísla.
+  const kiosk = member.role === "kiosk";
+  // A una persona, solo si aún no ha entrado: un enlace a una cuenta en uso permitiría entrar como ella.
   // Quien ya entró y olvidó su contraseña la recupera desde el acceso («¿Has olvidado la contraseña?»).
-  if (!member.pending) return fail(409, "Ya ha entrado alguna vez: si olvidó su contraseña, que use «¿Has olvidado la contraseña?» en el acceso.");
+  if (!kiosk && !member.pending) return fail(409, "Ya ha entrado alguna vez: si olvidó su contraseña, que use «¿Has olvidado la contraseña?» en el acceso.");
 
   const generated = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: member.email });
   if (generated.error) return fail(502, "No se pudo generar el enlace. Inténtalo de nuevo.");
-  return NextResponse.json({ link: accessLink(request.nextUrl.origin, generated.data.properties) });
+  return NextResponse.json({ link: accessLink(request.nextUrl.origin, generated.data.properties, kiosk ? "/almacen" : undefined) });
 }

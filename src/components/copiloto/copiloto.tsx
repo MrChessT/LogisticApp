@@ -266,7 +266,8 @@ export function Copiloto() {
     return () => window.removeEventListener("copiloto:ask", onAsk);
   }, []);
 
-  if (pathname?.startsWith("/login")) return null;
+  // Acceso y pantalla del almacén: sin asistente (la pantalla de un almacén no puede usarlo).
+  if (pathname?.startsWith("/login") || pathname?.startsWith("/almacen")) return null;
 
   return (
     <>

@@ -51,14 +51,15 @@ export type Database = {
         Row: {
           org_id: string;
           user_id: string;
-          role: "owner" | "admin" | "manager" | "staff";
+          role: "owner" | "admin" | "manager" | "staff" | "kiosk";
           all_locations: boolean;
+          can_validate: boolean;
           created_at: string;
         };
         Insert: {
           org_id: string;
           user_id: string;
-          role?: "owner" | "admin" | "manager" | "staff";
+          role?: "owner" | "admin" | "manager" | "staff" | "kiosk";
           all_locations?: boolean;
           created_at?: string;
         };
@@ -87,6 +88,38 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["locations"]["Insert"]>;
+        Relationships: [];
+      };
+      storage_areas: {
+        Row: { id: string; location_id: string; name: string; sort_order: number; kind: "almacen" | "servicio"; active: boolean };
+        Insert: { id?: string; location_id: string; name: string; sort_order?: number; kind?: "almacen" | "servicio"; active?: boolean };
+        Update: Partial<Database["public"]["Tables"]["storage_areas"]["Insert"]>;
+        Relationships: [];
+      };
+      area_moves: {
+        Row: {
+          id: string;
+          org_id: string;
+          location_id: string;
+          from_area_id: string;
+          to_area_id: string;
+          product_id: string;
+          qty: string;
+          input: Json | null;
+          kind: "salida" | "devolucion";
+          status: "pending" | "validated" | "rejected" | "cancelled";
+          note: string | null;
+          client_ref: string | null;
+          created_by: string | null;
+          created_at: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_note: string | null;
+          original: Json | null;
+        };
+        // Solo se escribe con area_move_submit / area_moves_decide.
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       suppliers: {
@@ -300,7 +333,7 @@ export type Database = {
           location_id: string;
           product_id: string;
           area_id: string | null;
-          type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment";
+          type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
           qty: number;
           unit_cost: number | null;
           reason: string | null;
@@ -317,7 +350,7 @@ export type Database = {
           location_id: string;
           product_id: string;
           area_id?: string | null;
-          type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment";
+          type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
           qty: number;
           unit_cost?: number | null;
           reason?: string | null;
@@ -456,6 +489,20 @@ export type Database = {
       };
     };
     Views: {
+      v_storage_areas: {
+        Row: {
+          id: string;
+          location_id: string;
+          location_name: string;
+          name: string;
+          kind: "almacen" | "servicio";
+          active: boolean;
+          sort_order: number;
+          products: number;
+          stock_value: number;
+        };
+        Relationships: [];
+      };
       v_supplier_summary: {
         Row: { supplier_id: string; prices: number; products: number; last_price_at: string | null };
         Relationships: [];
@@ -510,7 +557,7 @@ export type Database = {
           org_id: string;
           location_id: string;
           product_id: string;
-          type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment";
+          type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
           business_day: string;
           qty: number;
           value: number | null;
@@ -523,7 +570,7 @@ export type Database = {
         Args: {
           p_location: string;
           p_product: string;
-          p_type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment";
+          p_type: "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
           p_qty: number;
           p_reason?: string | null;
           p_area?: string | null;
@@ -570,7 +617,7 @@ export type Database = {
           user_id: string;
           full_name: string | null;
           email: string | null;
-          role: "owner" | "admin" | "manager" | "staff";
+          role: "owner" | "admin" | "manager" | "staff" | "kiosk";
           all_locations: boolean;
           location_ids: string[];
           last_sign_in_at: string | null;
@@ -578,23 +625,46 @@ export type Database = {
           created_at: string;
           is_self: boolean;
           can_edit: boolean;
+          can_validate: boolean;
         }>;
       };
       team_check_assign: {
-        Args: { p_role: "owner" | "admin" | "manager" | "staff"; p_all_locations: boolean; p_locations: string[]; p_org?: string | null };
+        Args: { p_role: "owner" | "admin" | "manager" | "staff" | "kiosk"; p_all_locations: boolean; p_locations: string[]; p_org?: string | null };
         Returns: string;
       };
       team_set_member: {
         Args: {
           p_user: string;
-          p_role: "owner" | "admin" | "manager" | "staff";
+          p_role: "owner" | "admin" | "manager" | "staff" | "kiosk";
           p_all_locations?: boolean;
           p_locations?: string[];
           p_full_name?: string | null;
           p_org?: string | null;
+          p_can_validate?: boolean | null;
         };
         Returns: undefined;
       };
+      set_validation_pin: { Args: { p_pin: string }; Returns: undefined };
+      warehouse_context: { Args: { p_location?: string | null }; Returns: Json };
+      warehouse_catalog: { Args: { p_location: string; p_search?: string | null; p_limit?: number }; Returns: Json };
+      area_move_submit: {
+        Args: {
+          p_location: string;
+          p_from_area: string;
+          p_to_area: string;
+          p_product: string;
+          p_qty: number;
+          p_input?: Json | null;
+          p_kind?: "salida" | "devolucion";
+          p_client_ref?: string | null;
+          p_note?: string | null;
+        };
+        Returns: string;
+      };
+      area_move_cancel: { Args: { p_id: string }; Returns: undefined };
+      area_moves_list: { Args: { p_location: string; p_status?: "pending" | "decided"; p_limit?: number }; Returns: Json };
+      kiosk_validators: { Args: Record<string, never>; Returns: Json };
+      area_moves_decide: { Args: { p_decisions: Json; p_validator?: string | null; p_pin?: string | null }; Returns: Json };
       team_remove_member: { Args: { p_user: string; p_org?: string | null }; Returns: undefined };
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string | null };
       product_lookup: {
