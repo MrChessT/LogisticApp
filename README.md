@@ -83,6 +83,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0016 | Catálogo en familias y tipos, bebidas por unidades |
 | 0017 | Historial de precios completo (cada cambio de precio, también los manuales) y surtido de cada local al día (lo que se mueve en un local entra en su surtido) |
 | 0018 | Catálogo profesional: índices en todas las claves ajenas que se consultan, IVA por producto (`vat_rate`), formatos coherentes (cajas con unidades enteras; no se cambia la unidad de un producto con movimientos ni el tamaño de un formato ya usado), `v_product_costs` (precio por caja, por unidad que se cuenta y con IVA) y `catalog_health()` (lo que da cifras falsas o impide trabajar) |
+| 0019 | Rendimiento sin cambiar permisos: las políticas de escritura ya no se evalúan al leer (eran `for all` y llamaban a una función por fila; leer 734 productos pasaba de ~70 ms a ~1 ms) y las de líneas y formatos comparan contra conjuntos calculados una vez por consulta. `catalog_search` agrega formatos, proveedores y stock de una vez (~2-3× más rápida, mismos resultados) |
 
 **Aplicar en el proyecto real:** `npm run db:bundle -- 0008` genera `supabase/scripts/aplicar.sql` con las migraciones desde la 0008, en una sola transacción. Se pega en Supabase → SQL Editor → Run.
 
@@ -107,7 +108,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 
 ## Despliegue
 
-Vercel (`vercel.json`). Variables: las dos de Supabase y **`TYPESAFE_API_KEY`** (tipo *Sensitive*, Production y Preview). Con ella Jev va directo a TypeSafe: en la evaluación del 1-10-2026 respondió con mediana de 159 ms y p90 de 209 ms, frente a un p90 de 30 s (máximo 64 s) por Vercel AI Gateway. Sin ella, Jev usa el AI Gateway con el token OIDC del despliegue, que exige el gateway activo y con saldo en el equipo. Si Jev falla, `GET /api/copiloto/health` (con sesión iniciada) dice por qué camino va y qué revisar, y los registros de Vercel también.
+Vercel (`vercel.json`), con las funciones en Dublín (`dub1`), junto a la base de datos de Supabase (`eu-west-1`): cada consulta del servidor (asistente, informes, sesión) evita cruzar el Atlántico. Si el proyecto de Supabase cambia de región, hay que cambiar también esta. Variables: las dos de Supabase y **`TYPESAFE_API_KEY`** (tipo *Sensitive*, Production y Preview). Con ella Jev va directo a TypeSafe: en la evaluación del 1-10-2026 respondió con mediana de 159 ms y p90 de 209 ms, frente a un p90 de 30 s (máximo 64 s) por Vercel AI Gateway. Sin ella, Jev usa el AI Gateway con el token OIDC del despliegue, que exige el gateway activo y con saldo en el equipo. Si Jev falla, `GET /api/copiloto/health` (con sesión iniciada) dice por qué camino va y qué revisar, y los registros de Vercel también.
 
 La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la propia app y el proyecto de Supabase de `NEXT_PUBLIC_SUPABASE_URL`, sin iframes, `noindex`. Si el navegador tiene que hablar con otro dominio, hay que añadirlo ahí.
 
@@ -116,6 +117,6 @@ La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la
 - Supabase → Authentication → URL Configuration: *Site URL* con el dominio real y `https://<dominio>/auth/callback` en *Redirect URLs* (enlace mágico y recuperar contraseña).
 - Supabase → Authentication → Sign In / Providers: desactivar *Allow new users to sign up*. Los usuarios los da de alta un administrador; el enlace mágico ya no crea cuentas.
 - Supabase → Authentication → SMTP: un SMTP propio (el de Supabase solo manda unos pocos correos por hora).
-- Migraciones hasta la 0018 aplicadas (`npm run db:bundle -- 0018`) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
+- Migraciones hasta la 0019 aplicadas (`npm run db:bundle -- 0019`) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
 - Términos de uso y política de privacidad: la pantalla de acceso los menciona, pero aún no existen.
 - Límite de peticiones del asistente: está en memoria de cada instancia; con mucho tráfico, moverlo a un almacén compartido.
