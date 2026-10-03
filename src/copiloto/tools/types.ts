@@ -4,7 +4,7 @@ import type { EvalKind, Herramienta } from "../jev/catalog";
 // Datos crudos (todas las cifras como cadena decimal; nunca number) -----------------
 
 export type MovementType =
-  | "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment";
+  | "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
 
 export interface BalanceRaw { locationId: string; productId: string; qty: string; avgCost: string }
 export interface AreaBalanceRaw { areaId: string; productId: string; qty: string; avgCost: string }

@@ -3,14 +3,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_HELP, ROLE_LABEL, seesAllLocations, type Role } from "@/lib/team";
+import { warehouseError } from "@/lib/warehouse";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./cuenta.css";
 
-// Tu cuenta: nombre visible y contraseña. Aquí llega también el enlace de «¿Has olvidado la contraseña?».
+// Tu cuenta: nombre visible, contraseña y, si validas salidas del almacén, tu PIN de 6 cifras.
+// Aquí llega también el enlace de «¿Has olvidado la contraseña?».
 
 export default function AccountPage() {
   const router = useRouter();
@@ -20,7 +22,10 @@ export default function AccountPage() {
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [saving, setSaving] = useState<"" | "name" | "password">("");
+  const [saving, setSaving] = useState<"" | "name" | "password" | "pin">("");
+  const [validator, setValidator] = useState<{ hasPin: boolean } | null>(null);
+  const [pin, setPin] = useState("");
+  const [pinRepeat, setPinRepeat] = useState("");
   const [access, setAccess] = useState<{ role: Role; locations: string[] | null } | null>(null);
   const [welcome, setWelcome] = useState(false);
 
@@ -34,12 +39,16 @@ export default function AccountPage() {
       setEmail(user.email ?? "");
       setUserId(user.id);
       setWelcome(new URLSearchParams(window.location.search).has("bienvenida"));
-      const [{ data: profile }, { data: membership }, { data: locations }] = await Promise.all([
+      const [{ data: profile }, { data: membership }, { data: locations }, { data: warehouse }] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
         supabase.from("memberships").select("role, all_locations").eq("user_id", user.id).limit(1).maybeSingle(),
         // RLS: cada uno solo ve sus locales (todos, si es propietario o administrador).
         supabase.from("locations").select("name").eq("active", true).order("name"),
+        // ¿Valida salidas del almacén? (migración 0024; sin ella no se muestra el PIN).
+        supabase.rpc("warehouse_context"),
       ]);
+      const ctx = warehouse as { can_validate?: boolean; has_pin?: boolean } | null;
+      if (ctx?.can_validate) setValidator({ hasPin: !!ctx.has_pin });
       setName(profile?.full_name ?? "");
       if (membership) {
         const role = membership.role as Role;
@@ -71,6 +80,22 @@ export default function AccountPage() {
     setPassword("");
     setRepeat("");
     setMessage(error ? { ok: false, text: "No se pudo cambiar la contraseña. Vuelve a entrar e inténtalo de nuevo." } : { ok: true, text: "Contraseña cambiada." });
+  }
+
+  async function savePin(event: FormEvent) {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(pin)) return setMessage({ ok: false, text: "El PIN son 6 cifras." });
+    if (pin !== pinRepeat) return setMessage({ ok: false, text: "Los PIN no coinciden." });
+    const supabase = createClient();
+    if (!supabase) return;
+    setSaving("pin");
+    const { error } = await supabase.rpc("set_validation_pin", { p_pin: pin });
+    setSaving("");
+    setPin("");
+    setPinRepeat("");
+    if (error) return setMessage({ ok: false, text: warehouseError(error, "No se pudo guardar el PIN.") });
+    setValidator({ hasPin: true });
+    setMessage({ ok: true, text: "PIN guardado. Ya puedes validar en la pantalla del almacén." });
   }
 
   async function signOut() {
@@ -107,6 +132,18 @@ export default function AccountPage() {
             <p className="section-hint">{ROLE_HELP[access.role]}</p>
             <p className="account-access"><b>{ROLE_LABEL[access.role]}</b> · {access.locations ? access.locations.join(", ") || "Sin locales asignados" : "Todos los locales"}</p>
           </div>
+        )}
+        {validator && (
+          <form className="catalog-panel account-card" onSubmit={savePin}>
+            <h2><ShieldCheck size={16} /> PIN de validación</h2>
+            <p className="section-hint">
+              Con él confirmas en la pantalla del almacén lo que se ha sacado, para que pase al stock. Son 6 cifras, solo tuyas: no lo compartas.
+              {validator.hasPin ? " Ya tienes uno; aquí puedes cambiarlo." : " Todavía no tienes: ponte uno para poder validar."}
+            </p>
+            <input type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} placeholder="PIN de 6 cifras" aria-label="PIN de 6 cifras" />
+            <input type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={pinRepeat} onChange={(event) => setPinRepeat(event.target.value.replace(/\D/g, ""))} placeholder="Repite el PIN" aria-label="Repite el PIN" />
+            <button className="catalog-primary" disabled={saving !== "" || pin.length !== 6}>{saving === "pin" ? "Guardando..." : validator.hasPin ? "Cambiar PIN" : "Guardar PIN"}</button>
+          </form>
         )}
         <form className="catalog-panel account-card" onSubmit={saveName}>
           <h2>Nombre</h2>

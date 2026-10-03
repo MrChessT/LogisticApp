@@ -24,6 +24,7 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
   transfer_in: "traspaso recibido",
   count_adjustment: "ajuste de inventario",
   manual_adjustment: "ajuste manual",
+  internal_move: "movimiento entre zonas",
 };
 
 export type ToolName = Exclude<Herramienta, "ninguna">;

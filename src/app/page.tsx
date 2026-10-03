@@ -69,7 +69,7 @@ type DashboardActivity = {
   tone: "blue" | "orange" | "purple";
 };
 
-type MovementType = "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment";
+type MovementType = "opening" | "purchase" | "consumption" | "waste" | "transfer_out" | "transfer_in" | "count_adjustment" | "manual_adjustment" | "internal_move";
 
 type BrowserClient = NonNullable<ReturnType<typeof createClient>>;
 
@@ -84,6 +84,7 @@ const movementIcon: Record<MovementType, typeof Truck> = {
   manual_adjustment: Package,
   opening: Package,
   consumption: ShoppingCart,
+  internal_move: Warehouse,
 };
 
 const movementTone: Record<MovementType, "blue" | "orange" | "purple"> = {
@@ -95,6 +96,7 @@ const movementTone: Record<MovementType, "blue" | "orange" | "purple"> = {
   manual_adjustment: "purple",
   opening: "blue",
   consumption: "blue",
+  internal_move: "purple",
 };
 
 const movementLabel: Record<MovementType, string> = {
@@ -106,6 +108,7 @@ const movementLabel: Record<MovementType, string> = {
   manual_adjustment: "Ajuste manual",
   opening: "Apertura de stock",
   consumption: "Consumo registrado",
+  internal_move: "Movimiento entre zonas",
 };
 
 function formatRelativeTime(iso: string) {
@@ -185,6 +188,7 @@ type DashboardData = {
   attention: number;
   critical: number;
   pendingTransfers: number;
+  pendingMoves: number;
   stockRows: DashboardStockRow[];
   activity: DashboardActivity[];
   consumptionValue: string;
@@ -209,13 +213,23 @@ async function loadDashboard(supabase: BrowserClient, locationId: string): Promi
   };
   let movementQuery = supabase.from("stock_movements").select("id, type, occurred_at, products(name), locations(name)").order("occurred_at", { ascending: false }).limit(6);
   let transferQuery = supabase.from("transfers").select("id", { count: "exact", head: true }).in("status", ["draft", "in_transit"]);
+  // Salidas de almacén por validar (migración 0024; sin ella la consulta falla y cuenta 0).
+  let movesQuery = supabase.from("area_moves").select("id", { count: "exact", head: true }).eq("status", "pending");
   if (locationId) {
     movementQuery = movementQuery.eq("location_id", locationId);
     transferQuery = transferQuery.or(`from_location_id.eq.${locationId},to_location_id.eq.${locationId}`);
+    movesQuery = movesQuery.eq("location_id", locationId);
   }
 
   // Todo en una sola ronda de peticiones.
-  const [fullStock, summary, usage, movements, transfers] = await Promise.all([stockQueryFor(STOCK_FULL), loadSummary(supabase, locationId), loadUsage(supabase, days[0]!, locationId), movementQuery, transferQuery]);
+  const [fullStock, summary, usage, movements, transfers, moves] = await Promise.all([
+    stockQueryFor(STOCK_FULL),
+    loadSummary(supabase, locationId),
+    loadUsage(supabase, days[0]!, locationId),
+    movementQuery,
+    transferQuery,
+    movesQuery,
+  ]);
   const stock = fullStock.error ? await stockQueryFor(STOCK_BASE) : fullStock; // migración 0016 aún sin aplicar
   if (stock.error || !summary) return null;
 
@@ -239,6 +253,7 @@ async function loadDashboard(supabase: BrowserClient, locationId: string): Promi
     attention: summary.attention,
     critical: summary.critical,
     pendingTransfers: transfers.count ?? 0,
+    pendingMoves: moves.error ? 0 : moves.count ?? 0,
     stockRows: ((stock.data ?? []) as unknown as HomeStockRow[]).map((row) => {
       const critical = row.qty < 0 || (row.below_min && row.qty <= 0);
       return {
@@ -367,6 +382,7 @@ export default function Dashboard() {
     { label: "Pedidos", href: "/pedidos", icon: ShoppingCart },
     { label: "Recepciones", href: "/recepciones", icon: Package },
     { label: "Traspasos", href: "/traspasos", icon: Truck, badge: data?.pendingTransfers },
+    { label: "Almacén", href: withLocal("/almacen"), icon: Warehouse, badge: data?.pendingMoves },
     { label: "Inventarios", href: "/inventarios", icon: ClipboardList },
     { label: "Mermas", href: "/mermas", icon: XCircle },
   ];

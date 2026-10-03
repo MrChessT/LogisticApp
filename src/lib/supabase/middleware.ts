@@ -31,6 +31,15 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims?.sub ? data.claims : null;
   if (!user && !isPublic) return NextResponse.redirect(new URL("/login", request.url));
+  // Pantalla de almacén (cuenta kiosk): solo /almacen. La marca va en app_metadata (la pone el servidor al
+  // crearla y nadie puede cambiarla desde el navegador); la base de datos la aísla igualmente.
+  if (user && isKiosk(user) && request.nextUrl.pathname !== "/almacen" && !request.nextUrl.pathname.startsWith("/auth/")) {
+    return NextResponse.redirect(new URL("/almacen", request.url));
+  }
   if (user && request.nextUrl.pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
   return response;
+}
+
+export function isKiosk(claims: { app_metadata?: unknown }): boolean {
+  return !!(claims.app_metadata as { kiosk?: boolean } | undefined)?.kiosk;
 }
