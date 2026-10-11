@@ -83,7 +83,8 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
       query_prices: scope.productos.length > 0 ? `No tengo precio de compra de ${scope.productos.join(", ")}.` : `No hay precios registrados ${where}.`,
       query_pending_transfers: `No hay traspasos pendientes de recibir ${where}.`,
       query_count_variance: `No hay desvíos de inventario ${where}.`,
-      query_reorder: `No falta nada ${where} para ${result.totals.horizonte ?? "los próximos días"}.`,
+      // El horizonte va al final («para el fin de semana»): sin repetirlo entre paréntesis.
+      query_reorder: `No falta nada ${scopeText({ ...scope, periodo: null })} para ${result.totals.horizonte ?? "los próximos días"}.`,
       query_orders: `No hay pedidos abiertos ${where}.`,
       query_spend: `No hay compras registradas ${where}.`,
       query_top_usage: `No hay consumo registrado ${where}.`,

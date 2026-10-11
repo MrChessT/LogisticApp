@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LOCATIONS } from "../dev/fixture";
 import { JevError } from "../jev/client";
-import { mentionsWaste, venueRoles } from "../agent/routing";
+import { asksSameAgain, mentionsWaste, venueRoles } from "../agent/routing";
 import { chat, FakeJev, FakeProvider, find, makeAgent, run } from "./helpers";
 
 const BARCELO = "Ron Barceló Añejo 70 cl";
@@ -171,6 +171,11 @@ describe("enrutado del agente", () => {
     const transfer = new FakeJev([{ intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: { dist: { traspaso: 0.7, merma: 0.3 } }, local: "Parador", local_destino: "Vivero" }]);
     const second = await run(makeAgent(transfer).agent, chat("saca 2 cocas del parador al vivero"));
     expect(find(second, "decision")!.decisions).toEqual(expect.arrayContaining([expect.objectContaining({ id: "tipo_accion", value: "traspaso" })]));
+  });
+
+  it("«¿y en el Parador?» repite la pregunta; «¿y cuánto hay?» es otra", () => {
+    expect(["¿y en el Parador?", "y en pickles", "¿y el Brugal?", "¿Y para el finde?"].every(asksSameAgain)).toBe(true);
+    expect(["¿y cuánto hay en el Parador?", "¿y el precio?", "¿y qué pedidos hay?", "en el Parador", "¿y si mañana llueve y no viene nadie?"].some(asksSameAgain)).toBe(false);
   });
 
   it("palabras de merma y papel de cada local según la preposición", () => {

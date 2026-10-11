@@ -24,7 +24,10 @@ const DEFAULTS = {
   dato: { act: 0.6, ask: 0.4 },
   local_consulta: { act: 0.65, ask: 0.45 },
   local_borrador: { act: 0.85, ask: 0.6 },
-  tipo_accion: { act: 0.85, ask: 0.6 },
+  // Qué operación es (merma, recepción…): solo prepara un borrador que hay que confirmar. Medido con
+  // Jev real (2026-10-11): a 0,70 acierta el 99 % sin ningún borrador equivocado; a 0,85 preguntaba
+  // «¿qué operación es?» en recepciones que estaban claras.
+  tipo_accion: { act: 0.7, ask: 0.6 },
   cierre_inventario: { act: 0.95, ask: 0.6 },
   producto_consulta: { act: 0.65, ask: 0.45, minMargin: 0.25 },
   producto_borrador: { act: 0.85, ask: 0.6, minMargin: 0.4 },
@@ -45,8 +48,12 @@ const DEFAULTS = {
   // Categoría y medida del producto nuevo: por debajo de act se deja sin categoría / se pide revisar.
   categoria: { act: 0.6, ask: 0.35 },
   // Continuación de la conversación (noul, "sí" es heredar): ≥ act → se hereda lo que falte.
-  // Medido con Jev real: continuaciones 0,80-0,91; preguntas nuevas tras la misma charla 0,37-0,54.
-  seguimiento: { act: 0.65, ask: 0.65 },
+  // Medido con Jev real (2026-10-11, 72 pares): preguntas nuevas tras una consulta de un producto
+  // 0,09-0,70 («¿qué tengo que pedir para el finde?» llegó a 0,70); continuaciones 0,30-0,86
+  // («¿y en el Parador?» 0,58-0,75). Se solapan: sin marca de continuación se exige más que cualquier
+  // pregunta nueva medida; con ella («¿y…?», «eso», «lo mismo»), basta con que Jev no lo niegue.
+  seguimiento: { act: 0.8, ask: 0.8 },
+  seguimiento_marcado: { act: 0.5, ask: 0.5 },
   // Confirmar o descartar por chat un borrador pendiente: ejecutar exige mucha seguridad;
   // entre ask y act se pregunta «¿lo confirmo?».
   borrador_chat: { act: 0.9, ask: 0.6 },

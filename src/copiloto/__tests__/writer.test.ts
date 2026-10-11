@@ -48,6 +48,20 @@ describe("verificador de cifras", () => {
   });
 });
 
+describe("plantillas", () => {
+  it("sin nada que reponer, el horizonte se dice una sola vez", () => {
+    const report = stockReport();
+    if (report.outcome.kind !== "consulta") throw new Error("consulta");
+    report.outcome = {
+      ...report.outcome,
+      tool: "query_reorder",
+      scope: { locales: ["Parador"], espacio: null, productos: [], periodo: "el fin de semana" },
+      result: { tool: "query_reorder", rows: [], totals: { horizonte: "el fin de semana" }, count: 0, truncated: false, evalItems: [] },
+    };
+    expect(renderTemplate(report)).toBe("No falta nada en Parador para el fin de semana.");
+  });
+});
+
 describe("redactor", () => {
   async function write(provider: FakeProvider | null, report = stockReport()) {
     const events: SseEvent[] = [];
