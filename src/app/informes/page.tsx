@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Building2, Sparkles } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
-import type { AnalyticsResponse, AnalyticsView } from "@/components/copiloto/types";
+import type { AnalyticsResponse, AnalyticsView } from "@/copiloto/contract";
 import "../productos/productos.css";
 import "./informes.css";
 

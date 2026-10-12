@@ -149,30 +149,26 @@ export function QuickActions({ disabled, onRun, onClose }: Props) {
 
       <p className="copiloto-section">Tareas</p>
       <div className="copiloto-functions-grid tasks">
-        {TASK_FUNCTIONS.map((fn) => (
-          <button type="button" key={fn.command} disabled={disabled} onClick={() => runTask(fn)}>
-            <span className="copiloto-functions-icon"><fn.icon size={16} /></span>
-            <span>
-              <b>{fn.label}</b>
-              <small>{fn.hint}</small>
-            </span>
-          </button>
-        ))}
+        {TASK_FUNCTIONS.map((fn) => <FunctionButton key={fn.command} fn={fn} disabled={disabled} onClick={() => runTask(fn)} />)}
       </div>
 
       <p className="copiloto-section">Consultas rápidas</p>
       <div className="copiloto-functions-grid">
-        {QUERY_FUNCTIONS.map((fn) => (
-          <button type="button" key={fn.command} disabled={disabled} onClick={() => run(fn)}>
-            <span className="copiloto-functions-icon"><fn.icon size={16} /></span>
-            <span>
-              <b>{fn.label}</b>
-              <small>{fn.hint}</small>
-            </span>
-          </button>
-        ))}
+        {QUERY_FUNCTIONS.map((fn) => <FunctionButton key={fn.command} fn={fn} disabled={disabled} onClick={() => run(fn)} />)}
       </div>
       <p className="copiloto-functions-tip">Para registrar algo, escríbelo: «se han roto 2 botellas de Beefeater en barra» o «han llegado 3 cajas de tónica».</p>
     </div>
+  );
+}
+
+function FunctionButton({ fn, disabled, onClick }: { fn: TaskFn; disabled: boolean; onClick: () => void }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick}>
+      <span className="copiloto-functions-icon"><fn.icon size={16} /></span>
+      <span>
+        <b>{fn.label}</b>
+        <small>{fn.hint}</small>
+      </span>
+    </button>
   );
 }

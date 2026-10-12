@@ -23,7 +23,7 @@ import {
 } from "../jev/catalog";
 import type { JevAnswer } from "../jev/client";
 import type { ToolName } from "../tools/tools";
-import { mentionsWaste, venueRoles, type RoutingMeta } from "./routing";
+import { asksSameAgain, mentionsWaste, referencesPrevious, venueRoles, type RoutingMeta } from "./routing";
 import type { Focus } from "./session";
 import { preferredLocation, type Habits } from "./habits";
 import { VIEW_FOR_TOOL } from "../analytics/analytics";
@@ -183,11 +183,12 @@ export class Interpreter {
     return preferredLocation(this.habits, this.ctx.locations.map((l) => l.id));
   }
 
-  /** ¿El mensaje continúa el anterior? Solo si hay foco y Jev lo ve con seguridad suficiente. */
+  /** ¿El mensaje continúa el anterior? Solo si hay foco y Jev lo ve con seguridad suficiente (menos si el mensaje lo marca: «¿y…?», «eso»). */
   private followsUp(): boolean {
     if (!this.focus) return false;
     const answer = asNoul(this.answers.seguimiento);
-    if (!answer || answer.noul < this.thresholds.seguimiento.act) return false;
+    const marked = !!this.meta.message && referencesPrevious(this.meta.message);
+    if (!answer || answer.noul < (marked ? this.thresholds.seguimiento_marcado : this.thresholds.seguimiento).act) return false;
     if (!this.decisions.some((d) => d.id === "seguimiento")) {
       this.decisions.push({ id: "seguimiento", label: "Conversación", value: "continua", valueLabel: "Continúa lo anterior", probability: answer.noul, confidence: null, gate: "actuar" });
     }
@@ -555,6 +556,9 @@ export class Interpreter {
       // «¿y en el Vivero?»: sin consulta clara, la misma que antes.
       if (!focusTool || !this.followsUp()) return this.clarify("herramienta", "¿Qué quieres consultar?", g?.ranked ?? [], ["ninguna"]);
       tool = focusTool;
+    } else if (focusTool && tool !== focusTool && this.meta.message && asksSameAgain(this.meta.message) && this.followsUp()) {
+      // «¿y en el Parador?» tras «¿qué tengo que pedir?»: la misma consulta, en otro sitio (Jev lee «stock»).
+      tool = focusTool;
     }
     const context: ContextKey = `consulta:${tool as ToolName}`;
     const loc = this.readLocation(context);
@@ -597,8 +601,10 @@ export class Interpreter {
       }
     }
     if (periodo !== NO_INDICADO) {
-      const p = this.choice("periodo")!;
-      this.decisions.push({ id: "periodo", label: "Periodo", value: periodo, valueLabel: label(periodo), probability: (p.probabilities as Record<string, number>)[periodo] ?? 0, confidence: p.confidence, gate: "actuar" });
+      // Heredado sin que el mensaje hable de tiempo: Jev no dio periodo y cuenta la continuación.
+      const p = this.choice("periodo");
+      const probability = p ? (p.probabilities as Record<string, number>)[periodo] ?? 0 : asNoul(this.answers.seguimiento)?.noul ?? 0;
+      this.decisions.push({ id: "periodo", label: "Periodo", value: periodo, valueLabel: label(periodo), probability, confidence: p?.confidence ?? null, gate: "actuar" });
     }
     const areaId = area.outcome === "actuar" ? area.id : null;
     const areaLocation = areaId ? this.ctx.areas.find((a) => a.id === areaId)?.locationId : undefined;

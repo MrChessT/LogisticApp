@@ -1,5 +1,3 @@
-import { appendFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
 import type { Decision } from "../contract/index";
 
 export type AuditEvent =
@@ -26,22 +24,6 @@ export interface AuditSink {
   record(event: AuditEvent): Promise<void>;
 }
 
-const MAX_MESSAGE = 500;
-
-/** Auditoría en JSONL (desarrollo y respaldo). En la fase 6 se añade el sink hacia Supabase. */
-export class JsonlAuditSink implements AuditSink {
-  #ready: Promise<unknown> | null = null;
-
-  constructor(private readonly path: string) {}
-
-  async record(event: AuditEvent): Promise<void> {
-    this.#ready ??= mkdir(dirname(this.path), { recursive: true });
-    await this.#ready;
-    const safe = event.type === "mensaje" ? { ...event, message: event.message.slice(0, MAX_MESSAGE) } : event;
-    await appendFile(this.path, `${JSON.stringify(safe)}\n`, "utf8");
-  }
-}
-
 export class MemoryAuditSink implements AuditSink {
   readonly events: AuditEvent[] = [];
 
@@ -50,7 +32,7 @@ export class MemoryAuditSink implements AuditSink {
   }
 }
 
-/** Varios destinos a la vez (JSONL local + Supabase). Un destino caído no bloquea a los demás. */
+/** Varios destinos a la vez (logs + Supabase). Un destino caído no bloquea a los demás. */
 export class CompositeAuditSink implements AuditSink {
   constructor(private readonly sinks: AuditSink[]) {}
 

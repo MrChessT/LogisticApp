@@ -8,21 +8,20 @@
 // Escribe el resumen en consola y en docs/copiloto/EVALUACION.md, con la calibración de cada
 // decisión (¿acierta tanto como dice?) y el umbral que recomienda cada contexto, y las respuestas de
 // Jev tal cual en docs/copiloto/eval-respuestas.json (solo frases de prueba y probabilidades).
-import { getVercelOidcToken } from "@vercel/oidc";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EntryType } from "@typesafe-ai/sdk";
 import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, Interpreter, type Plan } from "../agent/interpret";
 import { buildRouting } from "../agent/routing";
-import { LruCache } from "../cache/lru";
 import { loadConfig } from "../config";
 import { fixtureContext } from "../dev/fixture";
 import { LexicalRetriever } from "../entities/retriever";
 import { asChoice, asNoul } from "../gates/gate";
 import { loadThresholds, type GateKey } from "../gates/thresholds";
 import { CATALOG_VERSION } from "../jev/catalog";
-import { JevClient, JevError, type JevAnswer, type JevResult } from "../jev/client";
+import { JevError, type JevAnswer, type JevClient, type JevResult } from "../jev/client";
 import { Metrics } from "../metrics/metrics";
+import { evalJev, requireJevKey } from "./jev";
 import { BIN_EDGES, expectedCalibrationError, recommendThreshold, reliability, sweep, type Point } from "./calibration";
 
 /** Una respuesta válida o varias («¿a cómo sale el Brugal?» vale como ficha o como precios). */
@@ -104,18 +103,9 @@ interface RawFile {
 const saved: RawFile | null = replay ? (JSON.parse(readFileSync(RAW_PATH, "utf8")) as RawFile) : null;
 
 const config = loadConfig();
-if (!replay && !config.jev.apiKey && !config.jev.oidc) throw new Error("Falta TYPESAFE_API_KEY, AI_GATEWAY_API_KEY o VERCEL_OIDC_TOKEN en .env.local");
+if (!replay) requireJevKey(config);
 const metrics = new Metrics(config.JEV_PRICE_PER_MTOK_USD);
-const jev = new JevClient({
-  apiKey: config.jev.oidc ? () => getVercelOidcToken() : config.jev.apiKey,
-  baseURL: config.jev.baseURL,
-  model: config.jev.model,
-  timeoutMs: 20_000,
-  maxRetries: 3,
-  cacheTtlMs: 0,
-  cache: new LruCache<JevResult>(1, 1),
-  metrics,
-});
+const jev = evalJev(config, metrics);
 const thresholds = loadThresholds();
 const ctx = fixtureContext("manager");
 const retriever = new LexicalRetriever();

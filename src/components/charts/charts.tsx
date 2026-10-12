@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Table2 } from "lucide-react";
-import type { ChartSpec } from "@/components/copiloto/types";
+import type { ChartSpec } from "@/copiloto/contract";
 import "./charts.css";
 
 export const SERIES_COLORS = ["#0f8a5f", "#2a78d6", "#eb6834", "#4a3aa7"] as const;
@@ -74,6 +74,16 @@ interface Tip {
   rows: Array<{ color: string; name: string; value: string }>;
 }
 
+/** Rejilla horizontal con sus etiquetas, a la izquierda. */
+function YAxis({ ticks, y, left, width, format }: { ticks: number[]; y: (v: number) => number; left: number; width: number; format: ChartSpec["format"] }) {
+  return ticks.map((t) => (
+    <g key={t}>
+      <line x1={left} x2={left + width} y1={y(t)} y2={y(t)} className={t === 0 ? "chart-axis" : "chart-grid"} />
+      <text x={left - 8} y={y(t)} className="chart-tick" textAnchor="end" dominantBaseline="middle">{tickLabel(t, format)}</text>
+    </g>
+  ));
+}
+
 function Tooltip({ tip }: { tip: Tip | null }) {
   if (!tip) return null;
   return (
@@ -136,12 +146,7 @@ function LineChart({ spec, width, height }: { spec: ChartSpec; width: number; he
   return (
     <>
       <svg width={width} height={height} role="img" aria-label={spec.title}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={m.left} x2={m.left + w} y1={y(t)} y2={y(t)} className={t === 0 ? "chart-axis" : "chart-grid"} />
-            <text x={m.left - 8} y={y(t)} className="chart-tick" textAnchor="end" dominantBaseline="middle">{tickLabel(t, spec.format)}</text>
-          </g>
-        ))}
+        <YAxis ticks={ticks} y={y} left={m.left} width={w} format={spec.format} />
         {xKeys.map((key, i) =>
           i % everyNth === 0 ? (
             <text key={key} x={x(i)} y={height - 8} className="chart-tick" textAnchor={n > 1 && i === 0 ? "start" : "middle"}>{labelOf.get(key)}</text>
@@ -202,12 +207,7 @@ function ColumnChart({ spec, width, height }: { spec: ChartSpec; width: number; 
   return (
     <>
       <svg width={width} height={height} role="img" aria-label={spec.title}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={m.left} x2={m.left + w} y1={y(t)} y2={y(t)} className={t === 0 ? "chart-axis" : "chart-grid"} />
-            <text x={m.left - 8} y={y(t)} className="chart-tick" textAnchor="end" dominantBaseline="middle">{tickLabel(t, spec.format)}</text>
-          </g>
-        ))}
+        <YAxis ticks={ticks} y={y} left={m.left} width={w} format={spec.format} />
         {points.map((p, i) => {
           const cx = m.left + band * i + band / 2;
           const top = y(toPx(p.value));

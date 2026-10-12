@@ -102,6 +102,21 @@ export function mentionsWaste(message: string): boolean {
   return mentionsReason(message) || /\btir(a|as|ame|ala|alo|alas|alos|ar|o|aron|amos)\b|\bde baja\b|\bpoch[oa]s?\b|\bmal(o|a|os|as)\b|\ba la basura\b/.test(text);
 }
 
+/** Lo que solo se dice continuando lo anterior: «¿y…?», «eso», «ahí», «lo mismo», «también». */
+export function referencesPrevious(message: string): boolean {
+  const words = tokenize(message);
+  return words[0] === "y" || words.some((w) => /^(eso|esa|ese|esos|esas|ahi|alli|mismo|misma|mismos|mismas|tambien)$/.test(w));
+}
+
+/**
+ * «¿y en el Parador?», «¿y el Brugal?», «y para el finde?»: cambia dónde o de qué, no qué se pregunta.
+ * Si dice qué quiere saber («¿y cuánto hay?», «¿y el precio?»), ya es otra consulta.
+ */
+export function asksSameAgain(message: string): boolean {
+  const words = tokenize(message);
+  return words[0] === "y" && words.length <= 5 && !words.some((w) => /^(cuant|que$|cual|como|cuando|donde|hay$|qued|teng|tene|preci|cuest|val|gast|compr|ped|repon|movim|consum|merm|traspas|desvi|inventari|stock|existenc)/.test(w));
+}
+
 /**
  * Papel de cada local nombrado según la preposición que lo precede: «del Parador», «desde Pickels» →
  * origen; «al Vivero», «a La Oliva», «hacia…», «para…» → destino. Solo corrobora lo que Jev elige.

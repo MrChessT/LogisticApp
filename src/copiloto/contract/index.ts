@@ -429,6 +429,8 @@ export interface AnalyticsResponse {
   kpis: Kpi[];
   charts: ChartSpec[];
   generatedAt: string;
+  /** Locales del usuario, para el selector (los añade la ruta HTTP). */
+  locations: Array<{ id: string; name: string }>;
 }
 
 // Eventos SSE ----------------------------------------------------------------

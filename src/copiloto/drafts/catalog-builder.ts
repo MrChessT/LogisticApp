@@ -11,7 +11,8 @@ import Decimal from "decimal.js";
 import type { JsonValue, Questions } from "@typesafe-ai/sdk";
 import type { ArchiveDraft, DraftCheck, MinimumDraft, NavigateEvent, NewProductDraft, OrderDraft, PriceDraft } from "../contract/index";
 import { baseUnitOf, type Dimension, type NamedRef, type Pack, type Product, type SessionContext } from "../domain";
-import { businessDay, horizon } from "../tools/periods";
+import { businessDay } from "../../lib/business-day";
+import { horizon } from "../tools/periods";
 import { computeReorder } from "../tools/tools";
 import type { CatalogPlan, ClarifyPlan } from "../agent/interpret";
 import {

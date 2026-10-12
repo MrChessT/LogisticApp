@@ -4,7 +4,8 @@ import Decimal from "decimal.js";
 import type { AnalyticsResponse, AnalyticsView, ChartFormat, ChartPoint, ChartSeries, ChartSpec, Kpi } from "../contract/index";
 import type { SessionContext } from "../domain";
 import { formatDecimal, formatMoney } from "../entities/units";
-import { addDays, businessDay } from "../tools/periods";
+import { businessDay } from "../../lib/business-day";
+import { addDays } from "../tools/periods";
 import { computeReorder, type ToolName } from "../tools/tools";
 import type { InventoryDataSource, MovementRaw, ToolParams } from "../tools/types";
 
@@ -351,7 +352,7 @@ export class Analytics {
 
   // Vistas ------------------------------------------------------------------------
 
-  async view(view: AnalyticsView, q: AnalyticsQuery): Promise<AnalyticsResponse> {
+  async view(view: AnalyticsView, q: AnalyticsQuery): Promise<Omit<AnalyticsResponse, "locations">> {
     const w = this.window(q);
     const needsMovements = view === "resumen" || view === "consumo" || view === "mermas";
     // Los movimientos (la lectura más pesada) se piden a la vez que el resto, no antes.

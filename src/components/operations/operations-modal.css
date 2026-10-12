@@ -15,8 +15,6 @@
 .op-modal-submit:disabled { opacity: .55; }
 .op-modal-error { margin-top: 12px; color: #b34a3f; font-size: 12px; }
 .op-modal-count-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; margin: 4px 0 16px; padding-right: 4px; }
-.op-modal-count-row { display: grid; grid-template-columns: 1fr 110px; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eef2ee; }
-.op-modal-count-row span { font-size: 12px; color: #34473b; }
 .op-modal-actions { display: flex; gap: 10px; margin-top: 6px; }
 .op-modal-actions button { flex: 1; }
 .op-modal-secondary { color: #56645c; background: #eef2ee; }
@@ -51,10 +49,6 @@
 .count-others { width: 100%; margin: 10px 0 4px; padding: 8px; border: 1px dashed #d5dfd7; border-radius: 8px; background: #fafcfa; color: #5d6d63; font-size: 11px; cursor: pointer; }
 .count-search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; margin: 2px 0 8px; color: #96a29a; border: 1px solid #dfe7e1; border-radius: 8px; }
 .count-search input { flex: 1; border: 0; outline: 0; font-size: 12px; color: #17251f; }
-.count-row { grid-template-columns: 1fr 76px 132px; }
-.count-row span small { display: block; margin-top: 2px; color: #8a978f; font-size: 10px; }
-.count-row input, .count-row select { height: 34px; padding: 0 8px; border: 1px solid #dce5dd; border-radius: 7px; font-size: 12px; color: #26372d; background: #fff; min-width: 0; }
-.count-row input { text-align: right; }
 .count-empty { margin: 12px 0; color: #8a978f; font-size: 12px; text-align: center; }
 .count-hint { margin: -8px 0 10px; color: #8a978f; font-size: 11px; }
 .count-notice { margin: 0 0 10px; padding: 8px 10px; color: #2d6a4f; background: #eaf6ec; border-radius: 7px; font-size: 11px; }
@@ -73,7 +67,6 @@
 .count-option small { display: block; margin-top: 3px; color: #7c8983; font-size: 10px; line-height: 1.4; }
 .op-modal-actions .op-modal-submit { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 @media (max-width: 560px) {
-  .count-row { grid-template-columns: 1fr 64px 110px; }
   .count-line { grid-template-columns: 1fr 70px 78px; }
   .count-totals { grid-template-columns: 1fr 1fr; }
 }
