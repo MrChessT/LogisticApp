@@ -55,6 +55,8 @@ export interface SessionContext {
   archivedProducts: NamedRef[];
   /** Huella del catálogo para invalidar embeddings y cachés. */
   catalogHash: string;
+  /** Modo pruebas (memberships.assistant_test): lo que se confirme en el asistente no se guarda. */
+  testMode?: boolean;
 }
 
 export function baseUnitOf(dimension: Dimension): BaseUnit {

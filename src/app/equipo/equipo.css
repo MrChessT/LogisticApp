@@ -34,6 +34,9 @@
 
 /* Ficha */
 .team-editor { max-width: 620px; }
+/* La ficha ocupa el alto de la pantalla: el cuerpo hace scroll y el pie (Guardar) siempre se ve. */
+.team-editor { max-height: 100dvh; }
+.team-editor .editor-body { min-height: 0; }
 .team-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .team-role-option { display: flex; flex-direction: column; gap: 4px; padding: 11px 12px; text-align: left; color: #34473b; background: #fff; border: 1px solid #dfe7e1; border-radius: 9px; cursor: pointer; }
 .team-role-option b { color: #24372d; font-size: 12px; }
@@ -79,3 +82,4 @@
 @media (max-width: 700px) {
   .team-screens-head { flex-direction: column; }
 }
+.team-tester { margin-left: 6px; padding: 2px 6px; border-radius: 5px; color: #6b4a12; background: #fdf3df; font-size: 9px; font-style: normal; font-weight: 700; vertical-align: 1px; }

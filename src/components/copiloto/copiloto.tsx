@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, LayoutGrid, Loader2, Send, ShieldAlert, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, Sparkles, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import Decimal from "decimal.js";
 import { decimalText, euros, parseDecimal } from "@/lib/format";
+import { createClient } from "@/lib/supabase/client";
+import { cleanTranscript, FEEDBACK_CATEGORIES, transcriptSlice, type FeedbackCategory, type TranscriptEntry } from "@/lib/copilot-feedback";
 import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, Decision, DecisionEvent, DoneEvent, Draft, DraftCheck, ErrorEvent, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { ConfirmResponse } from "@/copiloto/drafts/confirm";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
@@ -111,6 +113,24 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+/** Un mensaje del chat tal como se adjunta a un reporte: el texto y, en una línea, lo que lo acompañaba. */
+function toEntry(item: Item, flagged: boolean): TranscriptEntry {
+  if (item.role === "user") return { role: "user", text: item.text, ...(flagged ? { flagged } : {}) };
+  const detail = [
+    item.draft && `Borrador: ${item.draft.title}`,
+    item.resolved && `Borrador ${item.resolved.status}`,
+    item.clarify && item.clarify.options.length > 0 && `Opciones: ${item.clarify.options.map((o) => o.label).join(" / ")}`,
+    item.table && `Tabla: ${item.table.columns.map((c) => c.label).join(", ")} · ${item.table.rows.length} filas`,
+    item.charts?.length && `${item.charts.length} gráfico(s)`,
+    item.actions?.length && `Botones: ${item.actions.map((a) => a.label).join(" / ")}`,
+    item.navigate && `Enlace a ${ROUTE_LABELS[item.navigate.route]}`,
+    item.error && `Error: ${item.error}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return { role: "assistant", text: item.text, ...(detail ? { detail } : {}), ...(flagged ? { flagged } : {}) };
+}
+
 export function Copiloto() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -120,6 +140,12 @@ export function Copiloto() {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [pendingClarify, setPendingClarify] = useState<ClarifyEvent | null>(null);
   const [functionsOpen, setFunctionsOpen] = useState(false);
+  // Modo pruebas (0025): lo que se confirme no se guarda. Se lee al abrir el panel por primera vez.
+  const [testMode, setTestMode] = useState(false);
+  const testModeLoaded = useRef(false);
+  /** Reporte abierto: sobre un mensaje (su índice) o sobre toda la conversación (null). */
+  const [reportFor, setReportFor] = useState<{ index: number | null } | null>(null);
+  const [reported, setReported] = useState<Set<string>>(new Set());
   const sessionId = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -135,12 +161,24 @@ export function Copiloto() {
     }
   }, []);
 
+  const loadTestMode = useCallback(async () => {
+    if (testModeLoaded.current) return;
+    testModeLoaded.current = true;
+    const supabase = createClient();
+    const userId = (await supabase?.auth.getSession())?.data.session?.user.id;
+    if (!supabase || !userId) return;
+    // «*»: sin romper si la migración 0025 aún no está aplicada.
+    const { data } = await supabase.from("memberships").select("*").eq("user_id", userId).limit(1).maybeSingle();
+    setTestMode(data?.assistant_test === true);
+  }, []);
+
   const toggle = useCallback(() => {
     setOpen((was) => {
       if (!was && suggestions === null) void loadSuggestions();
+      if (!was) void loadTestMode();
       return !was;
     });
-  }, [loadSuggestions, suggestions]);
+  }, [loadSuggestions, loadTestMode, suggestions]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -262,11 +300,12 @@ export function Copiloto() {
     function onAsk(event: Event) {
       const message = (event as CustomEvent<{ message?: string }>).detail?.message;
       setOpen(true);
+      void loadTestMode();
       if (message) void sendRef.current(message);
     }
     window.addEventListener("copiloto:ask", onAsk);
     return () => window.removeEventListener("copiloto:ask", onAsk);
-  }, []);
+  }, [loadTestMode]);
 
   // Acceso y pantalla del almacén: sin asistente (la pantalla de un almacén no puede usarlo).
   if (pathname?.startsWith("/login") || pathname?.startsWith("/almacen")) return null;
@@ -290,10 +329,22 @@ export function Copiloto() {
                   <small>Consulta, navega y prepara operaciones</small>
                 </div>
               </div>
-              <button type="button" className="icon-button" onClick={() => setOpen(false)} aria-label="Cerrar">
-                <X size={17} />
-              </button>
+              <div className="copiloto-header-actions">
+                {items.length > 0 && (
+                  <button type="button" className="copiloto-report-all" onClick={() => setReportFor({ index: null })} title="Reportar algo de toda la conversación">
+                    <Flag size={14} /> Reportar
+                  </button>
+                )}
+                <button type="button" className="icon-button" onClick={() => setOpen(false)} aria-label="Cerrar">
+                  <X size={17} />
+                </button>
+              </div>
             </header>
+            {testMode && (
+              <p className="copiloto-testmode">
+                <FlaskConical size={14} /> <span><b>Modo pruebas:</b> lo que confirmes aquí no se guarda. Si algo está mal o falta, pulsa «Reportar».</span>
+              </p>
+            )}
 
             <div className="copiloto-list" ref={listRef}>
               {items.length === 0 && (
@@ -363,6 +414,16 @@ export function Copiloto() {
                         Ver en {ROUTE_LABELS[item.navigate.route]} <ArrowRight size={13} />
                       </a>
                     )}
+                    {!item.pending && (
+                      <button
+                        type="button"
+                        className={`copiloto-report-link${reported.has(item.id) ? " done" : ""}`}
+                        onClick={() => setReportFor({ index: items.findIndex((i) => i.id === item.id) })}
+                        title="¿Algo mal o mejorable en esta respuesta?"
+                      >
+                        {reported.has(item.id) ? <><Check size={12} /> Reportado</> : <><Flag size={12} /> Reportar</>}
+                      </button>
+                    )}
                   </div>
                 ),
               )}
@@ -408,6 +469,20 @@ export function Copiloto() {
                 {busy ? <Loader2 size={16} className="copiloto-spin" /> : <Send size={16} />}
               </button>
             </form>
+
+            {reportFor && (
+              <ReportForm
+                items={items}
+                index={reportFor.index}
+                sessionId={sessionId.current}
+                page={pathname}
+                onClose={() => setReportFor(null)}
+                onSent={() => {
+                  const target = reportFor.index === null ? null : items[reportFor.index];
+                  if (target) setReported((prev) => new Set(prev).add(target.id));
+                }}
+              />
+            )}
           </aside>
         </div>
       )}
@@ -754,6 +829,124 @@ function TableCard({ table }: { table: TableEvent }) {
         </tbody>
       </table>
       {table.more ? <p className="copiloto-table-more">…y {table.more} más en la pantalla enlazada.</p> : null}
+    </div>
+  );
+}
+
+const CONTEXT_OPTIONS = [
+  { value: "2", label: "Esta respuesta y lo que le pedí" },
+  { value: "6", label: "Los últimos 3 intercambios" },
+  { value: "all", label: "Toda la conversación" },
+] as const;
+
+/**
+ * Reporte sobre una respuesta (o sobre toda la conversación): qué está mal o qué cambiaría y, si quiere,
+ * qué esperaba. Se adjunta la conversación para entenderlo después sin tener que preguntar.
+ */
+function ReportForm({
+  items,
+  index,
+  sessionId,
+  page,
+  onClose,
+  onSent,
+}: {
+  items: Item[];
+  /** Mensaje reportado; null = toda la conversación. */
+  index: number | null;
+  sessionId: string | null;
+  page: string | null;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [category, setCategory] = useState<FeedbackCategory | null>(null);
+  const [comment, setComment] = useState("");
+  const [expected, setExpected] = useState("");
+  const [context, setContext] = useState<(typeof CONTEXT_OPTIONS)[number]["value"]>("2");
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState("");
+
+  const target = index === null ? null : items[index];
+  const preview = target ? (target.role === "assistant" ? target.text || target.draft?.title || target.error || "(respuesta sin texto)" : target.text) : null;
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!category) return setError("Elige qué tipo de problema es.");
+    if (comment.trim().length < 3) return setError("Cuenta en una frase qué está mal o qué cambiarías.");
+    const slice =
+      index === null ? items : transcriptSlice(items, index, context === "all" ? null : Number(context) - 1);
+    const transcript = cleanTranscript(slice.map((item) => toEntry(item, item === target)));
+    setState("sending");
+    setError("");
+    const supabase = createClient();
+    const { error: err } = (await supabase?.rpc("copilot_feedback_add", {
+      p_scope: index === null ? "conversacion" : "mensaje",
+      p_category: category,
+      p_comment: comment.trim(),
+      p_expected: expected.trim() || null,
+      p_transcript: transcript,
+      p_session: sessionId,
+      p_page: page,
+    })) ?? { error: { message: "Supabase no está configurado" } };
+    if (err) {
+      setState("idle");
+      setError("No se ha podido enviar. Inténtalo de nuevo en un momento.");
+      return;
+    }
+    setState("sent");
+    onSent();
+  }
+
+  return (
+    <div className="copiloto-report-layer" onClick={() => state !== "sending" && onClose()}>
+      <form className="copiloto-report" onSubmit={submit} onClick={(event) => event.stopPropagation()} aria-label="Reportar al asistente">
+        <header>
+          <strong><Flag size={15} /> {index === null ? "Reportar la conversación" : "Reportar esta respuesta"}</strong>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={16} /></button>
+        </header>
+        {state === "sent" ? (
+          <div className="copiloto-report-sent">
+            <Check size={22} />
+            <p><b>Gracias, enviado.</b> Lo revisaremos para mejorar el asistente.</p>
+            <button type="button" className="primary-button" onClick={onClose}>Seguir probando</button>
+          </div>
+        ) : (
+          <>
+            {preview && <blockquote>{preview.length > 220 ? `${preview.slice(0, 219)}…` : preview}</blockquote>}
+            <p className="copiloto-report-label">¿Qué pasa?</p>
+            <div className="copiloto-report-cats" role="radiogroup" aria-label="Tipo de problema">
+              {(Object.keys(FEEDBACK_CATEGORIES) as FeedbackCategory[]).map((c) => (
+                <button key={c} type="button" role="radio" aria-checked={category === c} className={category === c ? "active" : undefined} onClick={() => { setCategory(c); setError(""); }}>
+                  {FEEDBACK_CATEGORIES[c]}
+                </button>
+              ))}
+            </div>
+            <label className="copiloto-report-label">
+              ¿Qué está mal o qué cambiarías?
+              <textarea value={comment} onChange={(event) => setComment(event.target.value)} maxLength={2000} rows={3} placeholder="Ej.: me dijo 3 cajas de Barceló y en el almacén hay 2" autoFocus />
+            </label>
+            <label className="copiloto-report-label">
+              ¿Qué esperabas que hiciera? <small>(opcional)</small>
+              <textarea value={expected} onChange={(event) => setExpected(event.target.value)} maxLength={2000} rows={2} placeholder="Ej.: que mirase el último inventario" />
+            </label>
+            {index !== null && index > 0 && (
+              <label className="copiloto-report-label">
+                Adjuntar
+                <select value={context} onChange={(event) => setContext(event.target.value as typeof context)}>
+                  {CONTEXT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </label>
+            )}
+            {error && <p className="copiloto-error">{error}</p>}
+            <div className="copiloto-report-actions">
+              <button type="button" className="ghost-button" onClick={onClose} disabled={state === "sending"}>Cancelar</button>
+              <button type="submit" className="primary-button" disabled={state === "sending"}>
+                {state === "sending" ? <Loader2 size={14} className="copiloto-spin" /> : <Send size={14} />} Enviar
+              </button>
+            </div>
+          </>
+        )}
+      </form>
     </div>
   );
 }

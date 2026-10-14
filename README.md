@@ -89,6 +89,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0022 | Zonas: cada zona es `almacen` (donde se guarda) o `servicio` (barra, cocina…) y se archiva en vez de borrarse; una zona con stock no se puede archivar. Todos los locales tienen «Almacén» y «Barra» (también los nuevos). `v_storage_areas` resume qué guarda cada una. Pantalla `/zonas` para encargados y administración |
 | 0023 | Tipos nuevos para la pantalla de almacén: movimiento `internal_move` (entre zonas del mismo local, no es consumo) y rol `kiosk` (pantalla de almacén). Va sola porque un valor nuevo de un enum no se puede usar en la misma transacción en que se crea |
 | 0024 | Salidas de almacén: `area_moves` (lo que sale a barra o vuelve, pendiente hasta validarse), PIN de 6 cifras por validador (`validator_pins`, cifrado; 5 fallos bloquean 15 min), «puede validar» para personal (`memberships.can_validate`) y pantallas `kiosk` aisladas (un local, sin precios, sin acceso a tablas). Funciones `warehouse_context`, `warehouse_catalog`, `area_move_submit` (idempotente, para reintentos sin cobertura), `area_move_cancel`, `area_moves_list`, `kiosk_validators`, `area_moves_decide`, `set_validation_pin`. Validar crea dos `internal_move` (sale de una zona, entra en otra): el total del local no cambia |
+| 0025 | Opiniones del asistente: `copilot_feedback` (reportes de una respuesta o de una conversación, con copia de la conversación), `copilot_feedback_add/list/review` y modo pruebas por persona (`memberships.assistant_test`, `team_set_tester`): lo que confirma en el asistente no se guarda. Pantalla `/opiniones` para revisar y exportar a Markdown |
 
 **Aplicar en el proyecto real:** `npm run db:bundle -- 0008` genera `supabase/scripts/aplicar.sql` con las migraciones desde la 0008, en una sola transacción. Se pega en Supabase → SQL Editor → Run.
 
@@ -124,6 +125,6 @@ La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la
 - Supabase → Authentication → URL Configuration: *Site URL* con el dominio real y `https://<dominio>/auth/callback` en *Redirect URLs* (enlace mágico y recuperar contraseña).
 - Supabase → Authentication → Sign In / Providers: desactivar *Allow new users to sign up*. Los usuarios los da de alta un administrador; el enlace mágico ya no crea cuentas.
 - Supabase → Authentication → SMTP: un SMTP propio (el de Supabase solo manda unos pocos correos por hora).
-- Migraciones hasta la 0024 aplicadas (`npm run db:bundle -- 0022 0022`; después `-- 0023 0023` y `-- 0024 0024`, cada una en su propio Run: un valor nuevo de enum no se puede usar en la misma transacción) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
+- Migraciones hasta la 0025 aplicadas (`npm run db:bundle -- 0022 0022`; después `-- 0023 0023` y `-- 0024 0024`, cada una en su propio Run: un valor nuevo de enum no se puede usar en la misma transacción) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
 - Términos de uso y política de privacidad: la pantalla de acceso los menciona, pero aún no existen.
 - Límite de peticiones del asistente: está en memoria de cada instancia; con mucho tráfico, moverlo a un almacén compartido.

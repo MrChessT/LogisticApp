@@ -29,6 +29,8 @@ type Member = {
   isSelf: boolean;
   canEdit: boolean;
   canValidate: boolean;
+  /** Modo pruebas del asistente (0025): lo que confirme en el chat no se guarda. */
+  testMode: boolean;
 };
 type Location = { id: string; name: string };
 type Filter = "todos" | "direccion" | "manager" | "staff" | "pendientes";
@@ -44,8 +46,13 @@ async function loadTeam(): Promise<{ actor: Role | null; members: Member[]; loca
   ]);
   const actor = (me?.role ?? null) as Role | null;
   if (!managesTeam(actor)) return { actor, members: [], locations: (locations ?? []) as Location[] };
-  const { data, error } = await supabase.rpc("team_members");
+  const [{ data, error }, { data: flags }] = await Promise.all([
+    supabase.rpc("team_members"),
+    // «*»: assistant_test (0025) sin romper si la migración aún no está aplicada.
+    supabase.from("memberships").select("*"),
+  ]);
   if (error) throw new Error(teamErrorMessage(error, "No se pudo cargar el equipo."));
+  const testers = new Set((flags ?? []).filter((m) => m.assistant_test).map((m) => m.user_id));
   return {
     actor,
     locations: (locations ?? []) as Location[],
@@ -61,6 +68,7 @@ async function loadTeam(): Promise<{ actor: Role | null; members: Member[]; loca
       isSelf: m.is_self,
       canEdit: m.can_edit,
       canValidate: m.can_validate ?? false,
+      testMode: testers.has(m.user_id),
     })),
   };
 }
@@ -215,7 +223,7 @@ export default function TeamPage() {
                   <span className="team-person">
                     <span className={`team-avatar role-${m.role}`}>{initials(m.name)}</span>
                     <span>
-                      <strong>{m.name}{m.isSelf && <em className="team-you">Tú</em>}</strong>
+                      <strong>{m.name}{m.isSelf && <em className="team-you">Tú</em>}{m.testMode && <em className="team-tester">Probando el asistente</em>}</strong>
                       <small>{m.email}</small>
                     </span>
                   </span>
@@ -317,6 +325,7 @@ function MemberEditor({
   const [role, setRole] = useState<Role>(member?.role ?? (roles.includes("staff") ? "staff" : roles[0]!));
   const [allLocations, setAllLocations] = useState(member?.allLocations ?? false);
   const [canValidate, setCanValidate] = useState(member?.canValidate ?? false);
+  const [testMode, setTestMode] = useState(member?.testMode ?? false);
   const [selected, setSelected] = useState<Set<string>>(new Set(member?.locationIds ?? (locations.length === 1 ? [locations[0]!.id] : [])));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -359,8 +368,9 @@ function MemberEditor({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.trim(), fullName: name.trim() || undefined, ...body }),
         });
-        const data = (await res.json()) as { link?: string | null; existing?: boolean; message?: string };
+        const data = (await res.json()) as { userId?: string; link?: string | null; existing?: boolean; message?: string };
         if (!res.ok) throw new Error(data.message ?? "No se pudo invitar.");
+        if (testMode && data.userId) await createClient()?.rpc("team_set_tester", { p_user: data.userId, p_on: true });
         if (data.link) {
           setInvite({ link: data.link, name: name.trim() || email.trim(), existing: !!data.existing });
           onChanged(`${name.trim() || email.trim()} ya está en el equipo. Comparte su enlace de acceso.`);
@@ -381,6 +391,10 @@ function MemberEditor({
           p_can_validate: role === "staff" ? canValidate : null,
         });
         if (err) throw new Error(teamErrorMessage(err));
+        if (testMode !== member.testMode) {
+          const { error: testErr } = await supabase.rpc("team_set_tester", { p_user: member.userId, p_on: testMode });
+          if (testErr) throw new Error(teamErrorMessage(testErr, "Se guardó el acceso, pero no el modo pruebas."));
+        }
         onChanged(`Acceso de ${name.trim() || member.name} actualizado.`);
         onClose();
       }
@@ -493,6 +507,16 @@ function MemberEditor({
                 <p className="section-hint">Con su PIN (lo pone en «Tu cuenta») confirma lo que se ha sacado para que pase al stock. Los encargados pueden siempre.</p>
               </div>
             )}
+            <div className="editor-section">
+              <p className="facet-title">Asistente</p>
+              <label className="check-option">
+                <input type="checkbox" checked={testMode} onChange={(event) => setTestMode(event.target.checked)} /> Modo pruebas del asistente
+              </label>
+              <p className="section-hint">
+                Para que pruebe el asistente con los datos reales sin tocar nada: lo que confirme en el chat no se guarda, y puede reportar cada respuesta.
+                Solo afecta al asistente; en las pantallas de la app guarda como siempre.
+              </p>
+            </div>
             {member?.pending && <p className="section-hint team-pending-hint">Todavía no ha entrado nunca. Si su enlace caducó, genera uno nuevo.</p>}
             {member && !member.pending && member.lastSignIn && <p className="section-hint">Último acceso {daysAgo(member.lastSignIn).toLowerCase()}.</p>}
           </div>

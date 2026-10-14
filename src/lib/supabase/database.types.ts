@@ -54,6 +54,8 @@ export type Database = {
           role: "owner" | "admin" | "manager" | "staff" | "kiosk";
           all_locations: boolean;
           can_validate: boolean;
+          /** Migración 0025. Opcional: se lee con select("*") por si aún no está aplicada. */
+          assistant_test?: boolean;
           created_at: string;
         };
         Insert: {
@@ -645,6 +647,13 @@ export type Database = {
         Returns: undefined;
       };
       set_validation_pin: { Args: { p_pin: string }; Returns: undefined };
+      copilot_feedback_add: {
+        Args: { p_scope: string; p_category: string; p_comment: string; p_expected?: string | null; p_transcript?: Json; p_session?: string | null; p_page?: string | null };
+        Returns: string;
+      };
+      copilot_feedback_list: { Args: { p_status?: string | null; p_limit?: number }; Returns: Json };
+      copilot_feedback_review: { Args: { p_ids: string[]; p_status: string; p_note?: string | null }; Returns: number };
+      team_set_tester: { Args: { p_user: string; p_on: boolean }; Returns: undefined };
       warehouse_context: { Args: { p_location?: string | null }; Returns: Json };
       warehouse_catalog: { Args: { p_location: string; p_search?: string | null; p_limit?: number }; Returns: Json };
       area_move_submit: {

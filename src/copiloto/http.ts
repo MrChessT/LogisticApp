@@ -9,8 +9,8 @@ import { CompositeAuditSink, ConsoleAuditSink } from "./audit/audit";
 import { ANALYTICS_VIEWS, CATALOG_KINDS, ChatRequest, CONTRACT_VERSION, type ErrorEvent, type HealthResponse } from "./contract/index";
 import type { SessionContext } from "./domain";
 import { ConfirmRequest } from "./drafts/confirm";
+import { markTest, writerFor } from "./drafts/test-mode";
 import { DraftStore } from "./drafts/store";
-import { SupabaseInventoryWriter } from "./drafts/writer-port";
 import { runtime } from "./runtime";
 import { AuthError, type AuthUser } from "./security/auth";
 import type { RateLimiter } from "./security/rate-limit";
@@ -50,7 +50,6 @@ function scopeFor(user: RequestUser) {
     sessions: new SessionStore(new SupabaseSessionPersistence(db)),
     drafts: new DraftStore(new SupabaseDraftPersistence(db)),
     habits: new HabitsStore(new SupabaseHabitsPersistence(db)),
-    writer: new SupabaseInventoryWriter(db),
   };
 }
 
@@ -108,7 +107,11 @@ async function chat(request: Request, user: RequestUser): Promise<Response> {
             // «Sí, adelante»: mismo servicio que el botón, con el rol comprobado sobre datos frescos.
             confirmDraft: async (draftId) => {
               const fresh = await loadContext(user, true);
-              const result = await rt.confirm.confirm({ orgId: user.orgId, draftId, idempotencyKey: randomUUID() }, fresh, scope.writer, scope.audit, scope.drafts);
+              const result = markTest(
+                await rt.confirm.confirm({ orgId: user.orgId, draftId, idempotencyKey: randomUUID() }, fresh, writerFor(fresh, scope.db), scope.audit, scope.drafts),
+                fresh,
+              );
+              if (fresh.testMode) return result;
               if (result.ok) invalidateBusinessCache(user.orgId);
               if (result.ok && (CATALOG_KINDS as readonly string[]).includes(result.kind)) rt.contexts.delete(`${user.userId}:${user.orgId}`);
               return result;
@@ -148,11 +151,11 @@ async function confirm(request: Request, user: RequestUser): Promise<Response> {
   // Sin caché: el rol se comprueba con datos frescos antes de escribir.
   const ctx = await loadContext(user, true);
   const scope = scopeFor(user);
-  const result = await rt.confirm.confirm(parsed.data, ctx, scope.writer, scope.audit, scope.drafts);
+  const result = markTest(await rt.confirm.confirm(parsed.data, ctx, writerFor(ctx, scope.db), scope.audit, scope.drafts), ctx);
   // Lo escrito debe verse en la siguiente consulta: fuera la caché del negocio de la organización.
-  if (result.ok) invalidateBusinessCache(user.orgId);
+  if (result.ok && !ctx.testMode) invalidateBusinessCache(user.orgId);
   // El catálogo ha cambiado (producto nuevo, archivado…): el siguiente mensaje debe verlo.
-  if (result.ok && (CATALOG_KINDS as readonly string[]).includes(result.kind)) rt.contexts.delete(`${user.userId}:${user.orgId}`);
+  if (result.ok && !ctx.testMode && (CATALOG_KINDS as readonly string[]).includes(result.kind)) rt.contexts.delete(`${user.userId}:${user.orgId}`);
   const status = result.ok ? 200 : result.code === "forbidden" ? 403 : result.code === "draft_not_found" || result.code === "draft_expired" ? 404 : 422;
   return json(result, status);
 }

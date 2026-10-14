@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
+  MessageSquareWarning,
   Menu,
   Package,
   Search,
@@ -425,6 +426,9 @@ export default function Dashboard() {
           <Link className="nav-item" href={withLocal("/informes")}><SlidersHorizontal size={18} /><span>Informes</span></Link>
           {identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
             <Link className="nav-item" href="/equipo"><Users size={18} /><span>Equipo</span></Link>
+          )}
+          {identity && ["owner", "admin"].includes(identity.roleKey) && (
+            <Link className="nav-item" href="/opiniones"><MessageSquareWarning size={18} /><span>Opiniones del asistente</span></Link>
           )}
           <Link className="nav-item" href="/zonas"><MapPin size={18} /><span>Zonas</span></Link>
         </nav>
