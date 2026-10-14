@@ -135,3 +135,31 @@
   .copiloto-functions { margin: 0 10px 8px; max-height: 62vh; }
   .copiloto-functions-filters { grid-template-columns: 1fr; }
 }
+
+/* Opiniones y modo pruebas (0025) */
+.copiloto-panel { position: relative; }
+.copiloto-header-actions { display: flex; align-items: center; gap: 6px; }
+.copiloto-report-all { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; color: var(--muted); background: #fff; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.copiloto-report-all:hover { color: #9a5a17; border-color: #ecd3b4; background: #fdf7ef; }
+.copiloto-testmode { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 9px 18px; color: #6b4a12; background: #fdf3df; border-bottom: 1px solid #f1dfba; font-size: 12px; line-height: 1.4; }
+.copiloto-testmode svg { flex: none; margin-top: 1px; }
+.copiloto-report-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; color: #a3aea7; background: none; border: 0; font-size: 11px; cursor: pointer; }
+.copiloto-report-link:hover { color: #9a5a17; }
+.copiloto-report-link.done { color: var(--green); }
+.copiloto-report-layer { position: absolute; inset: 0; z-index: 5; display: flex; align-items: flex-end; background: rgba(23, 37, 31, .32); }
+.copiloto-report { width: 100%; max-height: 92%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; background: #fff; border-radius: 16px 16px 0 0; box-shadow: 0 -12px 40px rgba(23, 37, 31, .18); }
+.copiloto-report header { display: flex; align-items: center; justify-content: space-between; }
+.copiloto-report header strong { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; }
+.copiloto-report blockquote { margin: 0; padding: 8px 10px; color: #4a5a51; background: #f6f8f5; border-left: 3px solid #e2b77a; border-radius: 6px; font-size: 12px; line-height: 1.4; white-space: pre-wrap; }
+.copiloto-report-label { display: flex; flex-direction: column; gap: 5px; margin: 0; color: #34473b; font-size: 12px; font-weight: 600; }
+.copiloto-report-label small { color: var(--muted); font-weight: 400; }
+.copiloto-report textarea, .copiloto-report select { width: 100%; padding: 8px 10px; color: #17251f; background: #fff; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13px; font-weight: 400; resize: vertical; }
+.copiloto-report textarea:focus, .copiloto-report select:focus { outline: 2px solid #2e8064; outline-offset: 0; }
+.copiloto-report-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.copiloto-report-cats button { padding: 6px 10px; color: #34473b; background: #fff; border: 1px solid var(--line); border-radius: 20px; font-size: 12px; cursor: pointer; }
+.copiloto-report-cats button.active { color: #fff; background: var(--green); border-color: var(--green); }
+.copiloto-report-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.copiloto-report-actions .primary-button { display: inline-flex; align-items: center; gap: 6px; }
+.copiloto-report-sent { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 8px; color: var(--green); text-align: center; }
+.copiloto-report-sent p { margin: 0; color: #34473b; font-size: 13px; }
+.copiloto-report-actions .ghost-button { height: 38px; padding: 0 14px; color: #4a5a51; background: #fff; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }

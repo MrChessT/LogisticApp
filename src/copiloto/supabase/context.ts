@@ -38,7 +38,8 @@ export class SupabaseContext implements ContextPort {
     // Los espacios se filtran por el join con sus locales (activos, de la organización) en lugar de
     // esperar a tener la lista de locales: mismo resultado, una petición menos en serie.
     const [membership, locations, products, areas, suppliers, categories, archived] = await Promise.all([
-      db.from("memberships").select("role").eq("org_id", orgId).eq("user_id", user.userId).maybeSingle(),
+      // «*»: también assistant_test (0025) sin romper si esa migración aún no está aplicada.
+      db.from("memberships").select("*").eq("org_id", orgId).eq("user_id", user.userId).maybeSingle(),
       db.from("locations").select("id,name,timezone,day_cutoff").eq("org_id", orgId).eq("active", true).order("name"),
       // Más de 1000 productos no caben en una respuesta de PostgREST: se lee por páginas.
       settle(
@@ -121,6 +122,7 @@ export class SupabaseContext implements ContextPort {
       categories: refs(categories),
       archivedProducts: refs(archived),
       catalogHash,
+      testMode: (membership.data as { assistant_test?: boolean } | null)?.assistant_test === true,
     };
   }
 }
