@@ -17,7 +17,7 @@ export default function LoginPage() {
   // Un enlace de acceso caducado o ya usado vuelve aquí con ?error=enlace.
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("error") !== "enlace") return;
-    const timer = window.setTimeout(() => setMessage("Ese enlace ya se usó o ha caducado. Entra con tu contraseña o pide un enlace nuevo a tu encargado."), 0);
+    const timer = window.setTimeout(() => setMessage("Ese enlace ya se usó, ha caducado o se abrió en otro dispositivo. Entra con tu contraseña o pide un enlace nuevo."), 0);
     return () => window.clearTimeout(timer);
   }, []);
 
