@@ -210,7 +210,7 @@ export function Copiloto() {
   }
 
   /** `display`: lo que se enseña como mensaje del usuario (el menú de funciones manda un atajo). */
-  async function send(message: string, clarification?: { clarifyId: string; optionId: string; freeText?: string }, followUpId?: string, display?: string) {
+  async function send(message: string, clarification?: { clarifyId: string; optionId: string; freeText?: string; field?: string }, followUpId?: string, display?: string) {
     if (busy || !message.trim()) return;
     sessionId.current ??= newId();
     const assistantId = newId();
@@ -287,7 +287,7 @@ export function Copiloto() {
     if (!text) return;
     setInput("");
     // Texto libre como respuesta a una aclaración abierta.
-    if (pendingClarify) void send(text, { clarifyId: pendingClarify.clarifyId, optionId: "otra", freeText: text });
+    if (pendingClarify) void send(text, { clarifyId: pendingClarify.clarifyId, optionId: "otra", freeText: text, field: pendingClarify.field });
     else void send(text);
   }
 
@@ -808,8 +808,11 @@ function Understood({ decision, asking }: { decision: DecisionEvent; asking: boo
 
 function TableCard({ table }: { table: TableEvent }) {
   const flagged = new Set(table.flagged ?? []);
+  // La fila se nombra por su primera columna con texto («#» es solo la posición en un ranking).
+  const titleIndex = table.columns[0]?.label === "#" && table.columns.length > 1 ? 1 : 0;
   return (
-    <div className="copiloto-table">
+    // Con más de 3 columnas, en el panel estrecho cada fila se ve como una ficha (CSS: container query).
+    <div className={`copiloto-table${table.columns.length > 3 ? " cards" : ""}`}>
       <table>
         <thead>
           <tr>
@@ -821,8 +824,10 @@ function TableCard({ table }: { table: TableEvent }) {
         <tbody>
           {table.rows.map((row, i) => (
             <tr key={i} className={flagged.has(i) ? "flagged" : undefined}>
-              {table.columns.map((c) => (
-                <td key={c.key} className={c.align === "right" ? "num" : undefined}>{row[c.key]}</td>
+              {table.columns.map((c, j) => (
+                <td key={c.key} className={[c.align === "right" ? "num" : "", j === titleIndex ? "title" : "", j < titleIndex ? "rank" : ""].filter(Boolean).join(" ") || undefined} data-label={c.label}>
+                  {row[c.key]}
+                </td>
               ))}
             </tr>
           ))}
