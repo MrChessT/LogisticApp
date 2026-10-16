@@ -29,7 +29,7 @@ import { HabitsStore } from "./habits";
 import type { Draft } from "../contract/index";
 import type { ConfirmResponse } from "../drafts/confirm";
 import { isShortcut, resolveShortcut } from "./shortcuts";
-import { ENTITY_FIELDS, fieldOverrides, isNewQuestion, readFreeText, type FreeTextAnswer } from "./free-text";
+import { changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
 import { tokenize } from "../entities/normalize";
 import { tableFor } from "../writer/table";
 import { followUpsFor } from "./followups";
@@ -167,7 +167,17 @@ export class Agent {
           option = read.kind === "option" ? read.optionId : null;
           if (read.kind === "quantity" && pending.routing) typed = read;
         }
-        if (option !== null && pending.fromShortcut) {
+        const changes = changesOperation(text, pending);
+        if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text)) {
+          // «¿Cómo se llama el producto nuevo?» → «Prueba Luis»: es el nombre, se sigue con la misma orden.
+          const { sentido: _sentido, ...rest } = pending.overrides;
+          void _sentido;
+          message = pending.message;
+          page = pending.page;
+          pageContext = pending.pageContext;
+          overrides = { ...rest, nombre: text };
+          reuse = pending.routing;
+        } else if (option !== null && pending.fromShortcut) {
           message = pending.message;
           page = pending.page;
           pageContext = pending.pageContext;
@@ -180,7 +190,7 @@ export class Agent {
           pageContext = pending.pageContext;
           overrides = option !== null ? { ...pending.overrides, [overrideKey(pending, option)]: overrideValue(option) } : quantityOverrides(pending, typed!);
           reuse = pending.routing;
-        } else if (ENTITY_FIELDS.has(pending.field) && !pending.restart && !isNewQuestion(text)) {
+        } else if (ENTITY_FIELDS.has(pending.field) && !pending.restart && !isNewQuestion(text) && !changes) {
           // Falta un dato de la orden y no encaja con ninguna opción: se completa la orden original.
           message = `${pending.message}. ${text}`.slice(0, 1000);
           page = pending.page;
@@ -189,6 +199,10 @@ export class Agent {
         }
         // Si no, lo escrito es un mensaje nuevo: la orden anterior no se arrastra.
       }
+
+      // «merma», «registrar merma», «nuevo producto»: empieza esa operación (Jev solo pregunta lo que falte).
+      const onlyOperation = !plan && !reuse ? operationOnly(message) : null;
+      if (onlyOperation) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: onlyOperation };
 
       if (!plan && !reuse && isShortcut(message)) {
         plan = await resolveShortcut(message, ctx, deps.retriever, pageContext?.locationId);
@@ -305,9 +319,19 @@ export class Agent {
   }
 
   private async clarify(plan: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
+    // La misma pregunta otra vez en pocos turnos: no se entiende algo. En vez de seguir en bucle, se ofrece
+    // hacerlo en su pantalla (o cómo decirlo para que se entienda a la primera).
+    const repeated = askedRecently(env.session, plan.question);
+    const route = repeated ? routeForOperation(plan.field, env) : null;
+    if (route) await env.emit({ event: "navigate", data: { route, filters: {}, auto: false } });
+    const question = !repeated
+      ? plan.question
+      : route
+        ? `${plan.question} Si te resulta más fácil, hazlo directamente en ${label(route)}: te dejo el enlace.`
+        : `${plan.question} Si no te entiendo, dímelo en una frase con la operación y los datos (por ejemplo «merma de 2 botellas de Larios en Parador») o elige en Funciones.`;
     const clarify: ClarifyEvent = {
       clarifyId: randomUUID().slice(0, 12),
-      question: plan.question,
+      question,
       field: plan.field,
       options: plan.options,
       allowFreeText: true,
@@ -674,4 +698,37 @@ function nextFocus(plan: Plan, outcome: ReportOutcome, previous: Focus | undefin
   }
   // Tras una aclaración, una navegación o una charla, lo anterior sigue siendo el tema.
   return previous ? { ...previous, at: previous.at } : undefined;
+}
+
+/** ¿Se hizo esta misma pregunta en los últimos turnos del asistente? (bucle de aclaraciones) */
+function askedRecently(session: Session, question: string): boolean {
+  const recent = session.turns.filter((t) => t.role === "assistant").slice(-3);
+  const head = question.slice(0, 60);
+  return recent.some((t) => t.text.startsWith(head));
+}
+
+/** Pantalla donde se hace a mano la operación que se está preparando. */
+const OPERATION_ROUTE: Record<string, AppRoute> = {
+  merma: "/mermas",
+  traspaso: "/traspasos",
+  recibir_traspaso: "/traspasos",
+  cancelar_traspaso: "/traspasos",
+  recepcion: "/recepciones",
+  preparar_pedido: "/pedidos",
+  enviar_pedido: "/pedidos",
+  recibir_pedido: "/pedidos",
+  cancelar_pedido: "/pedidos",
+  abrir_inventario: "/inventarios",
+  anotar_conteo: "/inventarios",
+  cierre_inventario: "/inventarios",
+  nuevo_producto: "/productos",
+  cambiar_precio: "/productos",
+  archivar_producto: "/productos",
+  cambiar_minimo: "/stock",
+};
+
+function routeForOperation(field: ClarifyPlan["field"], env: ExecEnv): AppRoute | null {
+  if (field === "nombre" || field === "sentido" || field === "duplicado") return "/productos";
+  const operation = env.overrides.tipo_accion ?? env.decisions.find((d) => d.id === "tipo_accion")?.value;
+  return (operation && OPERATION_ROUTE[operation]) || null;
 }

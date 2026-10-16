@@ -75,6 +75,9 @@ const TRIGGER =
 const LEADING =
   /^(?:\s*(?:un|una|el|la|al|los|las|nuevo|nueva|producto|articulo|artículo|referencia|item|llamad[oa]|que\s+se\s+llame|con\s+el\s+nombre(?:\s+de)?|como|:|-))+\s*/iu;
 
+/** Lo que sigue a «registrar / crear…» y no es un producto: otra operación («registrar merma»). */
+const NOT_A_NAME = /^(?:una?\s+)?(?:merma|mermas|rotura|traspaso|traspasos|recepci[oó]n|recepciones|albar[aá]n|pedido|pedidos|inventario|recuento|conteo|precio)\b/iu;
+
 /** Donde termina el nombre: precio, formato, categoría, proveedor, local o fin de frase. */
 const NAME_END = [
   /\s+(?:a|por|al\s+precio\s+de|con\s+precio(?:\s+de)?|precio|que\s+cuesta|cuesta|vale)\s+(?:€\s*)?\d/iu,
@@ -99,7 +102,9 @@ export function extractNewProductName(message: string, suppliers: NamedRef[] = [
   if (quoted) {
     name = quoted[1]!;
   } else {
-    const trigger = TRIGGER.exec(text);
+    // El primer verbo cuyo complemento es un nombre de verdad («registrar merma» no da «Merma»).
+    const triggers = [...text.matchAll(new RegExp(TRIGGER.source, "giu"))];
+    const trigger = triggers.find((t) => !NOT_A_NAME.test(text.slice(t.index + t[0].length).replace(LEADING, "").trimStart()));
     if (!trigger) return null;
     name = text.slice(trigger.index + trigger[0].length).replace(LEADING, "");
     let end = name.length;

@@ -28,8 +28,10 @@ import type { Focus } from "./session";
 import { preferredLocation, type Habits } from "./habits";
 import { VIEW_FOR_TOOL } from "../analytics/analytics";
 import { need, relevant, slotSpec, type ContextKey } from "../gates/policy";
-import { namesAll, namesProduct } from "../entities/mentions";
+import { namesAll, namesProduct, unexplainedWords } from "../entities/mentions";
 import { formatDecimal } from "../entities/units";
+import { canonicalUnit } from "../entities/quantity-parser";
+import { tokenize } from "../entities/normalize";
 
 export interface ClarifyPlan {
   type: "clarify";
@@ -177,6 +179,9 @@ export class Interpreter {
     /** Hábitos del usuario (locales y productos más usados). */
     private readonly habits?: Habits,
   ) {}
+
+  /** Palabras de locales y espacios: no describen productos («2 de barceló del parador»). */
+  private readonly placeWords = new Set([...this.ctx.locations.map((l) => l.name), ...this.ctx.areas.map((a) => a.name)].flatMap((n) => tokenize(n)));
 
   /** Local habitual del usuario, si lo tiene claro (solo ordena las opciones al preguntar). */
   private habitualLocation(): string | undefined {
@@ -467,9 +472,22 @@ export class Interpreter {
       const answer = this.choice(id);
       // Evidencia literal: el fragmento nombra el producto elegido («2 cajas de beefeater»).
       const chosen = answer ? rs.candidates.get(answer.choice) : undefined;
-      const literal = !!chosen && namesProduct(rs.segment.productText || rs.segment.text, chosen);
+      // Para escribir, el nombre dicho debe encajar entero: «Prubea Luis» no es «Luis Latour» aunque
+      // comparta «luis». Solo se mira el fragmento del producto (no la frase entera con la operación).
+      // Solo en fragmentos con cantidad (en los demás «productText» es la frase entera).
+      const unexplained =
+        // Si el producto lo eligió el usuario al aclarar, manda su elección.
+        forAction && chosen && this.overrides[id] === undefined && rs.segment.amount !== null && rs.segment.productText && rs.segment.productText !== rs.segment.text
+          ? unexplainedWords(rs.segment.productText, chosen, (w) => canonicalUnit(w) !== null || this.placeWords.has(w))
+          : [];
+      const literal = !!chosen && unexplained.length === 0 && namesProduct(rs.segment.productText || rs.segment.text, chosen);
       const g = this.gate(id, "Producto", slotSpec(this.thresholds, context, "producto", literal), (v) => (v === NINGUNO || v === VARIOS ? label(v) : v));
       if (!g) continue;
+      if (unexplained.length > 0 && g.choice === answer?.choice && g.outcome !== "preguntar") {
+        g.outcome = "preguntar";
+        const last = this.decisions[this.decisions.length - 1];
+        if (last?.id === id) last.gate = "preguntar";
+      }
       // Un solo candidato, el mensaje lo nombra tal cual y Jev lo pone primero («4 tónicas» con una sola
       // tónica: 0,50 frente a «varios» 0,38): no hay otro producto al que pueda referirse.
       if (g.outcome !== "actuar" && literal && rs.candidates.size === 1 && chosen && g.ranked[0]?.option === answer!.choice && g.probability >= 0.45) {
@@ -512,7 +530,10 @@ export class Interpreter {
           for (const product of this.family(i)) resolved.push({ product, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null });
           continue;
         }
-        const question = rs.segment.amount !== null ? `¿A qué producto te refieres con «${rs.segment.text}»?` : "¿A qué producto te refieres?";
+        const question =
+          unexplained.length > 0
+            ? `No encuentro «${rs.segment.productText}» tal cual en el catálogo. ¿Es alguno de estos? Si es un producto nuevo, primero hay que darlo de alta.`
+            : rs.segment.amount !== null ? `¿A qué producto te refieres con «${rs.segment.text}»?` : "¿A qué producto te refieres?";
         return this.clarify("producto", question, g.ranked, [NINGUNO, VARIOS], (v) => v, i);
       }
       const product = rs.candidates.get(g.choice);

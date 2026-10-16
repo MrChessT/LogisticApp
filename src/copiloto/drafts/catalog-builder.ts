@@ -245,9 +245,10 @@ export class CatalogDraftBuilder {
   // Alta de producto ----------------------------------------------------------------
 
   private async newProduct({ plan, message, ctx, overrides, now }: CatalogBuildInput): Promise<BuildResult> {
-    const name = extractNewProductName(message, ctx.suppliers, ctx.locations);
+    // El nombre escrito al contestar «¿cómo se llama?» (o al corregirlo) manda sobre el del mensaje.
+    const name = typedName(overrides.nombre) ?? extractNewProductName(message, ctx.suppliers, ctx.locations);
     if (!name) {
-      return { kind: "clarify", plan: { type: "clarify", field: "sentido", question: "¿Cómo se llama el producto nuevo? Escribe el nombre tal y como quieres verlo en el catálogo.", options: [] } };
+      return { kind: "clarify", plan: { type: "clarify", field: "nombre", question: "¿Cómo se llama el producto nuevo? Escribe el nombre tal y como quieres verlo en el catálogo.", options: [] } };
     }
 
     // El usuario ya respondió que es un producto existente: no se crea nada.
@@ -772,3 +773,10 @@ function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+
+/** Nombre escrito a mano para un producto nuevo: sin comillas ni espacios de sobra; null si no vale. */
+function typedName(text: string | undefined): string | null {
+  const name = (text ?? "").normalize("NFC").replace(/\s+/g, " ").replace(/^[\s"'«“]+|[\s"'»”.,;:!?]+$/gu, "").trim();
+  if (!name || name.length > 80 || (name.match(/\p{L}/gu) ?? []).length < 2) return null;
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
