@@ -484,6 +484,8 @@ export class Analytics {
     }
     if (!chart || chart.empty) return null;
     const points = chart.series.reduce((n, s) => n + s.points.length, 0);
+    // Todo a cero (sin consumo registrado) no dice nada que el texto no diga ya.
+    if (chart.series.every((s) => s.points.every((p) => Number(p.value) === 0))) return null;
     // Una sola barra no es una gráfica (la cifra ya está en el texto).
     return points >= 2 ? chart : null;
   }

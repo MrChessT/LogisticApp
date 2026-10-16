@@ -67,14 +67,29 @@ export class DocumentDraftBuilder {
   private async transfer(plan: DocumentPlan, ctx: SessionContext, source: InventoryDataSource, overrides: Record<string, string>, now: Date): Promise<BuildResult> {
     const receiving = plan.accion === "recibir_traspaso";
     const all = await source.transfers({ locationIds: plan.locationIds, status: receiving ? ["in_transit"] : ["draft", "in_transit"] });
-    const found = all.filter((t) => plan.locationIds.includes(t.fromLocationId) || plan.locationIds.includes(t.toLocationId));
-    const where = plan.locationIds.length === 1 ? ` en ${locationName(ctx, plan.locationIds[0]!)}` : "";
+    const found = all.filter((t) =>
+      plan.fromLocationId || plan.toLocationId
+        ? (!plan.fromLocationId || t.fromLocationId === plan.fromLocationId) && (!plan.toLocationId || t.toLocationId === plan.toLocationId)
+        : plan.locationIds.includes(t.fromLocationId) || plan.locationIds.includes(t.toLocationId),
+    );
+    const where =
+      plan.fromLocationId || plan.toLocationId
+        ? `${plan.fromLocationId ? ` de ${locationName(ctx, plan.fromLocationId)}` : ""}${plan.toLocationId ? ` ${plan.fromLocationId ? "a" : "en"} ${locationName(ctx, plan.toLocationId)}` : ""}`
+        : plan.locationIds.length === 1
+          ? ` en ${locationName(ctx, plan.locationIds[0]!)}`
+          : "";
     const describe = (t: TransferRaw) => `${locationName(ctx, t.fromLocationId)} → ${locationName(ctx, t.toLocationId)} · ${ago(t.sentAt, now)}`;
+    // Dos traspasos del mismo día entre los mismos locales se distinguen por lo que llevan.
+    const names = new Map(ctx.products.map((p) => [p.id, p.name]));
+    const contents = (t: TransferRaw) => {
+      const first = t.lines.slice(0, 2).map((l) => names.get(l.productId) ?? "producto");
+      return `${first.join(", ")}${t.lines.length > 2 ? ` y ${t.lines.length - 2} más` : ""}`;
+    };
     const picked = pick(found, overrides.documento);
     if (!picked) {
       return found.length === 0
         ? { kind: "error", message: receiving ? `No hay traspasos pendientes de recibir${where}.` : `No hay traspasos que cancelar${where}.`, navigate: nav("/traspasos") }
-        : clarify(receiving ? "¿Qué traspaso ha llegado?" : "¿Qué traspaso cancelo?", found.map((t) => ({ id: t.id, label: `${describe(t)} (${t.lines.length} ${t.lines.length === 1 ? "producto" : "productos"})` })));
+        : clarify(receiving ? "¿Qué traspaso ha llegado?" : "¿Qué traspaso cancelo?", found.map((t) => ({ id: t.id, label: `${describe(t)} · ${contents(t)}` })));
     }
     const products = new Map(ctx.products.map((p) => [p.id, p]));
     const lines = picked.lines.map((l) => {

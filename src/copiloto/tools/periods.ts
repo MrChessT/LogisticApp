@@ -63,7 +63,7 @@ export function pastPeriod(periodo: Periodo, today: string, message: string, fal
         let monday = addDays(today, -7);
         while (weekday(monday) !== 1) monday = addDays(monday, -1);
         const sunday = addDays(monday, 6);
-        return { from: monday, to: sunday, label: `la semana pasada (del ${formatDay(monday)} al ${formatDay(sunday)})` };
+        return { from: monday, to: sunday, label: `la semana pasada, del ${formatDay(monday)} al ${formatDay(sunday)}` };
       }
       return { from: addDays(today, -6), to: today, label: "los últimos 7 días" };
     }
@@ -73,7 +73,7 @@ export function pastPeriod(periodo: Periodo, today: string, message: string, fal
         const first = `${today.slice(0, 8)}01`;
         const to = addDays(first, -1);
         const from = `${to.slice(0, 8)}01`;
-        return { from, to, label: `el mes pasado (del ${formatDay(from)} al ${formatDay(to)})` };
+        return { from, to, label: `el mes pasado, del ${formatDay(from)} al ${formatDay(to)}` };
       }
       return { from: addDays(today, -29), to: today, label: "los últimos 30 días" };
     }

@@ -58,7 +58,10 @@ describe("batería en producción (2026-10-16)", () => {
 
   it("una familia del catálogo trae todos sus productos (no solo los que la llevan en el nombre)", () => {
     expect(familyOf("cervezas", catalog)?.products.map((p) => p.name)).toEqual(["Mahou 33 cl"]);
-    expect(familyOf("ron", catalog)).toMatchObject({ label: "Ron" });
+    expect(familyOf("ron", catalog)).toMatchObject({ label: "ron" });
+    // Que empiece igual no basta: «espera» no es «Especias», «gasta» no es «Sin gas».
+    expect(familyOf("cuanto se espera ganar", [...catalog, P("Comino", "Cocina › Especias")] as Product[])).toBeNull();
+    expect(familyOf("lo que más se gasta", [...catalog, P("Font Vella", "Aguas › Sin gas")] as Product[])).toBeNull();
     expect(familyOf("agua", catalog, { exact: true })?.products).toHaveLength(2);
     // «agua Font Vella» es un producto concreto, no la familia.
     expect(familyOf("agua font vella", catalog, { exact: true })).toBeNull();
@@ -89,5 +92,50 @@ describe("batería en producción (2026-10-16)", () => {
     expect(levelQuantity("pon el mínimo de coca del vivero en 48")).toEqual({ amount: "48", unit: null });
     expect(levelQuantity("el objetivo del larios a 12 botellas")).toEqual({ amount: "12", unit: "botella" });
     expect(levelQuantity("mínimo del vivero")).toBeNull();
+  });
+});
+
+describe("reporte del 16/10 (probador y Oskar)", () => {
+  it("«¿cuánta pasta tenemos metida en ron?» es el valor en euros, aunque Jev lo lea como cantidad", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: "query_stock", producto_0: "Ron Barceló Añejo 70 cl", dato: "cantidad" }]);
+    const text = find(await run(makeAgent(jev).agent, chat("¿cuánta pasta tenemos metida en Barceló?")), "done")!.text;
+    expect(text).toContain("€");
+  });
+
+  it("«lo que mandó Pickels al Parador» busca ese traspaso, no los que salen del Parador", async () => {
+    const jev = new FakeJev([route("recibir_traspaso", { local: "Parador" })]);
+    const events = await run(makeAgent(jev).agent, chat("ya llegó lo que mandó Pickels al Parador"));
+    expect(find(events, "draft")).toBeUndefined();
+    expect(find(events, "done")!.text).toBe("No hay traspasos pendientes de recibir de Pickels a Parador.");
+    // El que sí existe (Parador → Vivero) se encuentra por su destino.
+    const ok = new FakeJev([route("recibir_traspaso", { local: "Vivero" }), { coherencia: 0.95 }]);
+    expect(find(await run(makeAgent(ok).agent, chat("ha llegado lo del Parador al Vivero")), "draft")).toMatchObject({ operation: "recibir_traspaso" });
+  });
+
+  it("«llévame a los informes de mermas» abre la vista de mermas, no la de consumo", async () => {
+    const jev = new FakeJev([{ intent: "navegar", intent_alt: "leer", destino: "/informes", herramienta: "query_movements", periodo: "mes" }]);
+    const nav = find(await run(makeAgent(jev).agent, chat("llévame a los informes de mermas de este mes")), "navigate")!;
+    expect(nav.filters).toMatchObject({ view: "mermas", days: 30 });
+  });
+
+  it("«¿y en el Vivero?» tras preguntar por mermas sigue con las mermas", async () => {
+    const jev = new FakeJev([
+      { intent: "consultar", intent_alt: "leer", herramienta: "query_movements", local: "Parador", periodo: "semana" },
+      { intent: "consultar", intent_alt: "leer", herramienta: "query_movements", local: "Vivero", seguimiento: 0.9 },
+    ]);
+    const { agent } = makeAgent(jev);
+    expect(find(await run(agent, chat("cuantas mermas ha habido en el parador")), "done")!.text).toMatch(/mermas/i);
+    expect(find(await run(agent, chat("y en el vivero")), "done")!.text).toMatch(/mermas/i);
+  });
+
+  it("personal, ventas, consumo a mano y «olvídalo»: respuesta directa, sin preguntar ni llamar a Jev", async () => {
+    const jev = new FakeJev();
+    const { agent } = makeAgent(jev);
+    expect(find(await run(agent, chat("que equipo hay")), "done")!.text).toContain("Equipo");
+    expect(find(await run(agent, chat("dame los nombres del personal")), "done")!.text).toContain("Equipo");
+    expect(find(await run(agent, chat("cuanto se espera ganar")), "done")!.text).toContain("ventas");
+    expect(find(await run(agent, chat("se han consumido 10 cajas de cocacola y 3 fantas")), "done")!.text).toContain("recuento");
+    expect(find(await run(agent, chat("olvídalo")), "done")!.text).toContain("Vale");
+    expect(jev.calls).toHaveLength(0);
   });
 });

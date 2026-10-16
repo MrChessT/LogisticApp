@@ -185,6 +185,11 @@ async function evaluate(c: Case): Promise<Row> {
   if (answers.producto && !answers.producto.ok && planProducts.some((name) => labels(c.producto).includes(name))) {
     answers.producto = { ...answers.producto, value: `${answers.producto.value} → plan ${planProducts.join(", ")}`, ok: true };
   }
+  // Y el dato: cuenta el que responde el plan (el código corrige «pasta» → valor aunque Jev diga cantidad).
+  const planDato = plan.type === "consultar" ? plan.dato : undefined;
+  if (answers.dato && !answers.dato.ok && planDato && labels(c.dato).includes(planDato)) {
+    answers.dato = { ...answers.dato, value: `${answers.dato.value} → plan ${planDato}`, ok: true };
+  }
   if (planLocation && answers.local?.ok && c.local !== undefined && !labels(c.local).includes(planLocation) && plan.type !== "consultar") {
     answers.local = { ...answers.local, value: `plan ${planLocation}`, ok: false };
   }
