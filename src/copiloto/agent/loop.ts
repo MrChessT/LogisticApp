@@ -29,7 +29,7 @@ import { HabitsStore } from "./habits";
 import type { Draft } from "../contract/index";
 import type { ConfirmResponse } from "../drafts/confirm";
 import { isShortcut, resolveShortcut } from "./shortcuts";
-import { changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
+import { changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
 import { tokenize } from "../entities/normalize";
 import { tableFor } from "../writer/table";
 import { followUpsFor } from "./followups";
@@ -198,6 +198,15 @@ export class Agent {
           overrides = fieldOverrides(pending.overrides);
         }
         // Si no, lo escrito es un mensaje nuevo: la orden anterior no se arrastra.
+      } else if (req.clarification && !followUp) {
+        // La aclaración ya no está (sesión perdida o caducada). Si era el nombre de un producto nuevo, lo
+        // escrito sigue siendo ese nombre: se retoma el alta en vez de leerlo como un mensaje suelto.
+        const text = (req.clarification.freeText ?? req.message).trim();
+        console.warn("copiloto: aclaración no encontrada", { field: req.clarification.field ?? null });
+        if (req.clarification.field === "nombre" && operationOf(text) === null) {
+          message = `nuevo producto «${text.replace(/[«»"]/g, "")}»`;
+          overrides = { intent: "proponer_accion", tipo_accion: "nuevo_producto" };
+        }
       }
 
       // «merma», «registrar merma», «nuevo producto»: empieza esa operación (Jev solo pregunta lo que falte).

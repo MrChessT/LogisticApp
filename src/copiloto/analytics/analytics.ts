@@ -30,6 +30,12 @@ function dayLabel(day: string): string {
   return `${Number(d)} ${MONTHS[Number(m) - 1]}`;
 }
 
+/** «16–22 sep» (o «29 sep–5 oct» si cambia de mes). */
+function weekLabel(from: string, to: string): string {
+  const [a, b] = [dayLabel(from), dayLabel(to)];
+  return a.split(" ")[1] === b.split(" ")[1] ? `${a.split(" ")[0]}–${b}` : `${a}–${b}`;
+}
+
 function display(value: Decimal, format: ChartFormat): string {
   switch (format) {
     case "money":
@@ -110,7 +116,7 @@ export class Analytics {
   // Gráficas ----------------------------------------------------------------------
 
   /** Evolución diaria del valor consumido (o solo mermas), una línea por local (máximo 4) o el total. */
-  async dailyUsage(q: AnalyticsQuery, onlyWaste = false, movements?: MovementRaw[]): Promise<ChartSpec> {
+  async dailyUsage(q: AnalyticsQuery, onlyWaste = false, movements?: MovementRaw[], options: { weekly?: boolean } = {}): Promise<ChartSpec> {
     const w = this.window(q);
     const list = (movements ?? (await this.movements(q, w.from))).filter((m) => (onlyWaste ? m.type === "waste" : isUsage(m)));
     // El día en curso está incompleto: la serie diaria termina ayer (mismo número de días).
@@ -126,16 +132,25 @@ export class Analytics {
       const key = `${byLocation ? m.locationId : "total"}|${day}`;
       totals.set(key, (totals.get(key) ?? new Decimal(0)).plus(movementValue(m)));
     }
+    // En el chat (panel estrecho), varios locales día a día son un enredo de líneas: por semanas completas
+    // (las 4 últimas, acabando ayer) se lee de un vistazo. La pantalla de Informes sigue por días.
+    const weekly = options.weekly === true && byLocation && days.length >= 14;
+    const weeks = weekly ? Array.from({ length: Math.floor(days.length / 7) }, (_, i) => days.slice(days.length - 7 * (i + 1), days.length - 7 * i)).reverse() : [];
+    const name = (g: string) => (g === "total" ? (q.locationIds.length === 1 ? this.locationName(q, q.locationIds[0]!) : "Todos los locales") : this.locationName(q, g));
     const series: ChartSeries[] = groups.map((g) => ({
       key: g,
-      name: g === "total" ? (q.locationIds.length === 1 ? this.locationName(q, q.locationIds[0]!) : "Todos los locales") : this.locationName(q, g),
-      points: days.map((d) => point(d, dayLabel(d), totals.get(`${g}|${d}`) ?? new Decimal(0), "money")),
+      name: name(g),
+      points: weekly
+        ? weeks.map((wk) => point(wk[0]!, weekLabel(wk[0]!, wk.at(-1)!), wk.reduce((sum, d) => sum.plus(totals.get(`${g}|${d}`) ?? 0), new Decimal(0)), "money"))
+        : days.map((d) => point(d, dayLabel(d), totals.get(`${g}|${d}`) ?? new Decimal(0), "money")),
     }));
     return {
       id: onlyWaste ? "mermas-diarias" : "consumo-diario",
       kind: "line",
-      title: onlyWaste ? "Mermas por día" : "Consumo por día",
-      subtitle: `Valor a coste medio por día completo, ${w.label} hasta ayer${byLocation ? ", por local" : ""}`,
+      title: onlyWaste ? (weekly ? "Mermas por semana" : "Mermas por día") : weekly ? "Consumo por semana" : "Consumo por día",
+      subtitle: weekly
+        ? `Valor a coste medio de las ${weeks.length} últimas semanas completas, por local`
+        : `Valor a coste medio por día completo, ${w.label} hasta ayer${byLocation ? ", por local" : ""}`,
       format: "money",
       series,
       ...(list.length === 0 ? { empty: "No hay movimientos en este periodo." } : {}),
@@ -440,7 +455,7 @@ export class Analytics {
         break;
       case "query_movements":
       case "query_top_usage":
-        chart = await this.dailyUsage(q);
+        chart = await this.dailyUsage(q, false, undefined, { weekly: true });
         break;
       case "query_prices":
         chart = q.productIds.length > 0 ? await this.priceHistory(q) : await this.priceChanges(q);

@@ -42,6 +42,8 @@ export const ChatRequest = z.object({
       clarifyId: z.string().min(1).max(64),
       optionId: z.string().min(1).max(200),
       freeText: z.string().max(300).optional(),
+      /** Qué se preguntó: si la sesión se perdiera, aún se sabe cómo leer lo escrito. */
+      field: z.string().max(40).optional(),
     })
     .optional(),
   /** Botón de seguimiento de una respuesta anterior (se ejecuta sin volver a llamar a Jev). */
