@@ -540,12 +540,17 @@ export class Agent {
       ...(plan.tool === "query_movements" ? movementFilter(message, plan, session) : {}),
     };
 
-    const result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));
+    let result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));
+    // «¿qué hay en cada sección?» sin stock repartido por zonas: no es «no hay stock», es que no hay
+    // secciones con stock. Se dice y se enseña el total del local.
+    const noSections = params.byArea === true && result.count === 0;
+    if (noSections) result = await timer.time("herramientas", () => tools.run(plan.tool, { ...params, byArea: false }, ctx));
     // «En tus 4 locales» ya lo dice el titular: sin avisos que lo repitan.
     // Lo heredado («¿y en Parador?») ya se ve en el titular («Stock de Barceló en Parador»); solo
     // «los mismos productos» (el titular dice «de 7 productos») necesita decirse.
     const notices: string[] = [];
     if (plan.inherited?.includes("los mismos productos")) notices.push("Sigo con los mismos productos.");
+    if (noSections) notices.push("Aún no hay stock repartido por secciones aquí (se reparte al contar por zonas); te enseño el total.");
 
     // Lo que ya se sabe sale ya: la tabla no espera a la valoración de Jev (llamada nº 2), y la gráfica
     // se calcula a la vez que esa valoración.

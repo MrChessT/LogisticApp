@@ -151,3 +151,12 @@ describe("sacar más de lo que consta (decisión del 16/10: confirmar con revisi
     expect(writer.calls).toHaveLength(0);
   });
 });
+
+describe("secciones sin stock repartido (producción, 16/10)", () => {
+  it("«¿qué hay en cada sección?» en un local sin stock por zonas: lo dice y enseña el total, no «no hay stock»", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: "query_stock", local: "Pickels" }]);
+    const text = find(await run(makeAgent(jev).agent, chat("¿qué hay en cada sección de Pickels?")), "done")!.text;
+    expect(text).toContain("Aún no hay stock repartido por secciones");
+    expect(text).not.toContain("No hay stock registrado");
+  });
+});
