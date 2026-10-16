@@ -63,7 +63,7 @@ const PRODUCT_BREAKERS = new Set([
   "roto", "rota", "rotos", "rotas", "caducado", "caducada", "caducados", "caducadas", "derramado", "derramada",
   "derramados", "derramadas", "del", "de",
   // La puntuación cierra el producto: «una coca, dala de baja» → «coca».
-  ",", ";", ":", "!", "?", "¿", "¡",
+  ",", ";", ":", "!", "?", "¿", "¡", ".",
 ]);
 
 /** Sustantivos del dominio que siguen a "un/una" sin ser productos. */
@@ -104,7 +104,7 @@ interface Token {
 
 function tokens(message: string): Token[] {
   // NFC + \p{M}: una tilde enviada como carácter combinado (o + ´) no parte la palabra.
-  const raw = message.normalize("NFC").match(/\d+(?:[.,/]\d+)?|[\p{L}\p{M}\p{N}]+|[€%,;:!?¿¡+]/gu) ?? [];
+  const raw = message.normalize("NFC").match(/\d+(?:[.,/]\d+)?|[\p{L}\p{M}\p{N}]+|[€%,;:!?¿¡+.]/gu) ?? [];
   return raw.map((r) => ({ raw: r, norm: normalize(r) }));
 }
 
@@ -129,6 +129,8 @@ function isDigitNumber(token: Token): boolean {
 export function parseQuantities(message: string, maxSegments = 5): Segment[] {
   const toks = tokens(message);
   const segments: Segment[] = [];
+  /** Dónde acaba cada fragmento (en tokens): el producto «de delante» no puede cruzarlo. */
+  const segmentEnds: number[] = [];
   let i = 0;
 
   while (i < toks.length && segments.length < maxSegments) {
@@ -241,6 +243,9 @@ export function parseQuantities(message: string, maxSegments = 5): Segment[] {
       }
     }
 
+    // «Larios, 3 botellas» / «Prueba Luis 2ud»: sin producto detrás, el que va justo delante (en la misma
+    // frase y sin cruzar otra cantidad). Antes se perdía y se buscaba el producto en el mensaje entero.
+    if (productTokens.length === 0 && unit !== null) productTokens.push(...productBefore(toks, start, segments.length > 0 ? segmentEnds[segmentEnds.length - 1]! : 0));
     const productText = productTokens.map((t) => t.raw).join(" ");
     // «6 cajas de coca y 2 de tónica»: «2 de» sin unidad justo después de otro fragmento con unidad
     // es la misma unidad (2 cajas), como lo entendería cualquiera.
@@ -253,6 +258,7 @@ export function parseQuantities(message: string, maxSegments = 5): Segment[] {
       previous.text = `${previous.text} ${toks.slice(start - 1, end).map((t) => t.raw).join(" ")}`;
       continue;
     }
+    segmentEnds.push(end);
     segments.push({
       text: toks.slice(start, end).map((t) => t.raw).join(" "),
       amount: amount.toString(),
@@ -264,6 +270,24 @@ export function parseQuantities(message: string, maxSegments = 5): Segment[] {
   }
 
   return segments.filter((segment) => segment.productText.length > 0 || segment.unit !== null);
+}
+
+/** Palabras de operación u orden que no forman parte de un nombre de producto («registrar merma.»). */
+const NOT_PRODUCT = new Set([...PRODUCT_BREAKERS, "merma", "mermas", "registrar", "registra", "apunta", "apuntar", "anota", "anotar", "traspaso", "pasa", "pasame", "tira", "baja", "quita", "manda", "hay", "son", "es"]);
+
+/** Hasta 4 palabras justo delante de la cantidad, sin cruzar puntuación, números ni otro fragmento. */
+function productBefore(toks: Token[], start: number, floor: number): Token[] {
+  const found: Token[] = [];
+  let j = start - 1;
+  // «Larios, 3 botellas»: una coma pegada se salta.
+  if (toks[j]?.raw === "," || toks[j]?.raw === ":") j -= 1;
+  while (j >= floor && found.length < 4) {
+    const t = toks[j]!;
+    if (NOT_PRODUCT.has(t.norm) || parseNumber(t.raw) || UNIT_ALIASES[t.norm] !== undefined) break;
+    found.unshift(t);
+    j -= 1;
+  }
+  return found;
 }
 
 export function canonicalUnit(word: string): string | null {

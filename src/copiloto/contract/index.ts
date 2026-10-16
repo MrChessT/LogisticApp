@@ -102,6 +102,8 @@ export type ClarifyField =
   | "formato"
   | "duplicado"
   | "sentido"
+  /** Nombre de un producto nuevo: lo escrito ES la respuesta (no un mensaje nuevo). */
+  | "nombre"
   | "borrador";
 
 export interface ClarifyEvent {

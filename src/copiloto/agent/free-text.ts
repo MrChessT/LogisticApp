@@ -3,6 +3,7 @@
 import type { ClarifyField } from "../contract/index";
 import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
+import { asChoice } from "../gates/gate";
 import { canonicalUnit, parseNumber } from "../entities/quantity-parser";
 import { tokenSimilarity } from "../entities/retriever";
 import { packMatchesUnit } from "../entities/units";
@@ -21,6 +22,69 @@ export type FreeTextAnswer =
  * confirmo?») lo escrito se trata como un mensaje nuevo: así una orden distinta no arrastra la anterior.
  */
 export const ENTITY_FIELDS: ReadonlySet<ClarifyField> = new Set(["producto", "cantidad", "local", "local_destino", "espacio", "formato"]);
+
+/**
+ * Preguntas cuya respuesta es un nombre libre («¿Cómo se llama el producto nuevo?», «si no, escríbeme el
+ * nombre correcto»): lo escrito ES la respuesta. Tratarlo como mensaje nuevo dejaba al asistente sin
+ * saber qué se pedía («Prueba Luis» → «¿Qué quieres hacer?») y en bucle.
+ */
+export const NAME_FIELDS: ReadonlySet<ClarifyField> = new Set(["nombre", "sentido"]);
+
+/** Operaciones que se reconocen por sus palabras (ids de tipo_accion en el catálogo de Jev). */
+export type Operation = "merma" | "traspaso" | "recepcion" | "preparar_pedido" | "abrir_inventario" | "nuevo_producto" | "cambiar_precio" | "archivar_producto";
+
+const OPERATION_WORDS: Array<[Operation, RegExp]> = [
+  ["merma", /\b(merma|mermas|rotura|roturas)\b/],
+  ["traspaso", /\b(traspaso|traspasos|traspasar)\b/],
+  ["recepcion", /\b(recepcion|recepciones|albaran|albaranes)\b/],
+  ["preparar_pedido", /\b(pedido|pedidos)\b/],
+  ["abrir_inventario", /\b(inventario|inventarios|recuento|conteo)\b/],
+  ["nuevo_producto", /\b(nuevo producto|producto nuevo|nueva referencia|dar de alta|alta (de |del )?(un |una )?producto|(crea|crear|creame|anade|anadir|agrega|agregar|registra|registrar|mete|meter) (un |una |el |la )?(nuevo |nueva )?(producto|referencia|articulo))\b/],
+  ["cambiar_precio", /\b(cambia|cambiar|pon|poner|actualiza|actualizar) (el |la )?precio\b/],
+  ["archivar_producto", /\b(archiva|archivar|desactiva|desactivar)\b/],
+];
+
+/** La operación que nombra el texto («crear producto nuevo», «registrar merma»), si nombra una. */
+export function operationOf(text: string): Operation | null {
+  const norm = tokenize(text).join(" ");
+  return OPERATION_WORDS.find(([, re]) => re.test(norm))?.[0] ?? null;
+}
+
+/** Palabras que acompañan al nombre de una operación sin añadir datos («quiero registrar una merma»). */
+const OPERATION_FILLERS = new Set([
+  "quiero", "queria", "quisiera", "necesito", "vamos", "voy", "a", "hacer", "haz", "hazme", "registrar", "registra", "apuntar", "apunta",
+  "anotar", "anota", "crear", "crea", "creame", "preparar", "prepara", "preparame", "abrir", "abre", "empezar", "empieza", "nuevo", "nueva",
+  "un", "una", "el", "la", "de", "del", "otro", "otra", "me", "por", "favor", "porfa", "porfavor", "alta", "dar", "producto", "referencia",
+  "articulo", "anadir", "anade", "agregar", "agrega", "meter", "mete", "una", "ahora",
+]);
+
+/**
+ * El mensaje solo dice qué operación quiere («merma», «registrar merma», «nuevo producto»): se empieza esa
+ * operación preguntando lo que falte. Antes Jev lo leía como charla y contestaba con la presentación.
+ */
+export function operationOnly(message: string): Operation | null {
+  const words = tokenize(message);
+  const op = operationOf(message);
+  if (!op || words.length === 0 || words.length > 6) return null;
+  // «pedidos» o «inventarios» sueltos suelen ser consultas («¿qué pedidos hay?»): solo con un verbo.
+  if ((op === "preparar_pedido" || op === "abrir_inventario") && !words.some((w) => ["hacer", "haz", "hazme", "preparar", "prepara", "preparame", "abrir", "abre", "empezar", "empieza", "nuevo", "nueva"].includes(w))) return null;
+  const opWords = new Set(["merma", "mermas", "rotura", "roturas", "traspaso", "traspasos", "traspasar", "recepcion", "recepciones", "albaran", "pedido", "inventario", "recuento", "conteo"]);
+  return words.every((w) => opWords.has(w) || OPERATION_FILLERS.has(w)) ? op : null;
+}
+
+/** La operación de la orden que espera respuesta (la que se forzó al aclarar o la que eligió Jev). */
+export function pendingOperation(pending: PendingClarify): string | null {
+  return pending.overrides.tipo_accion ?? asChoice(pending.routing?.jev.answers.tipo_accion)?.choice ?? null;
+}
+
+/**
+ * Lo escrito pide OTRA operación («crear producto nuevo» mientras se preguntaba el producto de una merma):
+ * es una orden nueva. Pegarlo a la anterior hacía que «registrar merma… crear producto» creara «Merma».
+ */
+export function changesOperation(text: string, pending: PendingClarify): boolean {
+  const op = operationOf(text);
+  return op !== null && op !== pendingOperation(pending);
+}
 
 const YES = new Set(["si", "vale", "ok", "okay", "venga", "adelante", "correcto", "exacto", "eso", "confirma", "confirmalo", "hazlo", "dale", "perfecto"]);
 

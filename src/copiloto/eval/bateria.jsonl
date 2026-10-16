@@ -103,3 +103,7 @@
 {"kind":"cantidad","message":"han llegado 2 cajas + 6 de red bull","expect":[{"amount":"2","unit":"caja","product":"red bull","loose":"6"}]}
 {"kind":"cantidad","message":"tengo 1 caja y 2 botellas de beefeater","expect":[{"amount":"1","unit":"caja","product":"beefeater","loose":"2"}]}
 {"kind":"cantidad","message":"pasa 3 cajas de coca y 2 de fanta","expect":[{"amount":"3","unit":"caja","product":"coca"},{"amount":"2","unit":"caja","product":"fanta"}]}
+// Opiniones del asistente (2026-10-15, Luis): el producto delante de la cantidad.
+{"kind":"cantidad","message":"Prubea Luis, 2ud","expect":[{"amount":"2","unit":"ud","product":"Prubea Luis"}]}
+{"kind":"cantidad","message":"larios, 3 botellas","expect":[{"amount":"3","unit":"botella","product":"larios"}]}
+{"kind":"cantidad","message":"registrar merma. beefeater 2 botellas","expect":[{"amount":"2","unit":"botella","product":"beefeater"}]}
