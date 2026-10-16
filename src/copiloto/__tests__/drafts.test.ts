@@ -232,8 +232,9 @@ describe("constructor de borradores", () => {
     expect(first).toMatchObject({ kind: "clarify", plan: { field: "cantidad", options: [{ id: "pack:k-1l" }, { id: "pack:k-75" }] } });
     const second = await builder.build({ plan: plan(), ctx, source, overrides: { unidad_0: "k-75" }, now: NOW });
     expect(second.kind === "draft" && (second.draft as WasteDraft).qtyBase).toBe("1125");
-    // Sin stock de este producto en Parador: aviso.
-    expect(second.kind === "draft" && second.draft.warnings.join(" ")).toContain("Solo constan 0 ml");
+    // Sin stock de este producto en Parador: hay que marcar «He revisado los avisos» para confirmar.
+    const checks = second.kind === "draft" ? second.draft.checks ?? [] : [];
+    expect(checks).toEqual([expect.objectContaining({ label: "Stock", status: "revisar", detail: expect.stringContaining("Solo constan 0 ml") })]);
   });
 });
 
