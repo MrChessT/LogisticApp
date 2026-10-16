@@ -23,7 +23,7 @@ import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
 import type { DecisionReport, Evaluation, ReportOutcome } from "./report";
-import { buildRouting, type RoutingMeta } from "./routing";
+import { buildRouting, referencesPrevious, wantsAreaBreakdown, type RoutingMeta } from "./routing";
 import { activeFocus, type Focus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
 import type { Draft } from "../contract/index";
@@ -34,6 +34,7 @@ import { tokenize } from "../entities/normalize";
 import { reorderTable, tableFor } from "../writer/table";
 import { followUpsFor } from "./followups";
 import { fastStockPlan } from "./fast-path";
+import { consumptionByHand, topicReply } from "./topics";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 export type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
@@ -223,6 +224,16 @@ export class Agent {
         shortcut = plan !== null;
       }
 
+      // Lo que no es del inventario (personal, ventas), el consumo «a mano» y «olvídalo»: respuesta fija.
+      if (!plan && !reuse && !req.followUpId) {
+        const topic = topicReply(message) ?? consumptionByHand(message);
+        if (topic) {
+          plan = { type: "aviso", text: topic.text, ...(topic.route ? { route: topic.route } : {}) };
+          shortcut = true;
+          session.clarifies.clear();
+        }
+      }
+
       // Vía rápida: «¿cuántas cocas quedan en el Vivero?» sin llamar a Jev (solo lectura, solo si el
       // mensaje no dice nada más). Con un borrador esperando respuesta decide Jev.
       if (this.deps.fastPath !== false && !plan && !reuse && !req.clarification && !activeFocus(session, this.now().getTime())?.draftId) {
@@ -239,7 +250,7 @@ export class Agent {
         intent =
           plan.type === "navegar"
             ? "navegar"
-            : plan.type === "conversar"
+            : plan.type === "conversar" || plan.type === "aviso"
               ? "conversar"
               : plan.type === "catalogo" || plan.type === "accion"
                 ? "proponer_accion"
@@ -474,6 +485,9 @@ export class Agent {
       }
       case "fuera_de_ambito":
         return { kind: "fuera_de_ambito" };
+      case "aviso":
+        if (plan.route) await emit({ event: "navigate", data: { route: plan.route, filters: {}, auto: false } });
+        return { kind: "tarea", tarea: "aviso", text: plan.text, rows: 0 };
       case "bloqueado":
         return { kind: "bloqueado" };
       case "navegar": {
@@ -523,7 +537,7 @@ export class Agent {
       horizonLabel: h.label,
       now,
       ...(plan.tool === "query_stock" && wantsAreaBreakdown(message) ? { byArea: true } : {}),
-      ...(plan.tool === "query_movements" && movementTypesIn(message).length > 0 ? { movementTypes: movementTypesIn(message) } : {}),
+      ...(plan.tool === "query_movements" ? movementFilter(message, plan, session) : {}),
     };
 
     const result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));
@@ -589,7 +603,7 @@ export class Agent {
       data: {
         route,
         filters: {
-          ...(route === "/informes" ? { view: VIEW_FOR_TOOL[plan.tool], days: Math.max(days, 7) } : {}),
+          ...(route === "/informes" ? { view: params.movementTypes?.includes("waste") ? "mermas" : VIEW_FOR_TOOL[plan.tool], days: Math.max(days, 7) } : {}),
           ...(plan.locationIds.length === 1 ? { locationId: plan.locationIds[0]! } : {}),
           ...(plan.areaId ? { areaId: plan.areaId } : {}),
           ...(plan.products.length === 1 ? { productId: plan.products[0]!.product.id } : {}),
@@ -687,12 +701,6 @@ function quantityOverrides(pending: PendingClarify, typed: { amount: string; uni
   return { ...rest, [`cantidad_${i}`]: typed.amount, ...(typed.unit ? { [`unidad_texto_${i}`]: typed.unit } : {}) };
 }
 
-/** «¿Qué hay en cada sección / por zonas / en cada barra?»: el stock se desglosa por espacio. */
-export function wantsAreaBreakdown(message: string): boolean {
-  const text = tokenize(message).join(" ");
-  return /\b(cada|por|las|todas las|todos los|sus) (seccion|secciones|espacio|espacios|zona|zonas|barra|barras)\b/.test(text) || /\b(secciones|espacios|zonas)\b/.test(text);
-}
-
 /** Saludo, agradecimiento o despedida corta («gracias!», «buenas», «hasta luego»). */
 export function smallTalk(message: string): "hola" | "gracias" | "adios" | undefined {
   const words = tokenize(message);
@@ -702,6 +710,19 @@ export function smallTalk(message: string): "hola" | "gracias" | "adios" | undef
   if (/^(adios|hasta luego|hasta manana|chao|nos vemos|bye)\b/.test(text)) return "adios";
   if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|ey)\b/.test(text)) return "hola";
   return undefined;
+}
+
+/**
+ * Tipos de movimiento: los que nombra el mensaje o, si continúa el anterior («¿y en el Vivero?» tras
+ * «¿cuántas mermas en La Oliva?»), los de ese mensaje.
+ */
+function movementFilter(message: string, plan: QueryPlan, session: Session): { movementTypes?: ToolParams["movementTypes"] } {
+  const own = movementTypesIn(message);
+  if (own.length > 0) return { movementTypes: own };
+  if (!plan.inherited?.length && !referencesPrevious(message)) return {};
+  const previous = [...session.turns].reverse().find((t) => t.role === "user");
+  const types = previous ? movementTypesIn(previous.text) : [];
+  return types.length > 0 ? { movementTypes: types } : {};
 }
 
 /** Productos y locales que menciona un borrador (para heredarlos en el siguiente mensaje). */

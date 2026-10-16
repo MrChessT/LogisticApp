@@ -1,6 +1,6 @@
 # Conversaciones de prueba
 
-Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10-16T11:18:23.904Z
+Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10-16T15:08:20.710Z
 
 ## Traspaso sin cantidad ni unidad
 
@@ -68,7 +68,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10
 **Usuario:** quita unas cocas  
 &nbsp;&nbsp;*Entendido: Registrar merma*  
 **Asistente:** ¿En qué local?  
-&nbsp;&nbsp;Opciones: [Pickels] [La Oliva] [Parador] [Vivero]  
+&nbsp;&nbsp;Opciones: [La Oliva] [Parador] [Pickels] [Vivero]  
 ❌ esperaba una pregunta de «tipo_accion» y preguntó por «local»
 
 **Usuario:** ¿cuánto ron queda en Parador?  
@@ -241,7 +241,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10
 ## Valor en euros: solo si se pregunta por dinero
 
 **Usuario:** ¿cuánto dinero tenemos metido en ginebra en el vivero?  
-&nbsp;&nbsp;*Entendido: Consultar stock · Vivero · ¿Varios productos? · Valor*  
+&nbsp;&nbsp;*Entendido: Consultar stock · Vivero · Varios productos*  
 **Asistente:** Stock de 10 productos en Vivero: valor total 2.283,90 €. 2 bajo mínimo.  
 
 | Producto | Cantidad | Valor |

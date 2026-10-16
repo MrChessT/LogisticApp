@@ -253,3 +253,9 @@ export async function buildRouting(
 
   return { state, questions, meta: { segments: routingSegments, locationKeys, areaKeys, message } };
 }
+
+/** «¿Qué hay en cada sección / por zonas / en cada barra?»: el stock se desglosa por espacio. */
+export function wantsAreaBreakdown(message: string): boolean {
+  const text = tokenize(message).join(" ");
+  return /\b(cada|por|las|todas las|todos los|sus) (seccion|secciones|espacio|espacios|zona|zonas|barra|barras)\b/.test(text) || /\b(secciones|espacios|zonas)\b/.test(text);
+}

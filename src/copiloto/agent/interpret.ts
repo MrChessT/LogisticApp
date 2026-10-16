@@ -23,16 +23,17 @@ import {
 } from "../jev/catalog";
 import type { JevAnswer } from "../jev/client";
 import type { ToolName } from "../tools/tools";
-import { asksSameAgain, mentionsWaste, referencesPrevious, venueRoles, type RoutingMeta } from "./routing";
+import { asksSameAgain, mentionsWaste, referencesPrevious, venueRoles, wantsAreaBreakdown, type RoutingMeta } from "./routing";
 import type { Focus } from "./session";
 import { preferredLocation, type Habits } from "./habits";
 import { VIEW_FOR_TOOL } from "../analytics/analytics";
 import { need, relevant, slotSpec, type ContextKey } from "../gates/policy";
 import { namesAll, namesProduct, unexplainedWords } from "../entities/mentions";
 import { familyOf, type Family } from "../entities/family";
+import { movementTypesIn } from "../tools/types";
 import { formatDecimal } from "../entities/units";
 import { isUnitWord } from "../entities/quantity-parser";
-import { tokenize } from "../entities/normalize";
+import { normalize, tokenize } from "../entities/normalize";
 
 export interface ClarifyPlan {
   type: "clarify";
@@ -57,6 +58,9 @@ export interface ResolvedProduct {
   /** "confirmar": Jev lo eligió sin llegar al umbral de actuar; el borrador lo marca para revisar. */
   productOutcome?: GateOutcome;
 }
+
+/** Dinero metido en el stock (no precio de compra): «pasta», «dinero», «euros» con «tenemos/hay/metido». */
+const MONEY_OF_STOCK = /\b(pasta|dinero|pelas|euros|pasta gansa)\b.*\b(tenemos|hay|metid[oa]s?|invertid[oa]s?|parad[oa]s?|en stock)\b|\b(tenemos|hay)\b.*\b(metid[oa]s?|invertid[oa]s?)\b.*\b(pasta|dinero|euros)\b/;
 
 /** El fragmento es el mensaje entero (la cantidad no traía producto): no se cita en la pregunta. */
 function wholeMessage(segment: { text: string; productText: string }): boolean {
@@ -126,6 +130,9 @@ export interface DocumentPlan {
   accion: DocumentAccion;
   /** Locales donde buscar el documento (el nombrado o, si no, todos los del usuario). */
   locationIds: string[];
+  /** Traspasos: de dónde salió y a dónde llega, si la frase lo dice («lo que mandó Pickles al Parador»). */
+  fromLocationId?: string;
+  toLocationId?: string;
 }
 
 /** Respuesta a un borrador pendiente desde el chat («sí, adelante», «cancélalo»). */
@@ -146,7 +153,9 @@ export type Plan =
   | ActionPlan
   | { type: "conversar" }
   | { type: "fuera_de_ambito" }
-  | { type: "bloqueado" };
+  | { type: "bloqueado" }
+  /** Respuesta fija para lo que el asistente no lleva (personal, ventas) o no se registra a mano (consumo). */
+  | { type: "aviso"; text: string; route?: AppRoute };
 
 export interface Interpretation {
   intent: Intent;
@@ -341,6 +350,9 @@ export class Interpreter {
 
   /** Qué dato pide la consulta. Sin seguridad suficiente, «general» (se enseña todo, como antes). */
   private readDato(): Dato {
+    // «¿cuánta pasta tenemos metida en ron?», «¿cuánto dinero hay en ginebra?»: dinero del stock, aunque
+    // Jev lo lea como cantidad («cuánta» + «tenemos» pesa más que «pasta»; medido: cantidad 0,70).
+    if (this.meta.message && MONEY_OF_STOCK.test(normalize(this.meta.message))) return "valor";
     const g = this.gate("dato", "Dato", this.thresholds.dato);
     return g && g.outcome === "actuar" ? (g.choice as Dato) : "general";
   }
@@ -433,6 +445,8 @@ export class Interpreter {
       // Navegar es reversible: basta la consulta más probable para elegir la vista.
       const tool = this.choice("herramienta")?.choice as Herramienta | undefined;
       if (tool && tool !== "ninguna") filters.view = VIEW_FOR_TOOL[tool];
+      // «los informes de mermas»: su vista, no la de consumo (las dos salen de movimientos).
+      if (this.meta.message && movementTypesIn(this.meta.message).includes("waste")) filters.view = "mermas";
       const periodo = this.choice("periodo")?.choice;
       filters.days = periodo === "semana" || periodo === "fin_de_semana" || periodo === "hoy" || periodo === "ayer" ? 7 : periodo === "mes" ? 30 : 30;
     }
@@ -612,6 +626,9 @@ export class Interpreter {
     const focusTool = this.focus?.kind === "consulta" ? (this.focus.tool as Herramienta | undefined) : undefined;
     if (intent === "pedir_sugerencias" && (!g || tool === "ninguna" || g.outcome !== "actuar")) {
       tool = "query_reorder";
+    } else if ((!g || g.outcome !== "actuar") && this.meta.message && wantsAreaBreakdown(this.meta.message)) {
+      // «¿qué hay en cada sección del Vivero?»: stock por secciones (Jev dudaba: 0,63–0,72).
+      tool = "query_stock";
     } else if (!g || tool === "ninguna" || g.outcome !== "actuar") {
       // «¿y en el Vivero?»: sin consulta clara, la misma que antes.
       if (!focusTool || !this.followsUp()) return this.clarify("herramienta", "¿Qué quieres consultar?", g?.ranked ?? [], ["ninguna"]);
@@ -774,6 +791,26 @@ export class Interpreter {
       const named = [...this.meta.locationKeys.entries()].filter(([name]) => namesAll(this.meta.message!, name));
       if (named.length === 1) id = named[0]![1];
     }
+    // Traspasos: origen y destino según la frase. Antes se buscaba cualquier traspaso que tocara el local
+    // («lo que mandó Pickles al Parador» enseñaba los que salían del Parador hacia el Vivero).
+    if ((accion === "recibir_traspaso" || accion === "cancelar_traspaso") && this.meta.message) {
+      const names = [...this.meta.locationKeys.keys()];
+      const named = names.filter((name) => namesAll(this.meta.message!, name));
+      const roles = venueRoles(this.meta.message, names);
+      const key = (name: string | null | undefined) => (name ? this.meta.locationKeys.get(name) : undefined);
+      let to = key(roles.destination);
+      let from = key(roles.origin);
+      // Dos locales y uno con papel claro: el otro es el que falta («mandó Pickles al Parador»).
+      if (named.length === 2) {
+        if (to && !from) from = key(named.find((n) => key(n) !== to));
+        if (from && !to) to = key(named.find((n) => key(n) !== from));
+      }
+      // Uno solo sin preposición: al recibir, «lo que mandó el Vivero» es el origen.
+      if (named.length === 1 && !to && !from && accion === "recibir_traspaso" && /\b(mand|envi)/.test(normalize(this.meta.message))) from = key(named[0]);
+      if (to || from) {
+        return { type: "documento", accion, locationIds: all, ...(from ? { fromLocationId: from } : {}), ...(to ? { toLocationId: to } : {}) };
+      }
+    }
     return { type: "documento", accion, locationIds: id ? [id] : all };
   }
 
@@ -813,6 +850,13 @@ export class Interpreter {
       locationOutcome = "actuar";
       this.markActed("local");
     }
+    // «pasa ron al Vivero»: el único local nombrado va con «al», es el destino. Jev lo ponía también de
+    // origen (Vivero → Vivero) y se preguntaba el destino; la respuesta («Parador») acababa al revés.
+    const namedDestination = roles?.destination ? this.meta.locationKeys.get(roles.destination) ?? null : null;
+    if (accion === "traspaso" && namedDestination && !roles?.origin && resolvedLocation === namedDestination && this.overrides.local === undefined) {
+      resolvedLocation = null;
+      locationOutcome = "preguntar";
+    }
     if (!resolvedLocation && this.onlyLocation()) {
       resolvedLocation = this.onlyLocation();
       locationOutcome = "actuar";
@@ -825,8 +869,9 @@ export class Interpreter {
     }
     // Sin local claro se pregunta; el habitual solo se ofrece como primera opción.
     if (!resolvedLocation || locationOutcome === "preguntar") {
-      const question = accion === "traspaso" ? "¿Desde qué local sale la mercancía?" : "¿En qué local?";
-      return this.clarify("local", question, this.locationOptions(locGate?.ranked ?? []), [TODOS, NO_INDICADO], locationName);
+      const question = accion === "traspaso" ? (namedDestination ? `¿Desde qué local sale la mercancía hacia ${locationLabel(this.ctx, namedDestination)}?` : "¿Desde qué local sale la mercancía?") : "¿En qué local?";
+      const options = this.locationOptions(locGate?.ranked ?? []).filter((o) => !namedDestination || this.meta.locationKeys.get(o.option) !== namedDestination);
+      return this.clarify("local", question, options, [TODOS, NO_INDICADO], locationName);
     }
 
     let toLocationId: string | null = null;
@@ -835,6 +880,11 @@ export class Interpreter {
       const toGate = this.gateSlot(context, "local_destino", "local_destino", "Local destino");
       toLocationId = toGate && toGate.choice !== NO_APLICA ? this.meta.locationKeys.get(toGate.choice) ?? null : null;
       toLocationOutcome = toLocationId && toLocationId !== resolvedLocation ? toGate!.outcome : "preguntar";
+      // El destino dicho con «al/a» manda si Jev no da otro distinto del origen.
+      if (toLocationOutcome === "preguntar" && namedDestination && namedDestination !== resolvedLocation) {
+        toLocationId = namedDestination;
+        toLocationOutcome = "actuar";
+      }
       if (roles && toGate && toLocationOutcome === "confirmar" && roles.destination === toGate.choice) {
         toLocationOutcome = "actuar";
         this.markActed("local_destino");

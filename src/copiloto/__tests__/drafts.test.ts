@@ -145,9 +145,22 @@ describe("borradores desde el chat", () => {
     expect((find(events, "draft") as TransferDraft).lines[0]).toMatchObject({ qtyBase: "6", baseUnit: "ud" });
   });
 
-  it("origen y destino iguales → pregunta el destino", async () => {
+  it("origen y destino iguales con «a Parador» → Parador es el destino y se pregunta el origen", async () => {
     const script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Parador", producto_0: { winner: "Coca-Cola 20 cl", p: 0.99 }, cantidad_ok_0: 0.95 };
-    const clarify = find(await run(makeAgent(new FakeJev([script])).agent, chat("pasa 6 cocas a Parador")), "clarify")!;
+    const { agent } = makeAgent(new FakeJev([script, { coherencia: 0.95 }]));
+    const clarify = find(await run(agent, chat("pasa 6 cajas de cocas a Parador")), "clarify")!;
+    expect(clarify.field).toBe("local");
+    expect(clarify.question).toContain("hacia Parador");
+    expect(clarify.options.map((o) => o.id)).not.toContain("Parador");
+    // Lo que se responde es el origen; el destino sigue siendo el Parador (no al revés).
+    const draft = find(await run(agent, chat("Vivero", { clarification: { clarifyId: clarify.clarifyId, optionId: "Vivero" } })), "draft") as TransferDraft;
+    const id = (name: string) => LOCATIONS.find((l) => l.name === name)!.id;
+    expect(draft).toMatchObject({ fromLocationId: id("Vivero"), toLocationId: id("Parador") });
+  });
+
+  it("sin «a/al» y origen = destino → se pregunta el destino", async () => {
+    const script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Parador", producto_0: { winner: "Coca-Cola 20 cl", p: 0.99 }, cantidad_ok_0: 0.95 };
+    const clarify = find(await run(makeAgent(new FakeJev([script])).agent, chat("traspaso de 6 cocas del Parador")), "clarify")!;
     expect(clarify.field).toBe("local_destino");
     expect(clarify.options.map((o) => o.id)).not.toContain("Parador");
   });
