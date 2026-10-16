@@ -125,6 +125,24 @@ export interface ToolParams {
   now: Date;
   /** Stock desglosado por espacio («¿qué hay en cada sección?»). */
   byArea?: boolean;
+  /** Movimientos: solo estos tipos («¿cuánta merma…?» → mermas). Sin él, todos menos aperturas y cambios de zona. */
+  movementTypes?: MovementType[];
+}
+
+/**
+ * Tipos de movimiento que nombra el mensaje («merma», «roturas», «compras», «traspasos»…). Vacío si no
+ * nombra ninguno.
+ */
+export function movementTypesIn(message: string): MovementType[] {
+  const text = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const types: MovementType[] = [];
+  if (/\b(merma|mermas|roto|rotos|rota|rotas|rotura|roturas|tirad|caducad|desperdici)/.test(text)) types.push("waste");
+  if (/\b(compra|compras|comprado|recepcion|recepciones|albaran|albaranes|recibid)/.test(text)) types.push("purchase");
+  if (/\btraspas/.test(text)) types.push("transfer_out", "transfer_in");
+  if (/\b(consumo|consumid|gastad|vendid|ventas)/.test(text)) types.push("consumption");
+  if (/\b(ajuste|ajustes|descuadre|descuadres)/.test(text)) types.push("count_adjustment", "manual_adjustment");
+  if (/\b(apertura|aperturas|inicial|iniciales)/.test(text)) types.push("opening");
+  return types;
 }
 
 export interface EvalItem {

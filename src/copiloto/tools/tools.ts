@@ -28,6 +28,18 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
   internal_move: "movimiento entre zonas",
 };
 
+const MOVEMENT_PLURAL_LABELS: Record<MovementType, string> = {
+  opening: "aperturas",
+  purchase: "compras",
+  consumption: "consumo",
+  waste: "mermas",
+  transfer_out: "traspasos",
+  transfer_in: "traspasos",
+  count_adjustment: "ajustes",
+  manual_adjustment: "ajustes",
+  internal_move: "movimientos entre zonas",
+};
+
 export type ToolName = Exclude<Herramienta, "ninguna">;
 
 export interface Tools {
@@ -366,6 +378,16 @@ export class InventoryTools implements Tools {
     return finish("query_spend", rows, { total: formatMoney(total), albaranes: String(raw.length), desde: formatDay(from), hasta: formatDay(to) });
   }
 
+  /** Último precio de compra: por unidad de barra y el del formato («Caja 24 a 28,80 € (Makro)»). */
+  private async lastPrices(product: Product): Promise<{ unit: string | null; packs: string | null }> {
+    const prices = await this.source.supplierPrices(product.packs.map((k) => k.id)).catch(() => []);
+    const packs = new Map(product.packs.map((k) => [k.id, k]));
+    const latest = prices.find((p) => packs.has(p.packId));
+    if (!latest) return { unit: null, packs: null };
+    const pack = packs.get(latest.packId)!;
+    return { unit: unitPriceText(product, pack.qtyBase, latest.lastPrice), packs: `${pack.name} a ${formatMoney(latest.lastPrice)} (${latest.supplierName})` };
+  }
+
   private async stock(params: ToolParams, ctx: SessionContext): Promise<ToolResult> {
     const products = productMap(ctx);
     const productIds = params.productIds.length > 0 ? params.productIds : undefined;
@@ -447,6 +469,31 @@ export class InventoryTools implements Tools {
         g.parts.push(l);
         groups.set(l.product.id, g);
       }
+      // Un solo producto («¿cuánta coca hay?»): una fila por local, con su mínimo, y el precio arriba.
+      if (groups.size === 1) {
+        const g = [...groups.values()][0]!;
+        const buy = await this.lastPrices(g.product);
+        const rows: ToolRow[] = [...g.parts]
+          .sort((a, b) => locationName(ctx, a.locationId).localeCompare(locationName(ctx, b.locationId)))
+          .map((l) => ({
+            producto: g.product.name,
+            local: locationName(ctx, l.locationId),
+            espacio: null,
+            cantidad: formatStock(l.qty, l.product),
+            valor: formatMoney(l.value),
+            minimo: l.min ? formatStock(l.min, l.product) : null,
+            bajo_minimo: l.min !== null && l.qty.lt(l.min),
+          }));
+        return finish("query_stock", rows, {
+          ...totals,
+          productos: "1",
+          desglose: "producto",
+          producto: g.product.name,
+          total: formatStock(g.qty, g.product),
+          ...(buy.unit ? { precio_unidad: buy.unit } : {}),
+          ...(buy.packs ? { compra: buy.packs } : {}),
+        });
+      }
       const sorted = [...groups.values()].sort((a, b) => Number(b.low) - Number(a.low) || b.value.cmp(a.value) || a.product.name.localeCompare(b.product.name));
       const rows: ToolRow[] = sorted.map((g) => ({
         producto: g.product.name,
@@ -487,8 +534,12 @@ export class InventoryTools implements Tools {
     const tz = new Map(ctx.locations.map((l) => [l.id, l]));
     const groups = new Map<string, { type: MovementType; product: Product; qty: Decimal; value: Decimal; count: number }>();
     const byType = new Map<MovementType, Decimal>();
+    // Sin tipos pedidos, las aperturas (el stock inicial al empezar) y los cambios de zona no cuentan:
+    // tapaban lo que se pregunta (32.000 € de «apertura» delante de 13 € de mermas).
+    const wanted = params.movementTypes?.length ? new Set(params.movementTypes) : null;
     for (const m of raw) {
       if (params.areaId && m.areaId !== params.areaId) continue;
+      if (wanted ? !wanted.has(m.type) : m.type === "opening" || m.type === "internal_move") continue;
       const loc = tz.get(m.locationId);
       const day = businessDay(new Date(m.occurredAt), loc?.timezone ?? "Europe/Madrid", loc?.dayCutoff ?? "06:00");
       if (day < period.from || day > period.to) continue;
@@ -513,6 +564,8 @@ export class InventoryTools implements Tools {
       movimientos: String(g.count),
     }));
     const totals: Record<string, string> = { periodo: period.label, movimientos: String(raw.length) };
+    // «¿cuánta merma…?»: la respuesta habla de mermas, no de «movimientos».
+    if (wanted) totals.tipos = [...new Set([...wanted].map((t) => MOVEMENT_PLURAL_LABELS[t]))].join(" y ");
     for (const [type, value] of byType) totals[`valor_${MOVEMENT_LABELS[type].replace(/ /g, "_")}`] = formatMoney(value.abs());
     return finish("query_movements", rows, totals);
   }
@@ -675,7 +728,13 @@ export class InventoryTools implements Tools {
   }
 
   private async reorder(params: ToolParams, ctx: SessionContext): Promise<ToolResult> {
-    const lines = await computeReorder(this.source, params, ctx);
+    const [lines, lps] = await Promise.all([
+      computeReorder(this.source, params, ctx),
+      this.source.locationProducts({ locationIds: params.locationIds, productIds: params.productIds.length > 0 ? params.productIds : undefined }),
+    ]);
+    // Sin mínimos puestos nunca «falta» nada: hay que decirlo, no contestar «no falta nada».
+    const withMin = new Set(lps.filter((lp) => new Decimal(lp.minQty).gt(0) || new Decimal(lp.parQty).gt(0)).map((lp) => lp.locationId));
+    const noMinimums = params.locationIds.filter((id) => !withMin.has(id)).map((id) => locationName(ctx, id));
 
     const evalItems: EvalItem[] = lines.map((l) => ({
       kind: "reponer",
@@ -702,7 +761,12 @@ export class InventoryTools implements Tools {
       en_camino: l.pendingIn.gt(0) ? formatStock(l.pendingIn, l.product!) : null,
       sugerido: formatStock(l.suggested.toDecimalPlaces(2), l.product!),
     }));
-    return finish("query_reorder", rows, { productos: String(lines.length), horizonte: params.horizonLabel }, evalItems);
+    return finish(
+      "query_reorder",
+      rows,
+      { productos: String(lines.length), horizonte: params.horizonLabel, ...(noMinimums.length > 0 ? { sin_minimos: noMinimums.join(", ") } : {}) },
+      evalItems,
+    );
   }
 }
 

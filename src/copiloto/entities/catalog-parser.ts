@@ -173,6 +173,20 @@ export function lastQuantity(message: string): { amount: string; unit: string | 
   return pick ? { amount: pick.amount!, unit: pick.unit } : null;
 }
 
+/**
+ * Mínimo u objetivo dicho con un número suelto al final («pon el mínimo de coca del Vivero en 48», «el
+ * objetivo del larios a 12»): sin unidad detrás no es una cantidad de producto para el analizador.
+ */
+export function levelQuantity(message: string): { amount: string; unit: string | null } | null {
+  const found = lastQuantity(message);
+  if (found) return found;
+  const m = normalize(message).match(/\b(?:en|a|de|es|son|=)\s*(\d+(?:[.,]\d+)?)\s*([a-z]+)?\s*[.!?]*$/);
+  if (!m) return null;
+  const unit = m[2] ? canonicalUnit(m[2]) : null;
+  if (m[2] && !unit) return null;
+  return { amount: m[1]!.replace(",", "."), unit };
+}
+
 /** ¿Pide borrar definitivamente (en lugar de archivar)? El asistente siempre archiva. */
 export function asksHardDelete(message: string): boolean {
   return /\b(borra|borrar|elimina|eliminar|suprime|quita|quitar)\b/.test(normalize(message));

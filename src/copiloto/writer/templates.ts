@@ -6,7 +6,8 @@ import type { ToolRow } from "../tools/types";
 function scopeText(scope: Scope): string {
   const parts: string[] = [];
   // Con muchos productos («ron» → 7 rones) se dice cuántos; los nombres ya van en la lista.
-  if (scope.productos.length > 3) parts.push(`de ${scope.productos.length} productos`);
+  if (scope.familia) parts.push(`de ${scope.familia.toLowerCase()}`);
+  else if (scope.productos.length > 3) parts.push(`de ${scope.productos.length} productos`);
   else if (scope.productos.length > 0) parts.push(`de ${scope.productos.join(", ")}`);
   if (scope.espacio) parts.push(`en ${scope.espacio}`);
   else if (scope.locales.length === 1) parts.push(`en ${scope.locales[0]}`);
@@ -69,7 +70,15 @@ function renderQuery(o: Extract<DecisionReport["outcome"], { kind: "consulta" }>
   // Con tabla, el texto es solo el titular: la lista va en la tabla.
   const full = renderQueryBody(o);
   const body = o.tabulated ? full.split("\n").filter((line) => !line.startsWith("• ") && !line.startsWith("…y ")).join("\n") : full;
-  return o.notices.length > 0 ? `${o.notices.join(" ")}\n${body}` : body;
+  const places = o.elsewhere?.filter((e) => !e.startsWith("— ")) ?? [];
+  const detail = o.elsewhere?.filter((e) => e.startsWith("— ")).map((e) => e.slice(2)) ?? [];
+  const after = places.length ? `\nSí hay en ${listJoin(places)}${detail.length ? `. ${detail.join(" · ")}` : ":"}` : "";
+  return o.notices.length > 0 ? `${o.notices.join(" ")}\n${body}${after}` : `${body}${after}`;
+}
+
+/** «Vivero, Pickles y La Oliva». */
+function listJoin(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} y ${items.at(-1)}`;
 }
 
 function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta" }>): string {
@@ -78,7 +87,7 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
   if (result.count === 0) {
     const empty: Record<typeof result.tool, string> = {
       query_stock: `No hay stock registrado ${where}.`,
-      query_movements: `No hay movimientos ${where}.`,
+      query_movements: `No hay ${result.totals.tipos ?? "movimientos"} ${where}.`,
       // El precio no depende del local: «No tengo precio de compra de Beefeater.»
       query_prices: scope.productos.length > 0 ? `No tengo precio de compra de ${scope.productos.join(", ")}.` : `No hay precios registrados ${where}.`,
       query_pending_transfers: `No hay traspasos pendientes de recibir ${where}.`,
@@ -92,6 +101,13 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
         ? `${result.totals.producto} · ${result.totals.categoria}\nFormatos: ${result.totals.formatos}\nCompra: ${result.totals.compra}\nNo está activo en ningún local.`
         : "No encuentro ese producto en el catálogo.",
     };
+    // Locales sin mínimos: «no falta nada» sería falso, no se sabe.
+    if (result.tool === "query_reorder" && result.totals.sin_minimos) {
+      const all = scope.locales.length <= 1 || result.totals.sin_minimos.split(", ").length === scope.locales.length;
+      return all
+        ? `No puedo saber qué falta ${scopeText({ ...scope, periodo: null })}: no tiene mínimos puestos. Ponlos en Stock o dime, por ejemplo, «pon el mínimo de coca en 2 cajas».`
+        : `${empty[result.tool].replace(/\s+\./, ".")}\nOjo: ${result.totals.sin_minimos} no tiene mínimos puestos, así que ahí no puedo saber qué falta.`;
+    }
     return `${empty[result.tool].replace(/\s+\./, ".")}`;
   }
   const more = result.truncated ? `\n…y ${result.count - result.rows.length} más.` : "";
@@ -101,6 +117,15 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
       // Euros solo si se pregunta por el valor: a «¿cuántas quedan?» se contesta con la cantidad.
       const money = o.dato === "valor";
       const low = result.totals.bajo_minimo !== "0" ? ` ${plural(result.totals.bajo_minimo ?? "0", "bajo mínimo", "bajo mínimo")}.` : "";
+      if (result.totals.desglose === "producto") {
+        // «¿cuánta coca hay?»: total, precio y dónde está bajo mínimo; el reparto por local va en la tabla.
+        const lowAt = result.rows.filter((r) => r.bajo_minimo).map((r) => String(r.local));
+        // El precio, salvo si solo se pregunta cuánto hay (ahí sobran los euros; está en «Precios»).
+        const price = result.totals.precio_unidad && o.dato !== "cantidad" ? `\nPrecio: ${result.totals.precio_unidad}${result.totals.compra ? ` · ${result.totals.compra}` : ""}.` : "";
+        const alert = lowAt.length > 0 ? `\n⚠ Bajo mínimo en ${lowAt.join(", ")}.` : "";
+        const detail = o.tabulated ? "" : `\n${result.rows.map((r) => `${r.local}: ${r.cantidad}`).join(" · ")}`;
+        return `Stock de ${result.totals.producto}: ${result.totals.total}${money ? ` (${result.totals.valor_total})` : ""} en ${plural(String(result.count), "local", "locales")}.${price}${alert}${detail}`;
+      }
       if (result.totals.desglose === "local") {
         if (result.count === 1) {
           // «en 2 locales» (los que lo tienen), no «en tus 4 locales»: el reparto va debajo.
@@ -123,8 +148,15 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
         .filter(([k]) => k.startsWith("valor_"))
         .map(([k, v]) => ({ tipo: k.slice(6).replace(/_/g, " "), valor: v }))
         .sort((a, b) => movementRank(a.tipo) - movementRank(b.tipo));
-      const head = byType.length > 0 ? `${byType.map((t) => `${MOVEMENT_PLURAL[t.tipo] ?? t.tipo} ${t.valor}`).join(" · ")}.` : `${result.totals.movimientos} registros.`;
-      return `Movimientos ${where}: ${head[0]!.toUpperCase()}${head.slice(1)}\n${list(result.rows, (r) => `${r.tipo} · ${r.producto}: ${r.cantidad} (${r.valor})`)}${more}`;
+      // De un solo tipo pedido («¿cuánta merma…?»): el titular ya lo dice, basta el importe.
+      const head =
+        result.totals.tipos && byType.length === 1
+          ? `${byType[0]!.valor}.`
+          : byType.length > 0
+            ? `${byType.map((t) => `${MOVEMENT_PLURAL[t.tipo] ?? t.tipo} ${t.valor}`).join(" · ")}.`
+            : `${result.totals.movimientos} registros.`;
+      const title = result.totals.tipos ? `${result.totals.tipos[0]!.toUpperCase()}${result.totals.tipos.slice(1)}` : "Movimientos";
+      return `${title} ${where}: ${head[0]!.toUpperCase()}${head.slice(1)}\n${list(result.rows, (r) => `${r.tipo} · ${r.producto}: ${r.cantidad} (${r.valor})`)}${more}`;
     }
     case "query_prices": {
       // Precio de productos concretos («¿a cuánto nos sale el Beefeater?»): el último, línea a línea.
@@ -177,6 +209,11 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
     case "query_spend":
       return `Compras del ${result.totals.desde} al ${result.totals.hasta}: ${result.totals.total} en ${plural(result.totals.albaranes ?? "0", "albarán", "albaranes")}.\n${list(result.rows, (r) => `${r.proveedor}: ${r.importe} (${r.porcentaje})`)}${more}`;
     case "query_reorder": {
+      // Con tabla (ordenada por urgencia): solo el titular.
+      if (o.tabulated) {
+        const pressing = evaluations.filter((e) => e.relevance >= 0.5 && (e.urgency === "alta" || e.urgency === "critica")).length;
+        return `Para ${result.totals.horizonte} conviene reponer ${plural(result.totals.productos ?? String(result.count), "producto", "productos")}${pressing > 0 ? `, ${pressing} con urgencia alta o crítica` : ""}.`;
+      }
       if (evaluations.length === 0) {
         return `Para ${result.totals.horizonte} conviene reponer ${plural(result.totals.productos ?? "0", "producto", "productos")}:\n${list(
           result.rows,

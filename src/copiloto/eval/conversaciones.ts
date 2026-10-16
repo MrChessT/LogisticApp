@@ -9,7 +9,7 @@
 // Escribe la transcripción en consola (y con --real también en docs/copiloto/CONVERSACIONES.md).
 import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { EntryType, Questions } from "@typesafe-ai/sdk";
 import { HabitsStore } from "../agent/habits";
 import { Agent } from "../agent/loop";
@@ -69,8 +69,8 @@ interface Conversation {
 
 const NOW = new Date("2026-09-23T12:00:00Z");
 
-function loadConversations(): Conversation[] {
-  return JSON.parse(readFileSync(join(process.cwd(), "src/copiloto/eval/conversaciones.json"), "utf8")) as Conversation[];
+function loadConversations(file = "src/copiloto/eval/conversaciones.json"): Conversation[] {
+  return JSON.parse(readFileSync(resolve(process.cwd(), file), "utf8")) as Conversation[];
 }
 
 /**
@@ -214,8 +214,8 @@ function check(e: Expectation, events: SseEvent[]): string[] {
 }
 
 /** Ejecuta todas las conversaciones. Devuelve la transcripción y cuántos turnos no salieron como se esperaba. */
-export async function runConversations(real = false): Promise<{ report: string; turns: number; failed: number }> {
-  const conversations = loadConversations();
+export async function runConversations(real = false, file?: string): Promise<{ report: string; turns: number; failed: number }> {
+  const conversations = loadConversations(file);
   const metrics = new Metrics("0.042");
   const products = viveroProducts();
   const base = fixtureContext("manager");
@@ -307,9 +307,11 @@ export async function runConversations(real = false): Promise<{ report: string; 
 
 if (process.argv[1]?.endsWith("conversaciones.ts")) {
   const real = process.argv.includes("--real");
-  void runConversations(real).then(({ report, failed }) => {
+  // --casos otro.json: conversaciones sueltas (p. ej. para reproducir un reporte); no toca el informe.
+  const file = process.argv.includes("--casos") ? process.argv[process.argv.indexOf("--casos") + 1] : undefined;
+  void runConversations(real, file).then(({ report, failed }) => {
     console.log(report);
-    if (real) writeFileSync(join(process.cwd(), "docs/copiloto/CONVERSACIONES.md"), `${report}\n`, "utf8");
+    if (real && !file) writeFileSync(join(process.cwd(), "docs/copiloto/CONVERSACIONES.md"), `${report}\n`, "utf8");
     const out = process.argv.includes("--salida") ? process.argv[process.argv.indexOf("--salida") + 1] : undefined;
     if (out) writeFileSync(out, `${report}\n`, "utf8");
     process.exitCode = failed ? 1 : 0;

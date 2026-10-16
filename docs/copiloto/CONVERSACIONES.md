@@ -1,6 +1,6 @@
 # Conversaciones de prueba
 
-Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10-16T10:34:32.470Z
+Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10-16T11:18:23.904Z
 
 ## Traspaso sin cantidad ni unidad
 
@@ -175,7 +175,13 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10
 ## Consultas sin local: todos los locales, desglosado
 
 **Usuario:** ¿cuánto beefeater hay?  
-**Asistente:** Stock de Beefeater: 15 botellas en 2 locales. Pickels 6 botellas · Vivero 9 botellas  
+**Asistente:** Stock de Beefeater: 15 botellas en 2 locales. Precio: 11,50 € / Botella 70 cl · Caja 6 a 69,00 € (Distribuciones Premium Sureste S.L.).  
+
+| Local | Stock | Mínimo |
+| --- | --- | --- |
+| Pickels | 6 botellas | 6 botellas |
+| Vivero | 9 botellas | 6 botellas |
+
 ✅
 
 **Usuario:** ¿qué hay en cada sección del Vivero?  
@@ -221,13 +227,21 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10
 
 **Usuario:** ¿y cuántas botellas quedan?  
 &nbsp;&nbsp;*Entendido: Consultar stock · Cantidad*  
-**Asistente:** Stock de Larios 12: 25 botellas en 4 locales. La Oliva 8 botellas · Parador 10 botellas · Pickels 2 botellas ⚠ · Vivero 5 botellas ⚠ ⚠ Bajo mínimo en algún local.  
+**Asistente:** Stock de Larios 12: 25 botellas en 4 locales. ⚠ Bajo mínimo en Pickels, Vivero.  
+
+| Local | Stock | Mínimo |
+| --- | --- | --- |
+| La Oliva | 8 botellas | 6 botellas |
+| Parador | 10 botellas | 6 botellas |
+| Pickels | 2 botellas | 6 botellas |
+| Vivero | 5 botellas | 6 botellas |
+
 ✅
 
 ## Valor en euros: solo si se pregunta por dinero
 
 **Usuario:** ¿cuánto dinero tenemos metido en ginebra en el vivero?  
-&nbsp;&nbsp;*Entendido: Consultar stock · Vivero · Varios productos · Valor*  
+&nbsp;&nbsp;*Entendido: Consultar stock · Vivero · ¿Varios productos? · Valor*  
 **Asistente:** Stock de 10 productos en Vivero: valor total 2.283,90 €. 2 bajo mínimo.  
 
 | Producto | Cantidad | Valor |
@@ -337,9 +351,14 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10
 
 **Usuario:** ¿tengo suficiente coca para el finde en el vivero?  
 &nbsp;&nbsp;*Entendido: Qué reponer · Vivero · Coca-Cola · Fin de semana · Cantidad*  
-**Asistente:** Para el fin de semana conviene reponer 1 producto: • Coca-Cola (Vivero): quedan 8 ud, pedir 5 cajas + 16 ud — urgencia alta  
+**Asistente:** Para el fin de semana conviene reponer 1 producto, 1 con urgencia alta o crítica.  
+
+| Producto | Quedan | Pedir | Urgencia |
+| --- | --- | --- | --- |
+| Coca-Cola | 8 ud | 5 cajas + 16 ud | Alta |
+
 ✅
 
 **42/43 turnos como se esperaba.**
 
-Coste Jev: 46 llamadas, 102711 tokens de entrada, ~0.004314 $.
+Coste Jev: 46 llamadas, 102736 tokens de entrada, ~0.004315 $.

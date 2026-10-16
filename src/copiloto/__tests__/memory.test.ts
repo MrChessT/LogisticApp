@@ -17,7 +17,10 @@ describe("memoria de la conversación", () => {
     expect(find(events, "decision")!.decisions).toEqual(expect.arrayContaining([expect.objectContaining({ id: "seguimiento", valueLabel: "Continúa lo anterior" })]));
     expect(find(events, "navigate")).toMatchObject({ route: "/stock", filters: { locationId: VIVERO!.id, productId: BARCELO.id } });
     // El titular ya nombra el producto heredado: sin «Sigo con…» delante.
-    expect(find(events, "done")!.text).toBe(`No hay stock registrado de ${BARCELO.name} en Vivero.`);
+    const text = find(events, "done")!.text;
+    expect(text.startsWith(`No hay stock registrado de ${BARCELO.name} en Vivero.`)).toBe(true);
+    // Y dónde sí hay, en vez de quedarse en «no hay».
+    expect(text).toContain("Sí hay en Parador");
     // Jev recibe la conversación para resolver la referencia.
     expect((jev.calls[1]!.state as { recent_turns: unknown[] }).recent_turns).toHaveLength(2);
   });

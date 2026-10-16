@@ -115,8 +115,12 @@ describe("enrutado del agente", () => {
     expect(vivCoca).toMatchObject({ stock: "2 cajas", avg_daily_use: "1 caja + 16 ud", coverage_days: "1,2", pending_in: "2 cajas", suggested: "8 cajas + 8 ud" });
     expect(Object.keys(jev.calls[1]!.questions)).toEqual(expect.arrayContaining(["reponer_0", "urgencia_0"]));
     const text = find(events, "done")!.text;
-    expect(text).toContain("Para el fin de semana conviene reponer 4 productos");
-    expect(text).toContain("urgencia crítica");
+    expect(text).toMatch(/^Para el fin de semana conviene reponer 5 productos, \d con urgencia alta o crítica\./);
+    // La lista va en tabla, de más a menos urgente.
+    const table = find(events, "table")!;
+    expect(table.columns.map((c) => c.label)).toEqual(["Producto", "Local", "Quedan", "Pedir", "Urgencia"]);
+    expect(table.rows[0]!.urgencia).toBe("Crítica");
+    expect(table.flagged).toContain(0);
   });
 
   it("tipo de acción poco claro → aclaración, nunca una suposición", async () => {
@@ -248,9 +252,11 @@ describe("enrutado del agente", () => {
     const reorderEvents = await run(agent, chat("/reponer"));
     const reorder = find(reorderEvents, "done")!.text;
     expect(reorder).toContain("conviene reponer 5 productos");
-    // Con la valoración caída, la lista va en el texto (la tabla sale antes de saber que fallaría).
-    expect(reorder).toContain("Coca-Cola 20 cl (Vivero): quedan 2 cajas, pedir");
     expect(reorder).toContain("No he podido valorar la urgencia");
+    // Con la valoración caída, la tabla sale igual (sin columna de urgencia).
+    const table = find(reorderEvents, "table")!;
+    expect(table.columns.map((c) => c.label)).not.toContain("Urgencia");
+    expect(table.rows).toEqual(expect.arrayContaining([expect.objectContaining({ producto: "Coca-Cola 20 cl", local: "Vivero", stock: "2 cajas" })]));
   });
 });
 
@@ -273,7 +279,12 @@ describe("atajos deterministas", () => {
     const events = await run(agent, chat("", { message: BARCELO, clarification: { clarifyId: clarify.clarifyId, optionId: BARCELO } }));
     const text = find(events, "done")!.text;
     expect(text).toContain("Stock de Ron Barceló Añejo 70 cl: 4 botellas en 2 locales.");
-    expect(text).toContain("Parador 3 botellas ⚠ · Pickels 1 botella");
+    expect(text).toContain("⚠ Bajo mínimo en Parador.");
+    // El reparto por local, en tabla (local, stock, mínimo).
+    expect(find(events, "table")!.rows).toEqual([
+      expect.objectContaining({ local: "Parador", cantidad: "3 botellas" }),
+      expect.objectContaining({ local: "Pickels", cantidad: "1 botella" }),
+    ]);
     expect(jev.calls).toHaveLength(0);
   });
 

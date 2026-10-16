@@ -27,12 +27,22 @@ describe("herramientas (solo lectura, decimal.js)", () => {
     ]);
   });
 
-  it("varios locales: una fila por producto con el total y el reparto por local", async () => {
+  it("un producto en varios locales: una fila por local con su mínimo, y el total arriba", async () => {
     const r = await tools.run("query_stock", { ...base, productIds: [PRODUCTS[0]!.id] }, ctx);
-    expect(r.totals.desglose).toBe("local");
+    expect(r.totals.desglose).toBe("producto");
+    expect(r.totals.total).toBe("4 botellas");
     expect(r.rows).toEqual([
-      expect.objectContaining({ producto: "Ron Barceló Añejo 70 cl", cantidad: "4 botellas", desglose: "Parador 3 botellas ⚠ · Pickels 1 botella", bajo_minimo: true }),
+      expect.objectContaining({ local: "Parador", cantidad: "3 botellas", bajo_minimo: true }),
+      expect.objectContaining({ local: "Pickels", cantidad: "1 botella", bajo_minimo: false }),
     ]);
+  });
+
+  it("varios productos en varios locales: una fila por producto con el total y el reparto por local", async () => {
+    const r = await tools.run("query_stock", { ...base, productIds: [PRODUCTS[0]!.id, PRODUCTS[1]!.id] }, ctx);
+    expect(r.totals.desglose).toBe("local");
+    expect(r.rows).toEqual(
+      expect.arrayContaining([expect.objectContaining({ producto: "Ron Barceló Añejo 70 cl", cantidad: "4 botellas", desglose: "Parador 3 botellas ⚠ · Pickels 1 botella", bajo_minimo: true })]),
+    );
   });
 
   it("por secciones: el stock de cada espacio de los locales consultados", async () => {

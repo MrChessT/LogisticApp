@@ -45,12 +45,11 @@ describe("botones para seguir desde una respuesta", () => {
     expect(actions.map((a) => a.label)).toEqual(["Precios", "Consumo del mes", "Ficha", "Qué reponer"]);
     expect(jev.calls).toHaveLength(1);
 
-    // «Consumo del mes»: movimientos de la Coca-Cola en el Vivero, sin llamada a Jev.
+    // «Consumo del mes»: el consumo de la Coca-Cola en el Vivero (solo consumo), sin llamada a Jev.
     const consumo = await run(agent, chat("Consumo del mes", { followUpId: actions[1]!.id }));
     expect(jev.calls).toHaveLength(1);
-    expect(find(consumo, "done")!.text).toContain("Movimientos de Coca-Cola 20 cl en Vivero");
-    // Arriba, el dinero por tipo; no «N registros».
-    expect(find(consumo, "done")!.text).toMatch(/^Movimientos de Coca-Cola 20 cl en Vivero \(los últimos 30 días\): Consumo [\d.,]+ €/);
+    // Arriba, el dinero; no «N registros».
+    expect(find(consumo, "done")!.text).toMatch(/^Consumo de Coca-Cola 20 cl en Vivero \(los últimos 30 días\): [\d.,]+ €/);
     expect(find(consumo, "decision")!.shortcut).toBe(true);
 
     // «Ficha»: formatos, compra y stock.

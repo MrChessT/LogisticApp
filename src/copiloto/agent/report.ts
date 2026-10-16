@@ -9,6 +9,8 @@ export interface Scope {
   espacio: string | null;
   productos: string[];
   periodo: string | null;
+  /** Familia del catálogo consultada entera («Ron»): se dice en vez de «de 10 productos». */
+  familia?: string | null;
 }
 
 export interface Evaluation {
@@ -22,7 +24,18 @@ export interface Evaluation {
 }
 
 export type ReportOutcome =
-  | { kind: "consulta"; tool: ToolName; scope: Scope; result: ToolResult; evaluations: Evaluation[]; notices: string[]; tabulated?: boolean; dato?: Dato }
+  | {
+      kind: "consulta";
+      tool: ToolName;
+      scope: Scope;
+      result: ToolResult;
+      evaluations: Evaluation[];
+      notices: string[];
+      tabulated?: boolean;
+      dato?: Dato;
+      /** No queda en el local pedido pero sí en otros: dónde (va en la tabla). */
+      elsewhere?: string[];
+    }
   | { kind: "navegacion"; navigate: NavigateEvent; destino: string }
   | { kind: "aclaracion"; clarify: ClarifyEvent }
   /** charla: saludo, despedida o agradecimiento (respuesta corta en vez de la ayuda). */
@@ -60,6 +73,7 @@ export function writerView(report: DecisionReport): Record<string, unknown> {
         valoraciones: o.evaluations.map((e) => ({ ...e.data, urgencia: e.urgency, relevante: e.relevance >= 0.5 })),
         total_relevantes: String(o.evaluations.filter((e) => e.relevance >= 0.5).length),
         avisos: o.notices,
+        ...(o.elsewhere ? { hay_en_otros_locales: o.elsewhere } : {}),
         decisiones,
       };
     case "navegacion":

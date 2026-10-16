@@ -4,6 +4,7 @@
 // deja en manos de Jev. Es solo lectura: nunca escribe nada.
 import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
+import { familyOf } from "../entities/family";
 import { parseQuantities } from "../entities/quantity-parser";
 import type { Retriever } from "../entities/retriever";
 import { mentionsArea } from "./routing";
@@ -33,6 +34,22 @@ export async function fastStockPlan(message: string, ctx: SessionContext, retrie
   // Hace falta alguna palabra de stock: «beefeater» a secas puede ser otra cosa.
   if (rest.length === 0 || !words.some((w) => ["cuanto", "cuanta", "cuantos", "cuantas", "queda", "quedan", "hay", "stock", "existencias"].includes(w))) return null;
 
+  const all = ctx.locations.map((l) => l.id);
+  // «¿hay agua en Pickles?», «stock de ron»: una familia del catálogo, entera (no solo los que se llaman así).
+  const whole = familyOf(rest.join(" "), ctx.products, { exact: true });
+  if (whole) {
+    return {
+      type: "consultar",
+      tool: "query_stock",
+      locationIds: named.size > 0 ? [...named] : all,
+      locationsDefaulted: named.size === 0,
+      areaId: null,
+      products: whole.products.map((product) => ({ product, segmentIndex: 0, amount: null, unit: null, price: null, quantityOutcome: null })),
+      periodo: "no_indicado",
+      familia: whole.label,
+    };
+  }
+
   const found = await retriever.retrieve(ctx.products, rest.join(" "), MAX_FAMILY + 1, ctx.catalogHash);
   const [first, second] = found;
   // Todas las palabras que quedan tienen que ser del producto (si no, hay algo más en el mensaje).
@@ -40,7 +57,6 @@ export async function fastStockPlan(message: string, ctx: SessionContext, retrie
   const family = second && first.score < second.score * MIN_LEAD ? found.filter((c) => c.score >= first.score - 1e-9) : [first];
   if (family.length > MAX_FAMILY || (second && family.length === 1 && first.score < second.score * MIN_LEAD)) return null;
 
-  const all = ctx.locations.map((l) => l.id);
   return {
     type: "consultar",
     tool: "query_stock",

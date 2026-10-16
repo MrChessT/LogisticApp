@@ -57,6 +57,9 @@ const ID_PREFIXES = new Set([
   "albaran", "pedido", "las", "planta", "puerta",
 ]);
 
+/** «11 euros», «3 pavos»: dinero, no una cantidad de producto. */
+const MONEY_WORDS = new Set(["euros", "euro", "eur", "eurs", "pavos", "pelas"]);
+
 /** Palabras que cierran el texto de producto de un segmento. */
 const PRODUCT_BREAKERS = new Set([
   "en", "a", "al", "para", "desde", "hacia", "por", "porque", "que", "y", "o", "con", "sin", "hoy", "ayer",
@@ -152,7 +155,7 @@ export function parseQuantities(message: string, maxSegments = 5): Segment[] {
         if (!nextIsUnit && !nextIsProduct) amount = null;
       }
     }
-    if (!amount || (prev && ID_PREFIXES.has(prev.norm)) || toks[i + 1]?.raw === "%" || toks[i + 1]?.raw === "€") {
+    if (!amount || (prev && ID_PREFIXES.has(prev.norm)) || toks[i + 1]?.raw === "%" || toks[i + 1]?.raw === "€" || MONEY_WORDS.has(toks[i + 1]?.norm ?? "")) {
       i += 1;
       continue;
     }

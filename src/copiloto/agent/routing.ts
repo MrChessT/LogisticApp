@@ -179,7 +179,11 @@ export async function buildRouting(
   const placeWords = new Set([...ctx.locations.map((l) => l.name), ...ctx.areas.map((a) => a.name)].flatMap((n) => tokenize(n)).filter((w) => w.length >= 3));
   const productQuery = (text: string) => tokenize(text).filter((w) => !placeWords.has(w)).join(" ");
   const routingSegments: RoutingSegment[] = [];
-  for (const segment of segments) {
+  for (const parsedSegment of segments) {
+    // «pon el mínimo de agua a 25 cajas»: la cantidad no trae producto detrás. Se busca (y Jev lee) el
+    // mensaje entero con esa cantidad, no «25 cajas» (que encontraba cualquier cosa con «caja» y Jev
+    // decía «ninguno», o dudaba de qué producto eran «6 botellas»).
+    const segment = !parsedSegment.productText && parsed.length === 1 ? { ...parsedSegment, text: message, productText: message } : parsedSegment;
     const found = shortlist(await retriever.retrieve(ctx.products, productQuery(segment.productText || segment.text), CANDIDATES_PER_SEGMENT, ctx.catalogHash));
     if (found.length === 0) continue;
     const candidates = new Map<string, Product>();

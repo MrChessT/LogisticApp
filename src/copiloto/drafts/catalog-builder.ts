@@ -19,7 +19,7 @@ import {
   asksHardDelete,
   containerFromText,
   extractNewProductName,
-  lastQuantity,
+  levelQuantity,
   mentionedPack,
   mentionedSupplier,
   minimumField,
@@ -478,7 +478,7 @@ export class CatalogDraftBuilder {
     const field = minimumField(message);
     const levelName = field === "min_qty" ? "mínimo" : "objetivo";
 
-    const quantity = p.amount ? { amount: p.amount, unit: p.unit } : lastQuantity(message);
+    const quantity = p.amount ? { amount: p.amount, unit: p.unit } : levelQuantity(message);
     if (!quantity) {
       return { kind: "clarify", plan: { type: "clarify", field: "cantidad", question: `¿Qué ${levelName} quieres para ${product.name}? (por ejemplo, «4 botellas»)`, options: [] } };
     }
@@ -656,6 +656,15 @@ export class CatalogDraftBuilder {
         };
       }
       if (noPack.length > 0) return { kind: "error", message: `${noPack.join(", ")} no ${noPack.length === 1 ? "tiene" : "tienen"} formato de compra: añádelo en su ficha.` };
+      // Sin mínimos puestos el cálculo no tiene con qué comparar: decirlo, no «no hace falta nada».
+      const lps = await source.locationProducts({ locationIds: [locationId] });
+      if (!lps.some((lp) => new Decimal(lp.minQty).gt(0) || new Decimal(lp.parQty).gt(0))) {
+        return {
+          kind: "error",
+          message: `${location.name} no tiene mínimos puestos, así que no puedo calcular qué pedir. Ponlos en Stock o dime los productos y cantidades (por ejemplo «pide 3 cajas de coca para ${location.name}»).`,
+          navigate: { route: "/stock", filters: { locationId }, auto: false },
+        };
+      }
       return {
         kind: "error",
         message: `No hace falta pedir nada en ${location.name} para ${h.label}: con el stock, los mínimos y lo que ya está en camino es suficiente.`,

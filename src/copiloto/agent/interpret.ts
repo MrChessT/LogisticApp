@@ -29,6 +29,7 @@ import { preferredLocation, type Habits } from "./habits";
 import { VIEW_FOR_TOOL } from "../analytics/analytics";
 import { need, relevant, slotSpec, type ContextKey } from "../gates/policy";
 import { namesAll, namesProduct, unexplainedWords } from "../entities/mentions";
+import { familyOf, type Family } from "../entities/family";
 import { formatDecimal } from "../entities/units";
 import { isUnitWord } from "../entities/quantity-parser";
 import { tokenize } from "../entities/normalize";
@@ -57,6 +58,11 @@ export interface ResolvedProduct {
   productOutcome?: GateOutcome;
 }
 
+/** El fragmento es el mensaje entero (la cantidad no traía producto): no se cita en la pregunta. */
+function wholeMessage(segment: { text: string; productText: string }): boolean {
+  return segment.productText === segment.text && segment.text.split(/\s+/).length > 4;
+}
+
 export interface QueryPlan {
   type: "consultar";
   tool: ToolName;
@@ -69,6 +75,8 @@ export interface QueryPlan {
   inherited?: string[];
   /** Qué quiere saber (cantidad, precio, valor…): la respuesta enseña solo eso. Sin él, todo. */
   dato?: Dato;
+  /** La consulta es de una familia entera del catálogo («Ron»): el titular la nombra. */
+  familia?: string;
 }
 
 export interface NavigatePlan {
@@ -454,6 +462,17 @@ export class Interpreter {
 
   /** Productos de cada segmento. Devuelve una aclaración si alguno no llega al umbral. */
   /** Candidatos parecidos al mejor (≥ 50 % de su puntuación de recuperación), como mucho 10. */
+  /** Familia del catálogo que nombra el fragmento («ron», «cervezas»), para consultas. */
+  private catalogFamily(segmentIndex: number): Family | null {
+    const rs = this.meta.segments[segmentIndex];
+    if (!rs) return null;
+    const text = tokenize(rs.segment.productText || rs.segment.text).filter((w) => !this.placeWords.has(w)).join(" ");
+    return familyOf(text, this.ctx.products);
+  }
+
+  /** Nombre de la familia consultada, si la consulta es de una familia entera («Stock de ron en Parador»). */
+  familia: string | undefined;
+
   private family(segmentIndex: number): Product[] {
     const rs = this.meta.segments[segmentIndex]!;
     const top = Math.max(0, ...rs.scores.values());
@@ -502,18 +521,27 @@ export class Interpreter {
         resolved.push({ product: only, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null, productOutcome: "actuar" });
         continue;
       }
-      if (g.choice === NINGUNO && g.outcome === "actuar") continue;
+      if (g.choice === NINGUNO && g.outcome === "actuar") {
+        const whole = !forAction && rs.segment.amount === null ? this.catalogFamily(i) : null;
+        if (whole) {
+          this.familia = whole.label;
+          for (const product of whole.products) resolved.push({ product, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null });
+        }
+        continue;
+      }
       // "ron" con varios rones: en una consulta se incluyen todos; en una escritura se pregunta cuál.
       if (g.choice === VARIOS && g.outcome !== "preguntar") {
         const family = this.family(i);
         if (!forAction) {
-          for (const product of family) resolved.push({ product, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null });
+          const whole = this.catalogFamily(i);
+          if (whole) this.familia = whole.label;
+          for (const product of whole?.products ?? family) resolved.push({ product, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null });
           continue;
         }
         return {
           type: "clarify",
           field: "producto",
-          question: rs.segment.amount !== null ? `¿Cuál de estos productos es «${rs.segment.text}»?` : "¿Cuál de estos productos?",
+          question: rs.segment.amount !== null && !wholeMessage(rs.segment) ? `¿Cuál de estos productos es «${rs.segment.text}»?` : "¿Cuál de estos productos?",
           options: [...family]
             .sort((a, b) => (this.habits?.products[b.id] ?? 0) - (this.habits?.products[a.id] ?? 0))
             .slice(0, 4)
@@ -525,6 +553,13 @@ export class Interpreter {
       // revisar (el propio borrador es la confirmación). Por debajo de ask, o "ninguno", se pregunta.
       if (g.choice === NINGUNO || g.outcome === "preguntar") {
         // En una consulta sin cantidad, la duda entre "ninguno" y "varios" no bloquea: sin filtro, o la familia.
+        const whole = !forAction && rs.segment.amount === null ? this.catalogFamily(i) : null;
+        if (whole) {
+          // «¿cuántas cervezas quedan?»: la familia entera, aunque Jev dude entre «ninguno» y «varios».
+          this.familia = whole.label;
+          for (const product of whole.products) resolved.push({ product, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null });
+          continue;
+        }
         if (!forAction && rs.segment.amount === null && g.ranked[0]?.option === NINGUNO) continue;
         if (!forAction && rs.segment.amount === null && g.ranked[0]?.option === VARIOS) {
           for (const product of this.family(i)) resolved.push({ product, segmentIndex: i, amount: null, unit: null, price: null, quantityOutcome: null });
@@ -533,7 +568,11 @@ export class Interpreter {
         const question =
           unexplained.length > 0
             ? `No encuentro «${rs.segment.productText}» tal cual en el catálogo. ¿Es alguno de estos? Si es un producto nuevo, primero hay que darlo de alta.`
-            : rs.segment.amount !== null ? `¿A qué producto te refieres con «${rs.segment.text}»?` : "¿A qué producto te refieres?";
+            : rs.segment.amount !== null && !wholeMessage(rs.segment)
+              ? `¿A qué producto te refieres con «${rs.segment.text}»?`
+              : rs.segment.amount !== null
+                ? `¿De qué producto son las ${amountLabel(rs.segment.amount, rs.segment.unit)}?`
+                : "¿A qué producto te refieres?";
         return this.clarify("producto", question, g.ranked, [NINGUNO, VARIOS], (v) => v, i);
       }
       const product = rs.candidates.get(g.choice);
@@ -586,9 +625,18 @@ export class Interpreter {
     const area = this.readArea(context);
     let products = this.resolveProducts(context, false);
     if ("type" in products) return products;
+    // Elegido al aclarar «¿De qué producto?» entre los de antes (no tiene por qué estar entre los candidatos
+    // de este mensaje, que no nombra ninguno: «¿y a cuánto lo compramos?»).
+    const picked = this.overrides.producto_0 ? this.ctx.products.find((p) => p.name === this.overrides.producto_0) : undefined;
+    if (products.length === 0 && picked) products = [{ product: picked, segmentIndex: 0, amount: null, unit: null, price: null, quantityOutcome: null }];
     // Consultas de un producto concreto (su ficha): sin producto, o con varios («ginebra»), se pregunta cuál.
     if (need(context, "producto") === "requerido" && products.length !== 1 && !(products.length === 0 && this.focus?.productIds.length === 1 && this.followsUp())) {
-      if (products.length === 0) return { type: "clarify", field: "producto", question: "¿De qué producto?", options: [] };
+      if (products.length === 0) {
+        // Con los de la respuesta anterior («stock de larios» → 3 Larios) o los parecidos como opciones.
+        const previous = (this.focus?.productIds ?? []).map((id) => this.ctx.products.find((p) => p.id === id)).filter((p): p is Product => !!p);
+        const options = previous.length > 1 ? previous.slice(0, 4) : this.closestProducts(4).map((c) => c.product);
+        return { type: "clarify", field: "producto", question: "¿De qué producto?", options: options.map((p) => ({ id: p.name, label: p.name, probability: null })), segmentIndex: 0 };
+      }
       return {
         type: "clarify",
         field: "producto",
@@ -641,6 +689,7 @@ export class Interpreter {
       products,
       periodo,
       ...(inherited.length > 0 ? { inherited } : {}),
+      ...(this.familia ? { familia: this.familia } : {}),
     };
   }
 
@@ -691,7 +740,8 @@ export class Interpreter {
     if ("type" in products) return products;
     if (products.length === 0) {
       const question = accion === "cambiar_precio" ? "¿De qué producto quieres cambiar el precio?" : accion === "archivar_producto" ? "¿Qué producto quieres archivar?" : "¿De qué producto?";
-      return { type: "clarify", field: "producto", question, options: [] };
+      // Con los parecidos como opciones: sin ellas, escribir el nombre volvía a la misma pregunta.
+      return { type: "clarify", field: "producto", question, options: this.closestProducts(4).map(({ key, product }) => ({ id: key, label: product.name, probability: null })), segmentIndex: 0 };
     }
 
     if (accion === "cambiar_minimo") {
@@ -704,6 +754,12 @@ export class Interpreter {
       }
     }
     return { type: "catalogo", accion, locationId, locationOutcome, products };
+  }
+
+  /** Los productos del catálogo más parecidos a lo que dice el mensaje (por la búsqueda, no por Jev). */
+  private closestProducts(n: number): Array<{ key: string; product: Product }> {
+    const scored = (this.meta.segments[0] ? [this.meta.segments[0]] : []).flatMap((rs) => [...rs.candidates.entries()].map(([key, product]) => ({ key, product, score: rs.scores.get(key) ?? 0 })));
+    return scored.sort((a, b) => b.score - a.score).slice(0, n);
   }
 
   /** Recibir, enviar o cancelar un traspaso o un pedido: el local, si se dice, acota cuál. */
