@@ -29,6 +29,8 @@ export interface PendingClarify {
   fromShortcut?: boolean;
   /** Respuestas ya dadas a aclaraciones anteriores del mismo mensaje. */
   overrides: Record<string, string>;
+  /** Las mismas respuestas en texto («cantidad: 3», «formato: Caja 6»), para comprobar el borrador con todo lo dicho. */
+  answers?: string[];
 }
 
 /**

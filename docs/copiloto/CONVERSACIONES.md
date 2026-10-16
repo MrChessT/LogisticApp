@@ -1,6 +1,6 @@
 # Conversaciones de prueba
 
-Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10-11T17:43:03.549Z
+Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-10-16.1 · 2026-10-16T10:34:32.470Z
 
 ## Traspaso sin cantidad ni unidad
 
@@ -18,7 +18,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Usuario:** cajas  
 &nbsp;&nbsp;*Entendido: Traspaso entre locales · Parador · Vivero · Larios 12 · 3*  
 **Asistente:** Revísalo y confírmalo si está bien.  
-&nbsp;&nbsp;Borrador: *Traspaso Parador → Vivero: 3 × Caja 6 de Larios 12* — avisos: Revisa los datos: puede que no coincida del todo con lo que pediste. / Solo constan 10 botellas de Larios 12 en stock.  
+&nbsp;&nbsp;Borrador: *Traspaso Parador → Vivero: 3 × Caja 6 de Larios 12* — avisos: Solo constan 10 botellas de Larios 12 en stock.  
 ✅
 
 ## Traspaso claro con «ambigüedad» y sin espacio (caso real)
@@ -60,7 +60,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Usuario:** en el vivero  
 &nbsp;&nbsp;*Entendido: Registrar merma · Vivero · Hielo picado 2 kg · 3 bolsas*  
 **Asistente:** Revísalo y confírmalo si está bien.  
-&nbsp;&nbsp;Borrador: *Merma: 3 × Bolsa de Hielo picado 2 kg en Vivero* — avisos: Revisa los datos: puede que no coincida del todo con lo que pediste.  
+&nbsp;&nbsp;Borrador: *Merma: 3 × Bolsa de Hielo picado 2 kg en Vivero*  
 ✅
 
 ## Una orden nueva en mitad de una pregunta
@@ -68,7 +68,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Usuario:** quita unas cocas  
 &nbsp;&nbsp;*Entendido: Registrar merma*  
 **Asistente:** ¿En qué local?  
-&nbsp;&nbsp;Opciones: [La Oliva] [Parador] [Pickels] [Vivero]  
+&nbsp;&nbsp;Opciones: [Pickels] [La Oliva] [Parador] [Vivero]  
 ❌ esperaba una pregunta de «tipo_accion» y preguntó por «local»
 
 **Usuario:** ¿cuánto ron queda en Parador?  
@@ -204,7 +204,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Usuario:** ha llegado el traspaso del Parador  
 &nbsp;&nbsp;*Entendido: Recibir traspaso · Parador*  
 **Asistente:** Revísalo y confírmalo si está bien.  
-&nbsp;&nbsp;Borrador: *Recibir traspaso: Parador → Vivero · enviado hace 3 días* — avisos: Revisa los datos: puede que no coincida del todo con lo que pediste.  
+&nbsp;&nbsp;Borrador: *Recibir traspaso: Parador → Vivero · enviado hace 3 días*  
 ✅
 
 **Usuario:** sí, adelante  
@@ -270,7 +270,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Usuario:** tírame 2 bolsas de hielo picado del vivero  
 &nbsp;&nbsp;*Entendido: Registrar merma · Vivero · Hielo picado 2 kg · 2 bolsas*  
 **Asistente:** Revísalo y confírmalo si está bien.  
-&nbsp;&nbsp;Borrador: *Merma: 2 × Bolsa de Hielo picado 2 kg en Vivero* — avisos: Revisa los datos: puede que no coincida del todo con lo que pediste.  
+&nbsp;&nbsp;Borrador: *Merma: 2 × Bolsa de Hielo picado 2 kg en Vivero*  
 ✅
 
 ## Ayuda corta
@@ -280,13 +280,19 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Asistente:** Consulto stock, precios, consumo, lo que más se gasta, pedidos y gasto, y te preparo mermas, traspasos, recepciones, conteos y pedidos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «pasa 2 cajas y 5 sueltas de tónica del Parador a Pickels» o, en Funciones, «Preparar pedidos» y «Equilibrar locales».  
 ✅
 
-## Llega el camión con varios productos
+## Llega el camión con varios productos (varias tónicas: se pregunta cuál)
 
 **Usuario:** el de makro ha traído 6 cajas de coca y 2 de tónica al parador  
 &nbsp;&nbsp;*Entendido: Recepción de mercancía · Parador · Coca-Cola · 6 cajas · ¿Varios productos?*  
 **Asistente:** ¿Cuál de estos productos es «2 de tónica»?  
 &nbsp;&nbsp;Opciones: [Royal Bliss Tónica] [Schweppes Tónica] [Royal Bliss Berry Sensation] [Royal Bliss Ginger Ale]  
-❌ preguntó de más: «¿Cuál de estos productos es «2 de tónica»?»; esperaba un borrador de recepcion
+✅
+
+**Usuario:** [botón] Schweppes Tónica  
+&nbsp;&nbsp;*Entendido: Recepción de mercancía · Parador · Coca-Cola · 6 cajas · Schweppes Tónica · 2 cajas*  
+**Asistente:** Revísalo y confírmalo si está bien.  
+&nbsp;&nbsp;Borrador: *Recepción en Parador: 6 × Caja 24 de Coca-Cola, 2 × Caja 24 de Schweppes Tónica* — avisos: Precio de Coca-Cola tomado del último albarán (12,96 €); revísalo. / Precio de Schweppes Tónica tomado del último albarán (13,92 €); revísalo. / Proveedor según el último precio: Bebidas Mar Menor S.L..  
+✅
 
 ## Cierre de noche: roturas y lo que se tira
 
@@ -304,7 +310,7 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Usuario:** y tira 3 bolsas de hielo picado del vivero  
 &nbsp;&nbsp;*Entendido: Registrar merma · Vivero · Hielo picado 2 kg · 3 bolsas*  
 **Asistente:** Revísalo y confírmalo si está bien.  
-&nbsp;&nbsp;Borrador: *Merma: 3 × Bolsa de Hielo picado 2 kg en Vivero* — avisos: Revisa los datos: puede que no coincida del todo con lo que pediste.  
+&nbsp;&nbsp;Borrador: *Merma: 3 × Bolsa de Hielo picado 2 kg en Vivero*  
 ✅
 
 ## Estadísticas de un producto: precio, cantidad y consumo
@@ -334,6 +340,6 @@ Catálogo real de Vivero 55 · Jev REAL · catálogo Jev 2026-09-26.4 · 2026-10
 **Asistente:** Para el fin de semana conviene reponer 1 producto: • Coca-Cola (Vivero): quedan 8 ud, pedir 5 cajas + 16 ud — urgencia alta  
 ✅
 
-**40/42 turnos como se esperaba.**
+**42/43 turnos como se esperaba.**
 
-Coste Jev: 45 llamadas, 100819 tokens de entrada, ~0.004234 $.
+Coste Jev: 46 llamadas, 102711 tokens de entrada, ~0.004314 $.

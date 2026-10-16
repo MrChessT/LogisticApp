@@ -34,7 +34,7 @@ describe("borradores desde el chat", () => {
     expect(jev.calls).toHaveLength(2);
     expect(jev.calls[1]!.state).toEqual({
       request: "baja 2 botellas de ron rotas en barra 1",
-      draft: { operation: "write off (merma)", product: BARCELO, quantity: "2 × Botella 70 cl", venue: "Parador · Barra 1", reason: "rotura" },
+      draft: { operation: "write off stock (merma: tirar, romper o caducar)", product: BARCELO, quantity: "2 × Botella 70 cl", venue: "Parador · Barra 1", reason: "rotura" },
     });
     const draft = find(events, "draft") as WasteDraft;
     expect(draft).toMatchObject({

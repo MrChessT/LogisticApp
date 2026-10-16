@@ -139,6 +139,7 @@ export class Agent {
       let page = req.page;
       let pageContext = req.pageContext;
       let overrides: Record<string, string> = {};
+      let answers: string[] = [];
       let reuse: PendingClarify["routing"];
       let plan: Plan | null = null;
       let shortcut = false;
@@ -168,6 +169,7 @@ export class Agent {
           if (read.kind === "quantity" && pending.routing) typed = read;
         }
         const changes = changesOperation(text, pending);
+        const answered = (value: string) => [...(pending.answers ?? []), `${pending.field.replace(/_/g, " ")}: ${value}`].slice(-6);
         if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text)) {
           // «¿Cómo se llama el producto nuevo?» → «Prueba Luis»: es el nombre, se sigue con la misma orden.
           const { sentido: _sentido, ...rest } = pending.overrides;
@@ -176,6 +178,7 @@ export class Agent {
           page = pending.page;
           pageContext = pending.pageContext;
           overrides = { ...rest, nombre: text };
+          answers = answered(text);
           reuse = pending.routing;
         } else if (option !== null && pending.fromShortcut) {
           message = pending.message;
@@ -189,6 +192,7 @@ export class Agent {
           page = pending.page;
           pageContext = pending.pageContext;
           overrides = option !== null ? { ...pending.overrides, [overrideKey(pending, option)]: overrideValue(option) } : quantityOverrides(pending, typed!);
+          answers = answered(option !== null ? (pending.optionLabels?.[pending.optionIds.indexOf(option)] ?? text) : text);
           reuse = pending.routing;
         } else if (ENTITY_FIELDS.has(pending.field) && !pending.restart && !isNewQuestion(text) && !changes) {
           // Falta un dato de la orden y no encaja con ninguna opción: se completa la orden original.
@@ -196,6 +200,7 @@ export class Agent {
           page = pending.page;
           pageContext = pending.pageContext;
           overrides = fieldOverrides(pending.overrides);
+          answers = pending.answers ?? [];
         }
         // Si no, lo escrito es un mensaje nuevo: la orden anterior no se arrastra.
       } else if (req.clarification && !followUp) {
@@ -264,7 +269,7 @@ export class Agent {
         data: { messageId, intent: intentDecision, decisions: decisions.filter((d) => d.id !== "intent"), shortcut },
       });
 
-      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, routing, ctx, session, emit, timer, tools: toolset, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft });
+      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft });
 
       const report: DecisionReport = {
         version: 1,
@@ -357,6 +362,7 @@ export class Agent {
       ...(env.pageContext ? { pageContext: env.pageContext } : {}),
       ...(env.routing ? { routing: env.routing } : { fromShortcut: true }),
       overrides: env.overrides,
+      ...(env.answers.length ? { answers: env.answers } : {}),
     });
     await env.emit({ event: "clarify", data: clarify });
     return { kind: "aclaracion", clarify };
@@ -382,7 +388,9 @@ export class Agent {
     let coherence: number | null;
     let answers: Awaited<ReturnType<JevPort["evaluate"]>>["answers"] = {};
     try {
-      const state = { request: env.message, draft: built.summary, ...(review?.state ?? {}) };
+      // La petición con lo respondido después: «pasa larios al Vivero» + «cantidad: 3» + «formato: Caja 6».
+      const request = env.answers.length ? `${env.message} (después respondió: ${env.answers.join("; ")})` : env.message;
+      const state = { request, draft: built.summary, ...(review?.state ?? {}) };
       const questions = { ...evaluationQuestions([], true), ...(review?.questions ?? {}) };
       ({ answers } = await env.timer.time("jev2", () => deps.jev.evaluate(state, questions)));
       coherence = asNoul(answers.coherencia)?.noul ?? null;
@@ -614,6 +622,8 @@ interface ExecEnv {
   page: AppRoute;
   pageContext: ChatRequest["pageContext"];
   overrides: Record<string, string>;
+  /** Respuestas a las aclaraciones de esta orden, en texto. */
+  answers: string[];
   routing: { meta: RoutingMeta; jev: JevResult } | undefined;
   ctx: SessionContext;
   session: Session;
