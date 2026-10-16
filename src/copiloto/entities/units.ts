@@ -58,6 +58,18 @@ function defaultPack(product: Product): Pack | null {
   );
 }
 
+/**
+ * «3 limones» de un producto que se lleva en kg (sin formato de pieza, solo «Kg»): no se puede pasar a
+ * kilos sin preguntar. «2 de ron» sí: la botella es el formato. El nombre de la unidad base, si hay que
+ * preguntar; null si no.
+ */
+export function bareCountNeedsWeight(unit: string | null, product: Product): string | null {
+  if (unit !== null || product.dimension === "count") return null;
+  const pack = defaultPack(product);
+  const metricOnly = !pack || /^(\d+([.,]\d+)?\s*)?(kg|kilo|kilos|g|gr|gramos|l|litro|litros|ml|cl)$/.test(normalize(pack.name).trim());
+  return metricOnly ? product.baseUnit : null;
+}
+
 export function toBase(amountText: string, unit: string | null, product: Product): ToBaseResult {
   let amount: Decimal;
   try {

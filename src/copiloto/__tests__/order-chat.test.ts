@@ -61,12 +61,12 @@ describe("pedidos desde el chat", () => {
     ]);
   });
 
-  it("si no falta nada, lo dice y no propone ningún borrador", async () => {
+  it("un local sin mínimos puestos: dice que no puede calcularlo (no «no hace falta nada») y no propone borrador", async () => {
     const jev = new FakeJev([route({ local: "Pickels" })]);
     const { agent } = makeAgent(jev);
     const events = await run(agent, chat("haz el pedido para Pickels"));
     expect(find(events, "draft")).toBeUndefined();
-    expect(find(events, "done")!.text).toBe("No hace falta pedir nada en Pickels para la próxima semana: con el stock, los mínimos y lo que ya está en camino es suficiente.");
+    expect(find(events, "done")!.text).toContain("Pickels no tiene mínimos puestos, así que no puedo calcular qué pedir.");
   });
 
   it("sin local claro, pregunta para qué local es", async () => {

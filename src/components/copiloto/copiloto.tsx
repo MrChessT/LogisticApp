@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, Sparkles, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
@@ -381,7 +381,7 @@ export function Copiloto() {
                     {item.decision && <Understood decision={item.decision} asking={!!item.clarify} />}
                     {item.pending && !item.text && <p className="copiloto-muted"><Loader2 size={14} className="copiloto-spin" /> Pensando…</p>}
                     {/* Con borrador, la tarjeta ya lo dice todo: sin texto que la repita. */}
-                    {item.text && !(item.draft && !item.error) && <p className="copiloto-text">{item.text}</p>}
+                    {item.text && !(item.draft && !item.error) && <AssistantText text={item.text} />}
                     {item.error && <p className="copiloto-error"><AlertTriangle size={14} /> {item.error}</p>}
                     {item.clarify && item.clarify.options.length > 0 && (
                       <div className="copiloto-options">
@@ -954,4 +954,59 @@ function ReportForm({
       </form>
     </div>
   );
+}
+
+/** Datos de ficha («Precio: …», «Stock: …»): se pintan como pares etiqueta–valor. */
+const FACT = /^(Precio|Stock|Consumo(?: \d+ días)?|Formatos|Compra|Proveedor(?:es)?|Mínimo|Valor|Categoría):\s+(.+)$/;
+
+/**
+ * Texto del asistente con algo de estructura: las líneas «Etiqueta: valor» de una ficha como tabla de
+ * datos (con la primera línea de título), los avisos «⚠ …» resaltados y las viñetas como lista.
+ */
+function AssistantText({ text }: { text: string }) {
+  const lines = text.split("\n");
+  if (!lines.some((l) => FACT.test(l) || l.startsWith("⚠ ") || l.startsWith("• "))) return <p className="copiloto-text">{text}</p>;
+  const blocks: ReactNode[] = [];
+  for (let i = 0; i < lines.length; ) {
+    const line = lines[i]!;
+    if (FACT.test(line)) {
+      const facts: Array<[string, string]> = [];
+      while (i < lines.length && FACT.test(lines[i]!)) {
+        const m = FACT.exec(lines[i]!)!;
+        facts.push([m[1]!, m[2]!]);
+        i += 1;
+      }
+      blocks.push(
+        <dl key={i} className="copiloto-facts">
+          {facts.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>,
+      );
+    } else if (line.startsWith("• ")) {
+      const items: string[] = [];
+      while (i < lines.length && lines[i]!.startsWith("• ")) {
+        items.push(lines[i]!.slice(2));
+        i += 1;
+      }
+      blocks.push(
+        <ul key={i} className="copiloto-bullets">
+          {items.map((item, k) => <li key={k}>{item}</li>)}
+        </ul>,
+      );
+    } else {
+      // La primera línea encima de una ficha es su título («Bombay Sapphire · Destilados › Ginebra»).
+      const heading = i === 0 && FACT.test(lines[1] ?? "");
+      blocks.push(
+        <p key={i} className={line.startsWith("⚠ ") ? "copiloto-alert" : heading ? "copiloto-heading" : undefined}>
+          {line}
+        </p>,
+      );
+      i += 1;
+    }
+  }
+  return <div className="copiloto-text structured">{blocks}</div>;
 }

@@ -16,7 +16,7 @@ import { Analytics, VIEW_FOR_TOOL } from "../analytics/analytics";
 import { businessDay } from "../../lib/business-day";
 import { daysInclusive, horizon, pastPeriod } from "../tools/periods";
 import type { ToolName, Tools } from "../tools/tools";
-import type { EvalItem, ToolParams } from "../tools/types";
+import { movementTypesIn, type EvalItem, type ToolParams } from "../tools/types";
 import type { Writer } from "../writer/writer";
 import { Interpreter, locationLabel, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan, type QueryPlan } from "./interpret";
 import { validateDraft } from "../drafts/schemas";
@@ -31,7 +31,7 @@ import type { ConfirmResponse } from "../drafts/confirm";
 import { isShortcut, resolveShortcut } from "./shortcuts";
 import { changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
 import { tokenize } from "../entities/normalize";
-import { tableFor } from "../writer/table";
+import { reorderTable, tableFor } from "../writer/table";
 import { followUpsFor } from "./followups";
 import { fastStockPlan } from "./fast-path";
 
@@ -523,6 +523,7 @@ export class Agent {
       horizonLabel: h.label,
       now,
       ...(plan.tool === "query_stock" && wantsAreaBreakdown(message) ? { byArea: true } : {}),
+      ...(plan.tool === "query_movements" && movementTypesIn(message).length > 0 ? { movementTypes: movementTypesIn(message) } : {}),
     };
 
     const result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));
@@ -538,11 +539,26 @@ export class Agent {
     const table = tableFor(result, evaluated, plan.dato);
     if (table) await emit({ event: "table", data: table });
 
+    // «¿cuánto ron hay en el Parador?» y allí no queda: dónde sí hay, en vez de solo «no hay».
+    let elsewhere: string[] | undefined;
+    if (plan.tool === "query_stock" && result.count === 0 && plan.locationIds.length === 1 && plan.products.length > 0 && ctx.locations.length > 1) {
+      const all = await timer.time("herramientas", () => tools.run("query_stock", { ...params, locationIds: ctx.locations.map((l) => l.id), areaId: null, byArea: false }, ctx));
+      if (all.count > 0) {
+        const places = new Set(all.rows.flatMap((r) => String(r.desglose ?? r.local ?? "").split(" · ").map((part) => part.replace(/\s+\d.*$/, "").trim())).filter(Boolean));
+        elsewhere = ctx.locations.map((l) => l.name).filter((name) => places.has(name));
+        const other = tableFor(all, false, plan.dato);
+        if (other) await emit({ event: "table", data: other });
+        // Con un solo producto no hay tabla: el reparto va en el texto.
+        else elsewhere = [...elsewhere, ...all.rows.map((r) => `— ${r.producto}: ${r.desglose ?? r.cantidad}`)];
+      }
+    }
+
     const scope = {
       locales: plan.locationIds.map((id) => locationLabel(ctx, id)),
       espacio: plan.areaId ? ctx.areas.find((a) => a.id === plan.areaId)?.name ?? null : null,
       productos: plan.products.map((p) => p.product.name),
       periodo: plan.tool === "query_reorder" ? h.label : period?.label ?? null,
+      ...(plan.familia ? { familia: plan.familia } : {}),
     };
 
     // Gráfica calculada por el código (decimal.js), solo si añade algo a la tabla: el stock y el gasto
@@ -562,6 +578,9 @@ export class Agent {
             .catch(() => null);
     const [evaluations, chart] = await Promise.all([timer.time("jev2", () => this.evaluate(result.evalItems, message, h.label)), chartPromise]);
     if (evaluated && evaluations === null) notices.push("No he podido valorar la urgencia; te muestro los datos tal cual.");
+    // Reposición: en tabla, ya ordenada por la urgencia que ha valorado Jev.
+    const reorder = !table ? reorderTable(result, evaluations ?? []) : null;
+    if (reorder) await emit({ event: "table", data: reorder });
     if (chart) await emit({ event: "chart", data: chart });
 
     const route = TOOL_ROUTE[plan.tool];
@@ -587,7 +606,17 @@ export class Agent {
       await emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
     }
 
-    return { kind: "consulta", tool: plan.tool, scope, result, evaluations: evaluations ?? [], notices, ...(table ? { tabulated: true } : {}), ...(plan.dato ? { dato: plan.dato } : {}) };
+    return {
+      kind: "consulta",
+      tool: plan.tool,
+      scope,
+      result,
+      evaluations: evaluations ?? [],
+      notices,
+      ...(table || reorder ? { tabulated: true } : {}),
+      ...(plan.dato ? { dato: plan.dato } : {}),
+      ...(elsewhere?.length ? { elsewhere } : {}),
+    };
   }
 
   /** Llamada nº 2: Jev juzga las cifras calculadas. Devuelve null si Jev falla (se degrada sin valoración). */

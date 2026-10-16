@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import Decimal from "decimal.js";
 import type { CountCloseDraft, CountDraft, Draft, ReceiptDraft, Role, TransferDraft, WasteDraft } from "../contract/index";
 import { hasRole, type Pack, type Product, type SessionContext } from "../domain";
-import { formatDecimal, formatMoney, formatStock, toBase, unitReadings } from "../entities/units";
+import { bareCountNeedsWeight, formatDecimal, formatMoney, formatStock, toBase, unitReadings } from "../entities/units";
 import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, ResolvedProduct } from "../agent/interpret";
 import { DocumentDraftBuilder } from "./document-builder";
 import type { NavigateEvent } from "../contract/index";
@@ -472,6 +472,19 @@ export function resolveQuantity(p: ResolvedProduct, overrides: Record<string, st
   if (p.loose && p.amount !== null) {
     const mixed = boxesPlusLoose(p, warnings);
     if (mixed) return mixed;
+  }
+  // «3 limones» con los limones en kg: no son 3 kg. Se pregunta el peso.
+  const weightUnit = p.amount !== null ? bareCountNeedsWeight(p.unit, p.product) : null;
+  if (weightUnit) {
+    // Se pregunta en la unidad con la que se habla («kg», «l»), aunque se guarde en g o ml.
+    const spoken = weightUnit === "g" ? "kg" : weightUnit === "ml" ? "l" : weightUnit;
+    return {
+      type: "clarify",
+      field: "cantidad",
+      question: `${p.product.name} se lleva al peso o por volumen: ¿cuántos ${spoken} son las ${formatDecimal(p.amount!, 4)}? (por ejemplo, «0,5 ${spoken}»)`,
+      options: [],
+      segmentIndex: p.segmentIndex,
+    };
   }
   const result = toBase(p.amount!, p.unit, p.product);
   if (result.ok) {

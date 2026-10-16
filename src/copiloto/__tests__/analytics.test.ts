@@ -55,7 +55,7 @@ describe("gráficas en el chat", () => {
     const jev = new FakeJev([{ intent: "pedir_sugerencias", intent_alt: "leer", herramienta: "query_reorder", periodo: "fin_de_semana" }, {}]);
     const { agent } = makeAgent(jev);
     const events = await run(agent, chat("¿qué me falta para el finde?"));
-    expect(events.map((e) => e.event)).toEqual(["decision", "chart", "navigate", "text", "done"]);
+    expect(events.map((e) => e.event)).toEqual(["decision", "table", "chart", "navigate", "text", "done"]);
     expect(find(events, "chart")).toMatchObject({ id: "cobertura", kind: "bar", reference: { value: "5" } });
     expect(find(events, "navigate")).toMatchObject({ route: "/informes", filters: { view: "reposicion" } });
   });

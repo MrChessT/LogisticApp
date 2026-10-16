@@ -43,6 +43,12 @@ export function extractDates(message: string, today: string): string[] {
 }
 
 /** Ventana hacia atrás, para movimientos, precios o desvíos. */
+/** «la semana pasada», «el mes anterior», «semana pasada»: la anterior entera, no la que va corriendo. */
+function asksPrevious(message: string, unit: "semana" | "mes"): boolean {
+  const text = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return new RegExp(`\\b${unit}\\s+(pasad[oa]|anterior)\\b`).test(text);
+}
+
 export function pastPeriod(periodo: Periodo, today: string, message: string, fallback: "semana" | "mes"): Period {
   switch (periodo) {
     case "hoy":
@@ -51,10 +57,26 @@ export function pastPeriod(periodo: Periodo, today: string, message: string, fal
       const y = addDays(today, -1);
       return { from: y, to: y, label: "ayer" };
     }
-    case "semana":
+    case "semana": {
+      // «la semana pasada»: de lunes a domingo de la anterior, no los últimos 7 días otra vez.
+      if (asksPrevious(message, "semana")) {
+        let monday = addDays(today, -7);
+        while (weekday(monday) !== 1) monday = addDays(monday, -1);
+        const sunday = addDays(monday, 6);
+        return { from: monday, to: sunday, label: `la semana pasada (del ${formatDay(monday)} al ${formatDay(sunday)})` };
+      }
       return { from: addDays(today, -6), to: today, label: "los últimos 7 días" };
-    case "mes":
+    }
+    case "mes": {
+      // «el mes pasado»: el mes natural anterior.
+      if (asksPrevious(message, "mes")) {
+        const first = `${today.slice(0, 8)}01`;
+        const to = addDays(first, -1);
+        const from = `${to.slice(0, 8)}01`;
+        return { from, to, label: `el mes pasado (del ${formatDay(from)} al ${formatDay(to)})` };
+      }
       return { from: addDays(today, -29), to: today, label: "los últimos 30 días" };
+    }
     case "fin_de_semana": {
       // Último viernes a domingo ya empezado.
       let friday = today;
