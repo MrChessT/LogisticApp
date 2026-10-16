@@ -139,3 +139,15 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
     expect(jev.calls).toHaveLength(0);
   });
 });
+
+describe("sacar más de lo que consta (decisión del 16/10: confirmar con revisión)", () => {
+  it("merma o traspaso por encima del stock: se prepara, pero hay que marcar la revisión y un «sí» en el chat no basta", async () => {
+    const jev = new FakeJev([route("merma", { local: "Pickels", producto_0: { winner: "Ron Barceló Añejo 70 cl", p: 0.97 }, cantidad_ok_0: 0.95 }), { coherencia: 0.95 }, { borrador: "confirmar" }]);
+    const { agent, writer } = makeAgent(jev);
+    const draft = find(await run(agent, chat("merma de 5 botellas de barceló en pickels")), "draft")!;
+    expect(draft.checks).toEqual([expect.objectContaining({ label: "Stock", status: "revisar" })]);
+    const events = await run(agent, chat("sí, adelante"));
+    expect(JSON.stringify(events)).toContain("márcalos en la tarjeta");
+    expect(writer.calls).toHaveLength(0);
+  });
+});

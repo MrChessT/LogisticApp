@@ -2,7 +2,7 @@
 // se guarda en el servidor y solo se ejecuta con /actions/confirm tras el clic del usuario.
 import { randomUUID } from "node:crypto";
 import Decimal from "decimal.js";
-import type { CountCloseDraft, CountDraft, Draft, ReceiptDraft, Role, TransferDraft, WasteDraft } from "../contract/index";
+import type { CountCloseDraft, CountDraft, Draft, DraftCheck, ReceiptDraft, Role, TransferDraft, WasteDraft } from "../contract/index";
 import { hasRole, type Pack, type Product, type SessionContext } from "../domain";
 import { bareCountNeedsWeight, formatDecimal, formatMoney, formatStock, toBase, unitReadings } from "../entities/units";
 import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, ResolvedProduct } from "../agent/interpret";
@@ -148,10 +148,22 @@ export class DraftBuilder {
     return draftBase(kind, title, ctx, warnings, now);
   }
 
-  private async stockWarning(source: InventoryDataSource, locationId: string, product: Product, qty: Decimal): Promise<string | null> {
+  /**
+   * Sacar más de lo que consta en el sistema: no se bloquea (el stock del sistema puede estar mal si hace
+   * tiempo que no se cuenta), pero hay que marcar «He revisado los avisos» en la tarjeta para confirmar y
+   * no se puede confirmar con un «sí» en el chat.
+   */
+  private async stockCheck(source: InventoryDataSource, ctx: SessionContext, locationId: string, product: Product, qty: Decimal): Promise<DraftCheck | null> {
     const [balance] = await source.balances({ locationIds: [locationId], productIds: [product.id] });
     const available = new Decimal(balance?.qty ?? 0);
-    return qty.gt(available) ? `Solo constan ${formatStock(available, product)} de ${product.name} en stock.` : null;
+    if (!qty.gt(available)) return null;
+    return {
+      id: `stock_${product.id}`,
+      label: "Stock",
+      status: "revisar",
+      detail: `Solo constan ${formatStock(Decimal.max(available, 0), product)} de ${product.name} en ${locationName(ctx, locationId)}. Confírmalo solo si sabes que el sistema está mal, y haz un recuento después.`,
+      probability: null,
+    };
   }
 
   private async waste({ plan, ctx, source, overrides, now }: BuildInput): Promise<BuildResult> {
@@ -163,8 +175,7 @@ export class DraftBuilder {
     const warnings = [...q.warnings];
     if (rest.length > 0) warnings.push("Solo preparo una merma por mensaje; registra el resto por separado.");
     if (plan.locationOutcome === "confirmar") warnings.push("Revisa el local.");
-    const stock = await this.stockWarning(source, plan.locationId, p.product, q.qtyBase);
-    if (stock) warnings.push(stock);
+    const stock = await this.stockCheck(source, ctx, plan.locationId, p.product, q.qtyBase);
 
     const area = plan.areaId ? ctx.areas.find((a) => a.id === plan.areaId) ?? null : null;
     const reason = plan.motivo === "no_indicado" ? null : label(plan.motivo).toLowerCase();
@@ -182,6 +193,7 @@ export class DraftBuilder {
       baseUnit: p.product.baseUnit,
       input: q.input,
       reason,
+      ...(stock ? { checks: [stock] } : {}),
     };
     return {
       kind: "draft",
@@ -194,14 +206,15 @@ export class DraftBuilder {
     const toLocationId = plan.toLocationId!;
     const lines: TransferDraft["lines"] = [];
     const warnings: string[] = [];
+    const checks: DraftCheck[] = [];
     const described: string[] = [];
     const forJev: string[] = [];
     for (const p of plan.products) {
       const q = this.quantity(p, overrides);
       if ("type" in q) return { kind: "clarify", plan: q };
       warnings.push(...q.warnings);
-      const stock = await this.stockWarning(source, plan.locationId, p.product, q.qtyBase);
-      if (stock) warnings.push(stock);
+      const stock = await this.stockCheck(source, ctx, plan.locationId, p.product, q.qtyBase);
+      if (stock) checks.push(stock);
       const existing = lines.find((l) => l.productId === p.product.id);
       if (existing) {
         existing.qtyBase = new Decimal(existing.qtyBase).plus(q.qtyBase).toString();
@@ -228,6 +241,7 @@ export class DraftBuilder {
       lines,
       send: canSend,
       note: null,
+      ...(checks.length > 0 ? { checks } : {}),
     };
     return {
       kind: "draft",
