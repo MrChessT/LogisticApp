@@ -28,6 +28,18 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   cancelar_pedido: "Cancelar pedido",
 };
 
+/**
+ * La operación tal como la lee Jev en la comprobación de coherencia. Medido con Jev real: «recibir traspaso»
+ * frente a «ha llegado el traspaso del Parador» daba 0,72 (aviso de revisar); descrita así, 0,87.
+ */
+const FOR_JEV: Record<DocumentDraft["operation"], string> = {
+  recibir_traspaso: "receive a pending transfer (mark goods sent from another venue as arrived)",
+  cancelar_traspaso: "cancel a pending transfer between venues",
+  enviar_pedido: "send a draft purchase order to the supplier",
+  recibir_pedido: "receive a purchase order (mark the supplier goods as arrived)",
+  cancelar_pedido: "cancel a purchase order",
+};
+
 /** Solo un encargado envía pedidos o cancela; recibir lo puede hacer cualquiera del local. */
 const MANAGER_ONLY = new Set<DocumentDraft["operation"]>(["cancelar_traspaso", "enviar_pedido", "cancelar_pedido"]);
 
@@ -130,7 +142,7 @@ export class DocumentDraftBuilder {
       lines,
       ...(receive ? { receive } : {}),
     };
-    return { kind: "draft", draft: validateDraft(draft), summary: { operation: TITLE[plan.accion].toLowerCase(), document: summary, lines: lines.map((l) => `${l.label}: ${l.qty}`).join("; ") } };
+    return { kind: "draft", draft: validateDraft(draft), summary: { operation: FOR_JEV[plan.accion], document: summary, lines: lines.map((l) => `${l.label}: ${l.qty}`).join("; ") } };
   }
 }
 

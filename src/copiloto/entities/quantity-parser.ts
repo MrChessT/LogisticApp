@@ -290,6 +290,23 @@ function productBefore(toks: Token[], start: number, floor: number): Token[] {
   return found;
 }
 
+/** Unidad, también con errata («votellas», «kajas»): no es parte del nombre de un producto. */
+export function isUnitWord(word: string): boolean {
+  const w = normalize(word);
+  if (UNIT_ALIASES[w] !== undefined) return true;
+  return w.length >= 5 && Object.keys(UNIT_ALIASES).some((u) => u.length >= 5 && oneEditApart(w, u));
+}
+
+/** Una letra cambiada, sobrante o que falta («votellas» → «botellas», «cajs» no: menos de 5 letras). */
+function oneEditApart(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
+  let j = 0;
+  while (j < a.length - i && j < b.length - i && a[a.length - 1 - j] === b[b.length - 1 - j]) j += 1;
+  return Math.max(a.length, b.length) - i - j <= 1;
+}
+
 export function canonicalUnit(word: string): string | null {
   return UNIT_ALIASES[normalize(word)] ?? null;
 }

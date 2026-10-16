@@ -566,7 +566,7 @@
     ]
   },
   {
-    "nombre": "Llega el camión con varios productos",
+    "nombre": "Llega el camión con varios productos (varias tónicas: se pregunta cuál)",
     "turnos": [
       {
         "usuario": "el de makro ha traído 6 cajas de coca y 2 de tónica al parador",
@@ -576,10 +576,23 @@
           "tipo_accion": "recepcion",
           "local": "Parador",
           "producto_0": "Coca-Cola",
-          "producto_1": "Schweppes Tónica",
+          "producto_1": {
+            "winner": "Schweppes Tónica",
+            "p": 0.5
+          },
           "cantidad_ok_0": 0.97,
           "cantidad_ok_1": 0.97
         },
+        "espera": {
+          "aclaracion": "producto",
+          "opciones": [
+            "Schweppes Tónica",
+            "Royal Bliss Tónica"
+          ]
+        }
+      },
+      {
+        "boton": "Schweppes Tónica",
         "espera": {
           "borrador": "recepcion",
           "titulo": "Coca-Cola"

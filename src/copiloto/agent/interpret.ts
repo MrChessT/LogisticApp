@@ -30,7 +30,7 @@ import { VIEW_FOR_TOOL } from "../analytics/analytics";
 import { need, relevant, slotSpec, type ContextKey } from "../gates/policy";
 import { namesAll, namesProduct, unexplainedWords } from "../entities/mentions";
 import { formatDecimal } from "../entities/units";
-import { canonicalUnit } from "../entities/quantity-parser";
+import { isUnitWord } from "../entities/quantity-parser";
 import { tokenize } from "../entities/normalize";
 
 export interface ClarifyPlan {
@@ -478,7 +478,7 @@ export class Interpreter {
       const unexplained =
         // Si el producto lo eligió el usuario al aclarar, manda su elección.
         forAction && chosen && this.overrides[id] === undefined && rs.segment.amount !== null && rs.segment.productText && rs.segment.productText !== rs.segment.text
-          ? unexplainedWords(rs.segment.productText, chosen, (w) => canonicalUnit(w) !== null || this.placeWords.has(w))
+          ? unexplainedWords(rs.segment.productText, chosen, (w) => isUnitWord(w) || this.placeWords.has(w))
           : [];
       const literal = !!chosen && unexplained.length === 0 && namesProduct(rs.segment.productText || rs.segment.text, chosen);
       const g = this.gate(id, "Producto", slotSpec(this.thresholds, context, "producto", literal), (v) => (v === NINGUNO || v === VARIOS ? label(v) : v));

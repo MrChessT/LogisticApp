@@ -82,6 +82,9 @@ function locationName(ctx: SessionContext, id: string): string {
 }
 
 /** «2 × Botella 70 cl», «3 × Caja 24» o, sin formato, como se cuenta («6 ud», «1,5 kg»). Sin ml. */
+/** Medido con Jev real: «tírame 2 bolsas de hielo» frente a «write off (merma)» daba 0,66; así, 0,92 (y un traspaso sigue en 0,07). */
+const MERMA_FOR_JEV = "write off stock (merma: tirar, romper o caducar)";
+
 function describeInput(q: Quantity, product: Product): string {
   return q.pack ? `${formatDecimal(q.input.amount, 4)} × ${q.pack.name}` : formatStock(q.qtyBase, product);
 }
@@ -183,7 +186,7 @@ export class DraftBuilder {
     return {
       kind: "draft",
       draft: validateDraft(draft),
-      summary: { operation: "write off (merma)", product: p.product.name, quantity: describeForJev(q, p.product), venue: where, reason: reason ?? "not stated" },
+      summary: { operation: MERMA_FOR_JEV, product: p.product.name, quantity: describeForJev(q, p.product), venue: where, reason: reason ?? "not stated" },
     };
   }
 

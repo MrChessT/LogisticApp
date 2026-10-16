@@ -34,6 +34,12 @@ export function namesProduct(text: string, product: { name: string; category?: s
 /** Palabras que señalan sin nombrar («ese ron de aquí», «el otro»): no contradicen ningún producto. */
 const DEICTIC = new Set(["aqui", "alli", "alla", "otro", "otra", "otros", "otras", "mismo", "misma", "mismos", "mismas", "esos", "esas", "estos", "estas", "este", "esta", "eso", "esto", "aquel", "aquella", "aquellos", "aquellas", "cosa", "cosas"]);
 
+/**
+ * Palabras que dicen cómo está algo, no qué es («limones pochos», «botellas contadas», «cajas abiertas»):
+ * participios y adjetivos de estado. No nombran otro producto, así que no se pregunta por ellas.
+ */
+const STATE_WORDS = /^(poch|rot|mal|buen|abiert|empezad|usad|gastad|contad|caducad|estropead|derramad|enter|llen|vaci|suci|viej|calient|fri|suelt|pasad|pequen|grand|ultim|primer)[oae]?s?$/;
+
 export function unexplainedWords(text: string, product: { name: string; category?: string | null }, ignore: (word: string) => boolean = () => false): string[] {
   const own = tokenize(`${product.name} ${product.category ?? ""}`);
   return tokenize(text).filter(
@@ -42,6 +48,7 @@ export function unexplainedWords(text: string, product: { name: string; category
       !/^\d/.test(w) &&
       !STOPWORDS.has(w) &&
       !DEICTIC.has(w) &&
+      !STATE_WORDS.test(w) &&
       !ignore(w) &&
       !own.some((t) => tokenSimilarity(w, t) >= 0.8 || (t.length >= 4 && (t.startsWith(w) || w.startsWith(t)))),
   );
