@@ -38,3 +38,9 @@
 .order-minimum { margin: 6px 0 0; color: #a4561b; font-size: 12px; font-weight: 600; text-align: right; }
 .suggest-terms { margin: -4px 0 8px; color: #5c6d62; font-size: 11px; }
 .order-minimum-inline { color: #a4561b; font-weight: 600; }
+.receive-check { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-top: -4px; }
+.receive-check select { width: auto; min-width: 160px; }
+.price-check { font-size: 11px; color: #5c6d62; }
+.price-check.sube { color: #a4561b; font-weight: 700; }
+.price-check.baja { color: #2e8064; font-weight: 600; }
+.price-check.none { color: #9aa59e; }

@@ -315,6 +315,9 @@ export type Database = {
           pack_id: string;
           packs_qty: number;
           pack_price: number;
+          expected_price: number | null;
+          incident: "faltante" | "sobrante" | "roto" | "caducado" | "precio_distinto" | "otro" | null;
+          incident_note: string | null;
         };
         Insert: {
           id?: string;
@@ -322,6 +325,9 @@ export type Database = {
           pack_id: string;
           packs_qty: number;
           pack_price: number;
+          expected_price?: number | null;
+          incident?: "faltante" | "sobrante" | "roto" | "caducado" | "precio_distinto" | "otro" | null;
+          incident_note?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["receipt_lines"]["Insert"]>;
         Relationships: [];
@@ -617,6 +623,7 @@ export type Database = {
         }>;
       };
       post_receipt: { Args: { p_receipt: string }; Returns: undefined };
+      set_receipt_attachment: { Args: { p_receipt: string; p_path: string | null }; Returns: undefined };
       catalog_health: {
         Args: { p_location?: string | null };
         Returns: Array<{

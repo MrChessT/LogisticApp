@@ -83,3 +83,12 @@
   .op-modal-line-row.with-unit { grid-template-columns: 70px 1fr 28px; }
   .op-modal-line-row.with-unit > .product-picker { grid-column: 1 / -1; }
 }
+.op-receipt-check { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.op-receipt-check select { width: auto; min-width: 170px; height: 40px; margin-top: 0; padding: 0 30px 0 12px; font-size: 13px; line-height: normal; }
+.op-price-check { font-size: 11px; color: #5c6d62; }
+.op-price-check.sube { color: #a4561b; font-weight: 700; }
+.op-price-check.baja { color: #2e8064; font-weight: 600; }
+.op-price-check.none { color: #9aa59e; }
+.op-photo { display: flex; flex-direction: column; gap: 6px; }
+.op-photo input[type="file"] { height: auto; padding: 8px; font-size: 12px; }
+.op-photo small { color: #8b978f; font-size: 11px; font-weight: 400; }
