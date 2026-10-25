@@ -1,5 +1,6 @@
 // Tipos y esquemas de CONTRACT.md. Cualquier cambio aquí debe reflejarse en CONTRACT.md.
 import { z } from "zod";
+import type { ExitKind } from "../../lib/exit-kinds";
 
 export const CONTRACT_VERSION = "1.0.0-draft";
 
@@ -206,6 +207,8 @@ export interface WasteDraft extends DraftBase {
   baseUnit: BaseUnit;
   input: QuantityInput;
   reason: string | null;
+  /** Tipo de salida: pérdida, invitación, consumo del personal… */
+  exitKind: ExitKind;
 }
 
 export interface TransferDraft extends DraftBase {

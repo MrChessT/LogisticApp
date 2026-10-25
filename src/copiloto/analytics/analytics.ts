@@ -5,6 +5,7 @@ import type { AnalyticsResponse, AnalyticsView, ChartFormat, ChartPoint, ChartSe
 import type { SessionContext } from "../domain";
 import { formatDecimal, formatMoney } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
+import { EXIT_KIND_LABEL, EXIT_KINDS, isLoss } from "../../lib/exit-kinds";
 import { addDays } from "../tools/periods";
 import { computeReorder, type ToolName } from "../tools/tools";
 import type { InventoryDataSource, MovementRaw, ToolParams } from "../tools/types";
@@ -70,6 +71,16 @@ function isUsage(m: MovementRaw): boolean {
   return m.type === "consumption" || m.type === "waste" || ((m.type === "count_adjustment" || m.type === "manual_adjustment") && qty.lt(0));
 }
 
+/** Merma que es pérdida (rotura, caducidad…); las invitaciones o el consumo del personal no lo son. */
+function isLossExit(m: MovementRaw): boolean {
+  return m.type === "waste" && isLoss(m.exitKind);
+}
+
+/** Salida que no es pérdida: invitación, consumo del personal, degustación o evento. */
+function isOtherExit(m: MovementRaw): boolean {
+  return m.type === "waste" && !isLoss(m.exitKind);
+}
+
 function movementValue(m: MovementRaw): Decimal {
   return new Decimal(m.qty).abs().mul(m.unitCost ?? 0);
 }
@@ -118,7 +129,7 @@ export class Analytics {
   /** Evolución diaria del valor consumido (o solo mermas), una línea por local (máximo 4) o el total. */
   async dailyUsage(q: AnalyticsQuery, onlyWaste = false, movements?: MovementRaw[], options: { weekly?: boolean } = {}): Promise<ChartSpec> {
     const w = this.window(q);
-    const list = (movements ?? (await this.movements(q, w.from))).filter((m) => (onlyWaste ? m.type === "waste" : isUsage(m)));
+    const list = (movements ?? (await this.movements(q, w.from))).filter((m) => (onlyWaste ? isLossExit(m) : isUsage(m)));
     // El día en curso está incompleto: la serie diaria termina ayer (mismo número de días).
     const lastFull = addDays(w.to, -1);
     const firstDay = addDays(w.from, -1);
@@ -160,7 +171,7 @@ export class Analytics {
   /** Ranking de productos por valor consumido o mermado en el periodo. */
   async topProducts(q: AnalyticsQuery, onlyWaste: boolean, movements?: MovementRaw[]): Promise<ChartSpec> {
     const w = this.window(q);
-    const list = (movements ?? (await this.movements(q, w.from))).filter((m) => (onlyWaste ? m.type === "waste" : isUsage(m)));
+    const list = (movements ?? (await this.movements(q, w.from))).filter((m) => (onlyWaste ? isLossExit(m) : isUsage(m)));
     const totals = new Map<string, Decimal>();
     for (const m of list) {
       const day = this.dayOf(q, m);
@@ -181,6 +192,30 @@ export class Analytics {
       format: "money",
       series: [{ key: "valor", name: "Valor", points }],
       ...(points.length === 0 ? { empty: "Sin datos en este periodo." } : {}),
+    };
+  }
+
+  /** Salidas que no son venta, por tipo: separa las pérdidas de las invitaciones y del consumo interno. */
+  async exitsByKind(q: AnalyticsQuery, movements?: MovementRaw[]): Promise<ChartSpec> {
+    const w = this.window(q);
+    const list = (movements ?? (await this.movements(q, w.from))).filter((m) => m.type === "waste");
+    const totals = new Map(EXIT_KINDS.map((k) => [k, new Decimal(0)]));
+    for (const m of list) {
+      const day = this.dayOf(q, m);
+      if (day < w.from || day > w.to) continue;
+      const kind = m.exitKind ?? "merma";
+      totals.set(kind, totals.get(kind)!.plus(movementValue(m)));
+    }
+    const points = EXIT_KINDS.filter((k) => k === "merma" || totals.get(k)!.gt(0)).map((k) => point(k, EXIT_KIND_LABEL[k], totals.get(k)!, "money"));
+    const any = points.some((p) => !new Decimal(p.value).isZero());
+    return {
+      id: "salidas-tipo",
+      kind: "bar",
+      title: "Salidas por tipo",
+      subtitle: `Pérdidas frente a invitaciones y consumo interno, valor a coste medio, ${w.label}`,
+      format: "money",
+      series: [{ key: "valor", name: "Valor", points }],
+      ...(any ? {} : { empty: "No hay salidas en este periodo." }),
     };
   }
 
@@ -325,7 +360,7 @@ export class Analytics {
 
   // KPIs --------------------------------------------------------------------------
 
-  private async kpis(q: AnalyticsQuery, movements: MovementRaw[], which: Array<"stock" | "consumo" | "mermas" | "bajo_minimo">): Promise<Kpi[]> {
+  private async kpis(q: AnalyticsQuery, movements: MovementRaw[], which: Array<"stock" | "consumo" | "mermas" | "otras_salidas" | "bajo_minimo">): Promise<Kpi[]> {
     const w = this.window(q);
     const sum = (from: string, to: string, filter: (m: MovementRaw) => boolean) =>
       movements.reduce((acc, m) => {
@@ -350,11 +385,15 @@ export class Analytics {
       out.push({ id: "consumo", label: "Consumo", value: formatMoney(usage), hint: w.label, ...(d ? { delta: d } : {}) });
     }
     if (which.includes("mermas")) {
-      const isWaste = (m: MovementRaw) => m.type === "waste";
-      const waste = sum(w.from, w.to, isWaste);
+      const waste = sum(w.from, w.to, isLossExit);
       const share = usage.isZero() ? null : waste.div(usage).mul(100);
-      const d = delta(waste, sum(w.prevFrom, w.prevTo, isWaste), false);
+      const d = delta(waste, sum(w.prevFrom, w.prevTo, isLossExit), false);
       out.push({ id: "mermas", label: "Mermas", value: formatMoney(waste), hint: share ? `${formatDecimal(share, 1)} % del consumo` : w.label, ...(d ? { delta: d } : {}) });
+    }
+    if (which.includes("otras_salidas")) {
+      const other = sum(w.from, w.to, isOtherExit);
+      const d = delta(other, sum(w.prevFrom, w.prevTo, isOtherExit), false);
+      out.push({ id: "otras_salidas", label: "Invitaciones y personal", value: formatMoney(other), hint: "Salidas que no son pérdida", ...(d ? { delta: d } : {}) });
     }
     if (which.includes("bajo_minimo")) {
       const [lps, balances] = await Promise.all([this.source.locationProducts({ locationIds: q.locationIds }), this.source.balances({ locationIds: q.locationIds })]);
@@ -393,9 +432,10 @@ export class Analytics {
         break;
       case "mermas":
         [kpis, ...charts] = await Promise.all([
-          withMovements((m) => this.kpis(q, m, ["mermas", "consumo"])),
+          withMovements((m) => this.kpis(q, m, ["mermas", "otras_salidas", "consumo"])),
           withMovements((m) => this.dailyUsage(q, true, m)),
           withMovements((m) => this.topProducts(q, true, m)),
+          withMovements((m) => this.exitsByKind(q, m)),
         ]) as [Kpi[], ...ChartSpec[]];
         break;
       case "stock":

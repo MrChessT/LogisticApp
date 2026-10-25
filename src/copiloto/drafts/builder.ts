@@ -11,6 +11,7 @@ import type { NavigateEvent } from "../contract/index";
 import { CatalogDraftBuilder, type Review } from "./catalog-builder";
 import { label } from "../jev/catalog";
 import { businessDay } from "../../lib/business-day";
+import { EXIT_KIND_LABEL, type ExitKind } from "../../lib/exit-kinds";
 import type { InventoryDataSource } from "../tools/types";
 import { validateDraft } from "./schemas";
 
@@ -178,10 +179,12 @@ export class DraftBuilder {
     const stock = await this.stockCheck(source, ctx, plan.locationId, p.product, q.qtyBase);
 
     const area = plan.areaId ? ctx.areas.find((a) => a.id === plan.areaId) ?? null : null;
-    const reason = plan.motivo === "no_indicado" ? null : label(plan.motivo).toLowerCase();
+    const reason = plan.motivo === "no_indicado" || plan.motivo === "invitacion" ? null : label(plan.motivo).toLowerCase();
+    // Una invitación se registra como tal, no como pérdida (el tipo lo separa en los informes).
+    const exitKind: ExitKind = plan.motivo === "invitacion" ? "invitacion" : "merma";
     const where = `${locationName(ctx, plan.locationId)}${area ? ` · ${area.name}` : ""}`;
     const draft: WasteDraft = {
-      ...this.base("merma", `Merma: ${describeInput(q, p.product)} de ${p.product.name} en ${where}`, ctx, warnings, now),
+      ...this.base("merma", `${EXIT_KIND_LABEL[exitKind]}: ${describeInput(q, p.product)} de ${p.product.name} en ${where}`, ctx, warnings, now),
       kind: "merma",
       locationId: plan.locationId,
       locationName: locationName(ctx, plan.locationId),
@@ -193,12 +196,13 @@ export class DraftBuilder {
       baseUnit: p.product.baseUnit,
       input: q.input,
       reason,
+      exitKind,
       ...(stock ? { checks: [stock] } : {}),
     };
     return {
       kind: "draft",
       draft: validateDraft(draft),
-      summary: { operation: MERMA_FOR_JEV, product: p.product.name, quantity: describeForJev(q, p.product), venue: where, reason: reason ?? "not stated" },
+      summary: { operation: MERMA_FOR_JEV, product: p.product.name, quantity: describeForJev(q, p.product), venue: where, reason: exitKind === "invitacion" ? "given away to customers" : reason ?? "not stated" },
     };
   }
 

@@ -60,7 +60,7 @@ describe("fuente de datos Supabase (solo lectura, con el JWT del usuario)", () =
     expect(rows).toHaveLength(1003);
     expect(calls).toHaveLength(2);
     expect(calls[1]!.headers.get("range") ?? calls[1]!.url.searchParams.get("offset")).toBeTruthy();
-    expect(rows[0]).toEqual({ locationId: LOC, productId: "p1", areaId: null, type: "consumption", qty: "-1", unitCost: "0.5", occurredAt: "2026-09-20T10:00:00Z" });
+    expect(rows[0]).toEqual({ locationId: LOC, productId: "p1", areaId: null, type: "consumption", qty: "-1", unitCost: "0.5", occurredAt: "2026-09-20T10:00:00Z", exitKind: null });
   });
 
   it("el stock de muchos locales no se corta en las 1000 filas de PostgREST", async () => {

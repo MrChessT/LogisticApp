@@ -23,6 +23,7 @@ import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import { ProductPicker } from "@/components/product-picker/product-picker";
+import { EXIT_KIND_LABEL, EXIT_KIND_REASONS, EXIT_KINDS, isExitKind, isLoss, type ExitKind } from "@/lib/exit-kinds";
 import "./operations.css";
 import "./operations-modal.css";
 import { CountModal } from "./count-modal";
@@ -72,7 +73,7 @@ const descriptions: Record<OperationKind, string> = {
   recepciones: "Registra mercancía y actualiza el coste real del stock.",
   traspasos: "Mueve producto entre locales con trazabilidad completa.",
   inventarios: "Cuenta por zonas y detecta diferencias antes de cerrar.",
-  mermas: "Registra pérdidas en segundos y entiende dónde se escapa el margen.",
+  mermas: "Registra pérdidas, invitaciones y consumo del personal por separado y entiende dónde se escapa el margen.",
 };
 const actionLabels: Record<OperationKind, string> = {
   recepciones: "Nueva recepción",
@@ -117,6 +118,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [wQty, setWQty] = useState("");
   const [wUnit, setWUnit] = useState("");
   const [wReason, setWReason] = useState("");
+  const [wKind, setWKind] = useState<ExitKind>("merma");
 
   // Recepciones
   const [rLocation, setRLocation] = useState("");
@@ -294,7 +296,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     if (kind === "mermas") {
       const { data, error } = await supabase
         .from("stock_movements")
-        .select("id, qty, unit_cost, reason, occurred_at, products(name, base_unit, dimension, product_packs(name, qty_base, is_count_default, is_purchase_default, active)), locations(name)")
+        .select("id, qty, unit_cost, reason, exit_kind, occurred_at, products(name, base_unit, dimension, product_packs(name, qty_base, is_count_default, is_purchase_default, active)), locations(name)")
         .eq("type", "waste")
         .order("occurred_at", { ascending: false })
         .limit(100);
@@ -304,23 +306,27 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         return;
       }
       const records = (data ?? []) as unknown as Array<{
-        id: number; qty: number; unit_cost: number | null; reason: string | null; occurred_at: string;
+        id: number; qty: number; unit_cost: number | null; reason: string | null; exit_kind: string | null; occurred_at: string;
         products: { name: string; base_unit: string; dimension: UnitDimension; product_packs: PackRow[] | null } | null; locations: { name: string } | null;
       }>;
+      const kindOf = (m: { exit_kind: string | null }): ExitKind => (isExitKind(m.exit_kind) ? m.exit_kind : "merma");
       setRows(
         records.map((m) => ({
           id: String(m.id),
           title: m.products?.name ?? "Producto",
-          detail: `${m.products ? formatStock(Math.abs(m.qty), countingPacks(m.products.dimension, m.products.product_packs ?? [])) : new Decimal(String(Math.abs(m.qty))).toFixed(2)}${m.reason ? ` · ${m.reason}` : ""}`,
+          detail: `${EXIT_KIND_LABEL[kindOf(m)]} · ${m.products ? formatStock(Math.abs(m.qty), countingPacks(m.products.dimension, m.products.product_packs ?? [])) : new Decimal(String(Math.abs(m.qty))).toFixed(2)}${m.reason ? ` · ${m.reason}` : ""}`,
           status: m.locations?.name ?? "Local",
           rawStatus: "registrada",
-          statusColor: "red",
+          // Rojo solo lo que es pérdida; una invitación o el consumo del personal no lo es.
+          statusColor: isLoss(kindOf(m)) ? "red" : "orange",
           date: formatDate(m.occurred_at),
           actions: [],
         })),
       );
-      const totalValue = records.reduce((sum, m) => sum + Math.abs(m.qty) * (m.unit_cost ?? 0), 0);
-      setMetrics([String(records.length), formatCurrency(totalValue), "—", "—"]);
+      const valueOf = (m: { qty: number; unit_cost: number | null }) => Math.abs(m.qty) * (m.unit_cost ?? 0);
+      const losses = records.filter((m) => isLoss(kindOf(m))).reduce((sum, m) => sum + valueOf(m), 0);
+      const others = records.filter((m) => !isLoss(kindOf(m))).reduce((sum, m) => sum + valueOf(m), 0);
+      setMetrics([String(records.length), formatCurrency(losses), others > 0 ? `${formatCurrency(others)} sin pérdida` : "—", "—"]);
     }
 
     setLoading(false);
@@ -346,6 +352,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setWQty("");
     setWUnit("");
     setWReason("");
+    setWKind("merma");
     setRLocation("");
     setRSupplier("");
     setRDocNumber("");
@@ -458,6 +465,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       p_type: "waste",
       p_qty: toBaseQty(unitsOf(wProduct), wQty, wUnit),
       p_reason: wReason.trim() || null,
+      p_exit_kind: wKind,
       p_client_ref: newRef(),
     });
     if (error) {
@@ -717,10 +725,18 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                     {unitsOf(wProduct).map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
                   </select>
                 </label>
-                <label>Motivo
-                  <input value={wReason} onChange={(e) => setWReason(e.target.value)} placeholder="Ej. Rotura, caducidad..." />
+                <label>Tipo de salida
+                  <select value={wKind} onChange={(e) => { setWKind(e.target.value as ExitKind); setWReason(""); }}>
+                    {EXIT_KINDS.map((k) => <option key={k} value={k}>{EXIT_KIND_LABEL[k]}</option>)}
+                  </select>
                 </label>
-                <button className="op-modal-submit" onClick={handleRegisterWaste} disabled={saving}>{saving ? "Registrando..." : "Registrar merma"}</button>
+                <label>Motivo
+                  <input list="exit-reasons" value={wReason} onChange={(e) => setWReason(e.target.value)} placeholder={`Ej. ${EXIT_KIND_REASONS[wKind].slice(0, 2).join(", ")}...`} />
+                  <datalist id="exit-reasons">
+                    {EXIT_KIND_REASONS[wKind].map((r) => <option key={r} value={r} />)}
+                  </datalist>
+                </label>
+                <button className="op-modal-submit" onClick={handleRegisterWaste} disabled={saving}>{saving ? "Registrando..." : wKind === "merma" ? "Registrar merma" : `Registrar ${EXIT_KIND_LABEL[wKind].toLowerCase()}`}</button>
               </>
             )}
 

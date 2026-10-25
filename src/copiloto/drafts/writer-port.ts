@@ -5,6 +5,7 @@
 // rol de encargado; si una escritura no afecta a ninguna fila se trata como falta de permiso.
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ExitKind } from "../../lib/exit-kinds";
 
 export const RPC_ERROR_CODES = [
   "unauthenticated",
@@ -48,6 +49,7 @@ export interface InventoryWriter {
     productId: string;
     qtyBase: string;
     reason: string | null;
+    exitKind: ExitKind;
     areaId: string | null;
     clientRef: string;
   }): Promise<{ movementId: string }>;
@@ -127,6 +129,7 @@ export class SupabaseInventoryWriter implements InventoryWriter {
       // Cadena decimal: PostgREST la convierte a numeric sin pasar por coma flotante.
       p_qty: args.qtyBase,
       p_reason: args.reason,
+      p_exit_kind: args.exitKind,
       p_area: args.areaId,
       p_client_ref: args.clientRef,
     });
