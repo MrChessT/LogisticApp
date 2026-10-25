@@ -24,6 +24,7 @@ export function memoizeSource(source: InventoryDataSource): InventoryDataSource 
   return {
     openCount: memo("openCount", source.openCount),
     supplierPrices: memo("supplierPrices", source.supplierPrices),
+    supplierTerms: memo("supplierTerms", source.supplierTerms),
     balances: memo("balances", source.balances),
     areaBalances: memo("areaBalances", source.areaBalances),
     locationProducts: memo("locationProducts", source.locationProducts),

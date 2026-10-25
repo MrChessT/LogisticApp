@@ -41,6 +41,7 @@ export function cachedSource(source: InventoryDataSource, scope: { orgId: string
     locationProducts: (...a) => source.locationProducts(...a),
     openCount: (...a) => source.openCount(...a),
     supplierPrices: (...a) => source.supplierPrices(...a),
+    supplierTerms: (...a) => source.supplierTerms(...a),
     transfers: (...a) => source.transfers(...a),
     openOrders: (...a) => source.openOrders(...a),
     orders: (...a) => source.orders(...a),

@@ -82,6 +82,17 @@ export interface HealthIssueRaw {
   detail: string;
 }
 
+/** Condiciones de pedido de un proveedor (null: no puestas). */
+export interface SupplierTermsRaw {
+  supplierId: string;
+  orderDays: number[] | null;
+  orderCutoff: string | null;
+  leadTimeHours: number | null;
+  minOrder: string | null;
+  /** Locales a los que sirve (null: a todos). */
+  locationIds: string[] | null;
+}
+
 export interface SupplierPriceRaw {
   supplierId: string;
   supplierName: string;
@@ -94,6 +105,7 @@ export interface SupplierPriceRaw {
 export interface InventoryDataSource {
   openCount(locationId: string): Promise<OpenCountRaw | null>;
   supplierPrices(packIds: string[]): Promise<SupplierPriceRaw[]>;
+  supplierTerms(supplierIds: string[]): Promise<SupplierTermsRaw[]>;
   balances(filter: DataFilter): Promise<BalanceRaw[]>;
   areaBalances(areaId: string, productIds?: string[]): Promise<AreaBalanceRaw[]>;
   locationProducts(filter: DataFilter): Promise<LocationProductRaw[]>;

@@ -189,6 +189,7 @@ export const OrderDraftSchema = base.extend({
       z.object({
         supplierId: id,
         supplierName: z.string(),
+        expectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
         lines: z
           .array(
             z.object({

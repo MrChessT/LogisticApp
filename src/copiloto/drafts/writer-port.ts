@@ -103,6 +103,7 @@ export interface InventoryWriter {
     orgId: string;
     locationId: string;
     supplierId: string;
+    expectedDate?: string | null;
     lines: Array<{ packId: string; packsQty: string; packPrice: string | null }>;
   }): Promise<{ orderId: string }>;
 }
@@ -303,7 +304,7 @@ export class SupabaseInventoryWriter implements InventoryWriter {
   async createOrder(args: Parameters<InventoryWriter["createOrder"]>[0]): Promise<{ orderId: string }> {
     const header = await this.db
       .from("purchase_orders")
-      .insert({ org_id: args.orgId, location_id: args.locationId, supplier_id: args.supplierId })
+      .insert({ org_id: args.orgId, location_id: args.locationId, supplier_id: args.supplierId, expected_date: args.expectedDate ?? null })
       .select("id")
       .single();
     if (header.error || !header.data) raise("purchase_orders", header.error ?? { code: "42501", message: "forbidden" });

@@ -135,6 +135,14 @@ export type Database = {
           notes: string | null;
           active: boolean;
           created_at: string;
+          code: string | null;
+          contact_name: string | null;
+          order_days: number[] | null;
+          order_cutoff: string | null;
+          lead_time_hours: number | null;
+          min_order: number | null;
+          payment_terms: string | null;
+          location_ids: string[] | null;
         };
         Insert: {
           id?: string;
@@ -146,6 +154,14 @@ export type Database = {
           notes?: string | null;
           active?: boolean;
           created_at?: string;
+          code?: string | null;
+          contact_name?: string | null;
+          order_days?: number[] | null;
+          order_cutoff?: string | null;
+          lead_time_hours?: number | null;
+          min_order?: number | null;
+          payment_terms?: string | null;
+          location_ids?: string[] | null;
         };
         Update: Partial<Database["public"]["Tables"]["suppliers"]["Insert"]>;
         Relationships: [];
@@ -345,6 +361,7 @@ export type Database = {
           occurred_at: string;
           created_by: string | null;
           created_at: string;
+          exit_kind: "merma" | "invitacion" | "consumo_personal" | "degustacion" | "evento" | null;
         };
         Insert: {
           id?: number;
@@ -578,6 +595,7 @@ export type Database = {
           p_area?: string | null;
           p_unit_cost?: number | null;
           p_client_ref?: string | null;
+          p_exit_kind?: "merma" | "invitacion" | "consumo_personal" | "degustacion" | "evento" | null;
         };
         Returns: number;
       };

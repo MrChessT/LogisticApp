@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { Sparkles, X } from "lucide-react";
 import { euros, inputText, parseDecimal as parse, quantity } from "@/lib/format";
 import { saveDraft, type Reference } from "./orders-data";
+import { formatDayLong, minOrderShortfall, nextDelivery } from "@/lib/supplier-terms";
 
 // Sugerir pedido: mismo cálculo que el asistente («¿qué me falta?»), en formatos de compra y
 // agrupado por proveedor. Descuenta lo que ya está pedido o en camino. Cada grupo se convierte en
@@ -114,7 +115,10 @@ export function SuggestModal({
           locationId,
           supplierId,
           note: "",
-          expectedDate: "",
+          expectedDate: (() => {
+            const terms = reference.suppliers.find((s) => s.id === supplierId)?.terms;
+            return terms ? nextDelivery(terms, new Date()).deliveryDate ?? "" : "";
+          })(),
           lines: group.map((l) => ({ packId: l.pack!.id, packsQty: choices[l.productId]!.qty, packPrice: choices[l.productId]!.price, receivedPacks: "0" })),
         });
       }
@@ -164,7 +168,8 @@ export function SuggestModal({
 
           {!loading &&
             groups.map(([supplierId, group]) => {
-              const name = reference.suppliers.find((s) => s.id === supplierId)?.name ?? "Sin proveedor";
+              const found = reference.suppliers.find((s) => s.id === supplierId);
+              const name = found?.name ?? "Sin proveedor";
               const total = group.reduce((acc, l) => {
                 const c = choices[l.productId];
                 return c?.include ? acc.plus(new Decimal(parse(c.qty) ?? 0).mul(parse(c.price) ?? 0)) : acc;
@@ -172,6 +177,17 @@ export function SuggestModal({
               return (
                 <div className="editor-section suggest-group" key={supplierId || "none"}>
                   <p className="facet-title">{name} · {euros(total)}</p>
+                  {found && (() => {
+                    const missing = minOrderShortfall(total, found.terms.minOrder);
+                    const plan = nextDelivery(found.terms, new Date());
+                    if (!plan.deliveryDate && !missing) return null;
+                    return (
+                      <p className="suggest-terms">
+                        {plan.deliveryDate ? `Llegaría el ${formatDayLong(plan.deliveryDate)}${plan.orderToday ? " si se pide hoy" : ` (pedido el ${formatDayLong(plan.orderDate)})`}.` : null}
+                        {missing && <span className="order-minimum-inline"> Faltan {euros(missing.toNumber())} para el pedido mínimo.</span>}
+                      </p>
+                    );
+                  })()}
                   <div className="editor-table">
                     {group.map((l) => {
                       const c = choices[l.productId]!;

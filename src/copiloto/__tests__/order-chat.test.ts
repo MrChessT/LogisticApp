@@ -27,6 +27,13 @@ describe("pedidos desde el chat", () => {
       [CANARIAS.name, [[BARCELO.name, "Caja 6 botellas", "1", "92.4"]]],
     ]);
     expect(draft.orders[0]!.lines[0]!.note).toBe("quedan 1 caja + 6 ud · para 1,5 días");
+    // Condiciones de Bebidas del Sur (lunes y jueves hasta las 14:00, 48 h, mínimo 150 €): un miércoles
+    // se pide el jueves y llega el sábado; 92,40 € no llega al mínimo.
+    expect(draft.orders[0]!.expectedDate).toBe("2026-09-26");
+    expect(draft.checks!.filter((c) => c.id.startsWith("entrega") || c.id.startsWith("minimo")).map((c) => [c.label, c.status, c.detail])).toEqual([
+      ["Entrega", "ok", "Bebidas del Sur: se puede pedir el jueves 24 sept, llegaría el sábado 26 sept."],
+      ["Pedido mínimo", "aviso", "Bebidas del Sur pide un mínimo de 150,00 €: faltan 57,60 €. Añade algo más o júntalo con el siguiente pedido."],
+    ]);
 
     // Al confirmar se crea un pedido en borrador por proveedor; la línea a 0 se quita.
     const writer = new FixtureWriter();
@@ -39,7 +46,7 @@ describe("pedidos desde el chat", () => {
     expect(writer.calls).toEqual([
       {
         method: "createOrder",
-        args: { orgId: ORG_ID, locationId: PARADOR!.id, supplierId: SUR.id, lines: [{ packId: COCA.packs[0]!.id, packsQty: "7", packPrice: "13.2" }] },
+        args: { orgId: ORG_ID, locationId: PARADOR!.id, supplierId: SUR.id, expectedDate: "2026-09-26", lines: [{ packId: COCA.packs[0]!.id, packsQty: "7", packPrice: "13.2" }] },
       },
     ]);
   });

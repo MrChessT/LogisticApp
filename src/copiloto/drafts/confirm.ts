@@ -229,6 +229,7 @@ export class ConfirmService {
             orgId: ctx.orgId,
             locationId: draft.locationId,
             supplierId: o.supplierId,
+            expectedDate: o.expectedDate ?? null,
             lines: o.lines.map((l) => ({ packId: l.packId, packsQty: l.packsQty, packPrice: l.packPrice })),
           });
           ids.push(orderId);
