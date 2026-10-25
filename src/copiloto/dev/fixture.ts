@@ -15,6 +15,7 @@ import type {
   PurchaseRaw,
   PriceRaw,
   SupplierPriceRaw,
+  SupplierTermsRaw,
   TransferRaw,
 } from "../tools/types";
 
@@ -187,6 +188,15 @@ export class FixtureDataSource implements InventoryDataSource {
       { supplierId: id("99999999", 2), supplierName: "Bebidas del Sur", packId: P[4]!.packs[0]!.id, lastPrice: "13.20", lastPriceAt: hoursAgo(this.now, 72) },
     ];
     return all.filter((p) => packIds.includes(p.packId));
+  }
+
+  /** Bebidas del Sur: pedidos lunes y jueves hasta las 14:00, entrega en 48 h, mínimo 150 €. */
+  async supplierTerms(supplierIds: string[]): Promise<SupplierTermsRaw[]> {
+    const all: SupplierTermsRaw[] = [
+      { supplierId: id("99999999", 1), orderDays: null, orderCutoff: null, leadTimeHours: null, minOrder: null, locationIds: null },
+      { supplierId: id("99999999", 2), orderDays: [1, 4], orderCutoff: "14:00:00", leadTimeHours: 48, minOrder: "150.00", locationIds: null },
+    ];
+    return all.filter((t) => supplierIds.includes(t.supplierId));
   }
 
   private movementsAll(): MovementRaw[] {

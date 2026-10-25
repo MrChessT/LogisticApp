@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Archive, ArchiveRestore, ArrowLeft, CirclePlus, Search, Trash2, Truck, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
+import { describeTerms, nextDelivery, formatDayLong, shortDays, WEEKDAYS } from "@/lib/supplier-terms";
+import Decimal from "decimal.js";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./proveedores.css";
@@ -20,6 +22,15 @@ type Supplier = {
   email: string;
   phone: string;
   notes: string;
+  code: string;
+  contactName: string;
+  /** Condiciones de pedido: días (1 lunes … 7 domingo), hora límite, plazo, mínimo, pago y locales. */
+  orderDays: number[];
+  orderCutoff: string;
+  leadTimeHours: string;
+  minOrder: string;
+  paymentTerms: string;
+  locationIds: string[];
   active: boolean;
   /** Resumen (v_supplier_summary): los precios en sí se cargan al abrir el proveedor. */
   productCount: number;
@@ -28,12 +39,37 @@ type Supplier = {
 };
 type Form = Omit<Supplier, "id" | "active" | "productCount" | "priceCount" | "lastPriceAt">;
 
-const EMPTY_FORM: Form = { name: "", taxId: "", email: "", phone: "", notes: "" };
+type Venue = { id: string; name: string };
+
+const EMPTY_FORM: Form = {
+  name: "", taxId: "", email: "", phone: "", notes: "", code: "", contactName: "",
+  orderDays: [], orderCutoff: "", leadTimeHours: "", minOrder: "", paymentTerms: "", locationIds: [],
+};
+
+/** Condiciones tal como las usa el cálculo de entrega y mínimo. */
+function termsOf(s: Pick<Form, "orderDays" | "orderCutoff" | "leadTimeHours" | "minOrder">) {
+  return {
+    orderDays: s.orderDays.length ? s.orderDays : null,
+    orderCutoff: s.orderCutoff || null,
+    leadTimeHours: s.leadTimeHours === "" ? null : Number(s.leadTimeHours),
+    minOrder: s.minOrder === "" ? null : s.minOrder,
+  };
+}
+
+const money = (v: Decimal) => euros(v.toNumber());
 
 function friendly(error: { code?: string } | null, fallback: string) {
-  if (error?.code === "23505") return "Ya existe un proveedor con ese nombre.";
+  if (error?.code === "23505") return "Ya existe un proveedor con ese nombre o ese código.";
+  if (error?.code === "23514") return "Revisa las condiciones: algún valor no es válido.";
   if (error?.code === "42501") return "No tienes permisos para hacer este cambio.";
   return fallback;
+}
+
+async function loadVenues(): Promise<Venue[]> {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase.from("locations").select("id, name").eq("active", true).order("name");
+  return (data ?? []) as Venue[];
 }
 
 async function loadSuppliers(): Promise<Supplier[]> {
@@ -41,7 +77,10 @@ async function loadSuppliers(): Promise<Supplier[]> {
   if (!supabase) throw new Error("Configura las variables de Supabase.");
   // Datos de cada proveedor y su resumen de precios (cuántos y el último), sin bajar todos los precios.
   const [{ data, error }, { data: summary }] = await Promise.all([
-    supabase.from("suppliers").select("id, name, tax_id, email, phone, notes, active").order("name"),
+    supabase
+      .from("suppliers")
+      .select("id, name, tax_id, email, phone, notes, active, code, contact_name, order_days, order_cutoff, lead_time_hours, min_order, payment_terms, location_ids")
+      .order("name"),
     supabase.from("v_supplier_summary").select("supplier_id, prices, products, last_price_at"),
   ]);
   if (error) throw new Error("No se pudieron cargar los proveedores.");
@@ -53,6 +92,14 @@ async function loadSuppliers(): Promise<Supplier[]> {
     email: r.email ?? "",
     phone: r.phone ?? "",
     notes: r.notes ?? "",
+    code: r.code ?? "",
+    contactName: r.contact_name ?? "",
+    orderDays: (r.order_days as number[] | null) ?? [],
+    orderCutoff: r.order_cutoff ? String(r.order_cutoff).slice(0, 5) : "",
+    leadTimeHours: r.lead_time_hours === null || r.lead_time_hours === undefined ? "" : String(r.lead_time_hours),
+    minOrder: r.min_order === null || r.min_order === undefined ? "" : String(Number(r.min_order)),
+    paymentTerms: r.payment_terms ?? "",
+    locationIds: (r.location_ids as string[] | null) ?? [],
     active: r.active,
     productCount: Number(bySupplier.get(r.id)?.products ?? 0),
     priceCount: Number(bySupplier.get(r.id)?.prices ?? 0),
@@ -81,6 +128,7 @@ export default function SuppliersPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"active" | "archived">("active");
   const [editing, setEditing] = useState<Supplier | "new" | null>(null);
+  const [venues, setVenues] = useState<Venue[]>([]);
 
   async function reload() {
     try {
@@ -94,6 +142,7 @@ export default function SuppliersPage() {
   useEffect(() => {
     async function start() {
       await Promise.resolve();
+      void loadVenues().then(setVenues);
       await reload();
     }
     void start();
@@ -104,7 +153,7 @@ export default function SuppliersPage() {
     [suppliers],
   );
   const visible = (suppliers ?? []).filter(
-    (s) => (status === "active" ? s.active : !s.active) && (!query || normalizeText(`${s.name} ${s.taxId} ${s.email}`).includes(normalizeText(query))),
+    (s) => (status === "active" ? s.active : !s.active) && (!query || normalizeText(`${s.name} ${s.code} ${s.taxId} ${s.email}`).includes(normalizeText(query))),
   );
 
   return (
@@ -131,11 +180,11 @@ export default function SuppliersPage() {
           <div className="catalog-toolbar">
             <div className="catalog-search">
               <Search size={16} />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, CIF o email" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, código, CIF o email" />
             </div>
           </div>
           <div className="suppliers-table">
-            <div className="suppliers-head"><span>Proveedor</span><span>Contacto</span><span>Productos con precio</span><span>Último precio</span></div>
+            <div className="suppliers-head"><span>Proveedor</span><span>Contacto</span><span>Pedidos</span><span>Productos con precio</span><span>Último precio</span></div>
             {!suppliers && !loadError && <div className="catalog-empty"><strong>Cargando proveedores...</strong></div>}
             {loadError && (
               <div className="catalog-empty">
@@ -161,9 +210,19 @@ export default function SuppliersPage() {
                 >
                   <span className="catalog-product">
                     <span className="catalog-product-icon"><Truck size={16} /></span>
-                    <span><strong>{s.name}</strong><small>{s.taxId || "Sin CIF"}</small></span>
+                    <span><strong>{s.name}</strong><small>{[s.code, s.taxId || "Sin CIF"].filter(Boolean).join(" · ")}</small></span>
                   </span>
-                  <span className="cell-ellipsis">{[s.email, s.phone].filter(Boolean).join(" · ") || <em className="muted">Sin contacto</em>}</span>
+                  <span className="cell-ellipsis">{[s.contactName, s.email, s.phone].filter(Boolean).join(" · ") || <em className="muted">Sin contacto</em>}</span>
+                  <span className="supplier-terms-cell">
+                    {s.orderDays.length || s.orderCutoff || s.minOrder ? (
+                      <>
+                        <strong>{shortDays(s.orderDays.length ? s.orderDays : null)}{s.orderCutoff ? ` · ${s.orderCutoff}` : ""}</strong>
+                        <small>{s.minOrder ? `mín. ${euros(Number(s.minOrder))}` : "sin mínimo"}</small>
+                      </>
+                    ) : (
+                      <em className="muted">Sin condiciones</em>
+                    )}
+                  </span>
                   <span>{s.productCount}</span>
                   <span>{last ? new Date(last).toLocaleDateString("es-ES") : <em className="muted">—</em>}</span>
                 </div>
@@ -181,6 +240,7 @@ export default function SuppliersPage() {
       {editing && (
         <SupplierEditor
           supplier={editing === "new" ? null : editing}
+          venues={venues}
           onClose={() => setEditing(null)}
           onChanged={() => void reload()}
         />
@@ -189,8 +249,14 @@ export default function SuppliersPage() {
   );
 }
 
-function SupplierEditor({ supplier, onClose, onChanged }: { supplier: Supplier | null; onClose: () => void; onChanged: () => void }) {
-  const initial: Form = supplier ? { name: supplier.name, taxId: supplier.taxId, email: supplier.email, phone: supplier.phone, notes: supplier.notes } : EMPTY_FORM;
+function SupplierEditor({ supplier, venues, onClose, onChanged }: { supplier: Supplier | null; venues: Venue[]; onClose: () => void; onChanged: () => void }) {
+  const initial: Form = supplier
+    ? {
+        name: supplier.name, taxId: supplier.taxId, email: supplier.email, phone: supplier.phone, notes: supplier.notes,
+        code: supplier.code, contactName: supplier.contactName, orderDays: supplier.orderDays, orderCutoff: supplier.orderCutoff,
+        leadTimeHours: supplier.leadTimeHours, minOrder: supplier.minOrder, paymentTerms: supplier.paymentTerms, locationIds: supplier.locationIds,
+      }
+    : EMPTY_FORM;
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -223,11 +289,29 @@ function SupplierEditor({ supplier, onClose, onChanged }: { supplier: Supplier |
     email: form.email.trim() || null,
     phone: form.phone.trim() || null,
     notes: form.notes.trim() || null,
+    code: form.code.trim() || null,
+    contact_name: form.contactName.trim() || null,
+    order_days: form.orderDays.length ? [...form.orderDays].sort((a, b) => a - b) : null,
+    order_cutoff: form.orderCutoff || null,
+    lead_time_hours: form.leadTimeHours === "" ? null : Number(form.leadTimeHours),
+    min_order: form.minOrder === "" ? null : Number(form.minOrder),
+    payment_terms: form.paymentTerms.trim() || null,
+    location_ids: form.locationIds.length ? form.locationIds : null,
   });
+  const toggleDay = (day: number) =>
+    setForm((f) => ({ ...f, orderDays: f.orderDays.includes(day) ? f.orderDays.filter((d) => d !== day) : [...f.orderDays, day] }));
+  const toggleVenue = (id: string) =>
+    setForm((f) => ({ ...f, locationIds: f.locationIds.includes(id) ? f.locationIds.filter((v) => v !== id) : [...f.locationIds, id] }));
+  const plan = nextDelivery(termsOf(form), new Date());
+  const summary = describeTerms(termsOf(form), money);
 
   async function save() {
     if (!form.name.trim()) return setError("El proveedor necesita un nombre.");
     if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) return setError("Revisa el email.");
+    if (form.leadTimeHours !== "" && !(Number.isInteger(Number(form.leadTimeHours)) && Number(form.leadTimeHours) >= 0 && Number(form.leadTimeHours) <= 720)) {
+      return setError("El plazo de entrega va en horas, de 0 a 720.");
+    }
+    if (form.minOrder !== "" && !(Number(form.minOrder) >= 0)) return setError("El pedido mínimo no puede ser negativo.");
     const supabase = createClient();
     if (!supabase) return setError("Configura las variables de Supabase.");
     setSaving(true);
@@ -294,7 +378,51 @@ function SupplierEditor({ supplier, onClose, onChanged }: { supplier: Supplier |
             <label>CIF / NIF<input value={form.taxId} onChange={set("taxId")} placeholder="Opcional" /></label>
             <label>Teléfono<input value={form.phone} onChange={set("phone")} placeholder="Opcional" inputMode="tel" /></label>
             <label className="span-2">Email de pedidos<input value={form.email} onChange={set("email")} placeholder="Opcional" inputMode="email" /></label>
-            <label className="span-2">Notas<input value={form.notes} onChange={set("notes")} placeholder="Días de reparto, pedido mínimo, comercial…" /></label>
+            <label>Código<input value={form.code} onChange={set("code")} placeholder="Ej. PRV-012" maxLength={20} /></label>
+            <label>Contacto comercial<input value={form.contactName} onChange={set("contactName")} placeholder="Nombre del comercial" /></label>
+            <label className="span-2">Notas<input value={form.notes} onChange={set("notes")} placeholder="Cualquier otra cosa: portes, rappel, cómo pedir…" /></label>
+          </div>
+          <div className="editor-section supplier-terms">
+            <p className="facet-title">Condiciones de pedido</p>
+            <div className="supplier-days" role="group" aria-label="Días de pedido">
+              {WEEKDAYS.map((name, i) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={form.orderDays.includes(i + 1) ? "active" : undefined}
+                  aria-pressed={form.orderDays.includes(i + 1)}
+                  onClick={() => toggleDay(i + 1)}
+                >
+                  {name.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+            <p className="section-hint">{form.orderDays.length ? "Días en que admite pedidos." : "Sin días marcados: admite pedidos cualquier día."}</p>
+            <div className="editor-grid">
+              <label>Hora límite<input type="time" value={form.orderCutoff} onChange={set("orderCutoff")} /></label>
+              <label>Plazo de entrega (horas)<input type="number" min="0" max="720" step="1" inputMode="numeric" value={form.leadTimeHours} onChange={set("leadTimeHours")} placeholder="Ej. 48" /></label>
+              <label>Pedido mínimo (€)<input type="number" min="0" step="0.01" inputMode="decimal" value={form.minOrder} onChange={set("minOrder")} placeholder="Sin mínimo" /></label>
+              <label>Condiciones de pago<input value={form.paymentTerms} onChange={set("paymentTerms")} placeholder="Ej. 30 días, transferencia" /></label>
+            </div>
+            {venues.length > 1 && (
+              <>
+                <p className="facet-title supplier-venues-title">Locales a los que sirve</p>
+                <div className="supplier-days" role="group" aria-label="Locales a los que sirve">
+                  {venues.map((v) => (
+                    <button key={v.id} type="button" className={form.locationIds.includes(v.id) ? "active" : undefined} aria-pressed={form.locationIds.includes(v.id)} onClick={() => toggleVenue(v.id)}>
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="section-hint">{form.locationIds.length ? "Solo se le pedirá desde estos locales." : "Sin locales marcados: sirve a todos."}</p>
+              </>
+            )}
+            {summary && (
+              <p className="supplier-next">
+                {summary}. {plan.orderToday ? "Si pides hoy" : `Próximo pedido el ${formatDayLong(plan.orderDate)}`}
+                {plan.deliveryDate ? `, llegaría el ${formatDayLong(plan.deliveryDate)}.` : "."}
+              </p>
+            )}
           </div>
           {supplier && (
             <div className="editor-section supplier-prices">

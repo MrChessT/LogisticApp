@@ -37,6 +37,7 @@ import type { JevAnswer } from "../jev/client";
 import type { InventoryDataSource } from "../tools/types";
 import type { BuildResult } from "./builder";
 import { draftBase, resolveQuantity } from "./builder";
+import { formatDayLong, minOrderShortfall, nextDelivery } from "../../lib/supplier-terms";
 
 /** Revisión de Jev que el agente añade a la llamada nº 2 del borrador. */
 export interface Review {
@@ -619,15 +620,22 @@ export class CatalogDraftBuilder {
       }
     }
 
-    // Proveedor: el que diga el mensaje para todo el pedido; si no, el del último precio de cada formato.
+    // Proveedor: el que diga el mensaje para todo el pedido; si no, el del último precio de cada formato
+    // entre los que sirven a este local (un proveedor sin locales marcados sirve a todos).
     const prices = await source.supplierPrices(wanted.map((w) => w.pack.id));
+    const termsList = await source.supplierTerms([...new Set([...prices.map((p) => p.supplierId), ...(chosenSupplier ? [chosenSupplier.id] : [])])]);
+    const termsOf = new Map(termsList.map((t) => [t.supplierId, t]));
+    const serves = (supplierId: string) => {
+      const ids = termsOf.get(supplierId)?.locationIds;
+      return !ids || ids.includes(locationId);
+    };
     const groups = new Map<string, OrderDraft["orders"][number]>();
     const noSupplier: string[] = [];
     const noPrice: string[] = [];
     for (const w of wanted) {
       const price = chosenSupplier
         ? prices.find((p) => p.packId === w.pack.id && p.supplierId === chosenSupplier.id)
-        : prices.find((p) => p.packId === w.pack.id);
+        : prices.find((p) => p.packId === w.pack.id && serves(p.supplierId)) ?? prices.find((p) => p.packId === w.pack.id);
       const supplier = chosenSupplier ?? (price ? { id: price.supplierId, name: price.supplierName } : null);
       if (!supplier) {
         noSupplier.push(w.product.name);
@@ -647,6 +655,32 @@ export class CatalogDraftBuilder {
       groups.set(supplier.id, group);
     }
     const orders = [...groups.values()];
+    // Entrega prevista y pedido mínimo de cada proveedor (condiciones de su ficha).
+    const tz = location.timezone;
+    const termsChecks: DraftCheck[] = [];
+    for (const o of orders) {
+      const t = termsOf.get(o.supplierId);
+      if (!t) continue;
+      const plan = nextDelivery(t, now, tz);
+      o.expectedDate = plan.deliveryDate;
+      if (plan.deliveryDate) {
+        termsChecks.push(
+          check(`entrega-${o.supplierId}`, "Entrega", "ok", `${o.supplierName}: ${plan.orderToday ? "si se pide hoy" : `se puede pedir el ${formatDayLong(plan.orderDate)}`}, llegaría el ${formatDayLong(plan.deliveryDate)}.`),
+        );
+      } else if (!plan.orderToday) {
+        termsChecks.push(check(`entrega-${o.supplierId}`, "Día de pedido", "aviso", `${o.supplierName} no admite pedidos hoy: el próximo día es el ${formatDayLong(plan.orderDate)}.`));
+      }
+      const subtotal = o.lines.reduce((acc, l) => (l.packPrice ? acc.plus(new Decimal(l.packsQty).mul(l.packPrice)) : acc), new Decimal(0));
+      const missing = minOrderShortfall(subtotal, t.minOrder);
+      if (missing) {
+        termsChecks.push(
+          check(`minimo-${o.supplierId}`, "Pedido mínimo", "aviso", `${o.supplierName} pide un mínimo de ${formatMoney(new Decimal(t.minOrder!))}: faltan ${formatMoney(missing)}. Añade algo más o júntalo con el siguiente pedido.`),
+        );
+      }
+      if (!serves(o.supplierId)) {
+        termsChecks.push(check(`local-${o.supplierId}`, "Local", "aviso", `${o.supplierName} no tiene marcado ${location.name} entre los locales a los que sirve.`));
+      }
+    }
 
     if (orders.length === 0) {
       if (noSupplier.length > 0) {
@@ -677,6 +711,7 @@ export class CatalogDraftBuilder {
         ? check("origen", "Cantidades", "ok", "Las que has indicado, en formatos de compra.")
         : check("origen", "Cálculo", "ok", `Consumo real de las últimas semanas, mínimos y objetivo, descontando lo que ya está en camino, para ${h.label}.`),
     ];
+    checks.push(...termsChecks);
     if (noConsumption.length > 0) {
       checks.push(check("consumo", "Sin consumo", "aviso", `Sin consumo registrado: ${noConsumption.join(", ")}. Se pide solo lo necesario para llegar al mínimo u objetivo.`));
     }

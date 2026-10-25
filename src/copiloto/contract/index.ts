@@ -338,6 +338,8 @@ export interface OrderDraft extends DraftBase {
   orders: Array<{
     supplierId: string;
     supplierName: string;
+    /** Entrega prevista según las condiciones del proveedor (YYYY-MM-DD), si se conocen. */
+    expectedDate?: string | null;
     lines: Array<{
       productId: string;
       productName: string;

@@ -2,12 +2,13 @@
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
 import { decimalText, parseDecimal } from "@/lib/format";
+import type { SupplierTerms } from "@/lib/supplier-terms";
 
 export type OrderStatus = "draft" | "sent" | "partial" | "received" | "cancelled";
 export type Role = "owner" | "admin" | "manager" | "staff";
 
 export type Location = { id: string; name: string };
-export type Supplier = { id: string; name: string; email: string | null; phone: string | null };
+export type Supplier = { id: string; name: string; email: string | null; phone: string | null; terms: SupplierTerms };
 /** Línea de pedido. El nombre del producto y del formato vienen con la línea (no hace falta el catálogo). */
 export type OrderLine = { id?: string; packId: string; productName?: string; packName?: string; packsQty: string; packPrice: string; receivedPacks: string };
 export type Order = {
@@ -57,7 +58,7 @@ export async function loadReference(): Promise<Reference> {
     supabase.from("memberships").select("org_id, role, organizations(name)").eq("user_id", user.id).limit(1).maybeSingle(),
     supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
-    supabase.from("suppliers").select("id, name, email, phone").eq("active", true).order("name"),
+    supabase.from("suppliers").select("id, name, email, phone, order_days, order_cutoff, lead_time_hours, min_order").eq("active", true).order("name"),
   ]);
   const member = membership.data as { org_id: string; role: Role; organizations: { name: string } | null } | null;
   if (!member) throw new Error("No perteneces a ninguna organización.");
@@ -67,7 +68,18 @@ export async function loadReference(): Promise<Reference> {
     userName: profile.data?.full_name?.trim() || user.email?.split("@")[0] || "",
     role: member.role,
     locations: (locations.data ?? []) as Location[],
-    suppliers: (suppliers.data ?? []) as Supplier[],
+    suppliers: (suppliers.data ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      terms: {
+        orderDays: s.order_days?.length ? s.order_days : null,
+        orderCutoff: s.order_cutoff,
+        leadTimeHours: s.lead_time_hours,
+        minOrder: s.min_order === null ? null : String(s.min_order),
+      },
+    })),
   };
 }
 

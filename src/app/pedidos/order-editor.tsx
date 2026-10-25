@@ -8,6 +8,7 @@ import { decimalText as num, euros, inputText, parseDecimal as parse } from "@/l
 import { purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { canManage, orderText, orderTotal, saveDraft, STATUS_LABEL, type Order, type OrderLine, type Reference } from "./orders-data";
+import { describeTerms, formatDayLong, minOrderShortfall, nextDelivery } from "@/lib/supplier-terms";
 
 // Ficha de un pedido. Borrador: se edita y se envía (encargado). Enviado o parcial: se recibe
 // (cualquiera con acceso al local) o se cancela (encargado). Recibido o cancelado: solo lectura.
@@ -68,6 +69,17 @@ export function OrderEditor({
     lines,
   };
   const total = orderTotal(current);
+  // Condiciones del proveedor: cuándo se puede pedir, cuándo llegaría y cuánto falta para el mínimo.
+  const terms = supplier?.terms ?? null;
+  const termsText = terms ? describeTerms(terms, (v) => euros(v.toNumber())) : null;
+  const plan = terms ? nextDelivery(terms, new Date()) : null;
+  const shortfall = terms ? minOrderShortfall(total, terms.minOrder) : null;
+  function chooseSupplier(id: string) {
+    setSupplierId(id);
+    // La entrega prevista sale de las condiciones del nuevo proveedor si no se ha puesto a mano.
+    const next = reference.suppliers.find((s) => s.id === id)?.terms;
+    if (next && (!expectedDate || expectedDate === plan?.deliveryDate)) setExpectedDate(nextDelivery(next, new Date()).deliveryDate ?? "");
+  }
 
   // Productos que ya están en el pedido (por su formato de compra): no se ofrecen otra vez.
   const usedPacks = useMemo(() => new Set(lines.map((l) => l.packId)), [lines]);
@@ -221,7 +233,7 @@ export function OrderEditor({
             </label>
             <label>
               Proveedor
-              <select value={supplierId} disabled={mode !== "edit"} onChange={(event) => setSupplierId(event.target.value)}>
+              <select value={supplierId} disabled={mode !== "edit"} onChange={(event) => chooseSupplier(event.target.value)}>
                 <option value="">Elige proveedor</option>
                 {reference.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -235,6 +247,12 @@ export function OrderEditor({
               <input value={note} disabled={mode !== "edit"} maxLength={500} onChange={(event) => setNote(event.target.value)} placeholder="Opcional: horario de entrega, referencia…" />
             </label>
           </div>
+          {termsText && plan && mode === "edit" && (
+            <p className="order-terms">
+              {termsText}. {plan.orderToday ? "Si lo envías hoy" : `Próximo día de pedido: ${formatDayLong(plan.orderDate)}`}
+              {plan.deliveryDate ? `, llegaría el ${formatDayLong(plan.deliveryDate)}.` : "."}
+            </p>
+          )}
 
           <div className="editor-section order-lines">
             <div className="editor-table">
@@ -308,6 +326,11 @@ export function OrderEditor({
             )}
 
             {mode !== "receive" && <p className="order-total">Total estimado: <b>{euros(total)}</b></p>}
+            {mode === "edit" && shortfall && lines.length > 0 && (
+              <p className="order-minimum" role="status">
+                No llega al pedido mínimo de {euros(Number(terms!.minOrder))}: faltan {euros(shortfall.toNumber())}.
+              </p>
+            )}
           </div>
         </div>
 

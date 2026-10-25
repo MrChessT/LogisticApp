@@ -18,6 +18,7 @@ import type {
   PurchaseRaw,
   PriceRaw,
   SupplierPriceRaw,
+  SupplierTermsRaw,
   TransferRaw,
 } from "../tools/types";
 import { DataError, readAll } from "./client";
@@ -74,6 +75,23 @@ export class SupabaseDataSource implements InventoryDataSource {
       packId: String(r.pack_id),
       lastPrice: str(r.last_price),
       lastPriceAt: strOrNull(r.last_price_at),
+    }));
+  }
+
+  async supplierTerms(supplierIds: string[]): Promise<SupplierTermsRaw[]> {
+    if (supplierIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from("suppliers")
+      .select("id,order_days,order_cutoff,lead_time_hours,min_order:min_order::text,location_ids")
+      .in("id", supplierIds);
+    if (error) throw new Error(`No se pudieron leer las condiciones de los proveedores: ${error.message}`);
+    return ((data ?? []) as Row[]).map((r) => ({
+      supplierId: String(r.id),
+      orderDays: Array.isArray(r.order_days) && r.order_days.length ? (r.order_days as number[]) : null,
+      orderCutoff: strOrNull(r.order_cutoff),
+      leadTimeHours: r.lead_time_hours === null || r.lead_time_hours === undefined ? null : Number(r.lead_time_hours),
+      minOrder: strOrNull(r.min_order),
+      locationIds: Array.isArray(r.location_ids) && r.location_ids.length ? (r.location_ids as string[]) : null,
     }));
   }
 
