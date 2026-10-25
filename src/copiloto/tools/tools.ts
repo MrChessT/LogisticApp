@@ -5,8 +5,9 @@ import type { Herramienta } from "../jev/catalog";
 import type { Product, SessionContext } from "../domain";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
+import { EXIT_KIND_LABEL } from "../../lib/exit-kinds";
 import { addDays, daysInclusive, formatDay } from "./periods";
-import type { EvalItem, InventoryDataSource, MovementType, ToolParams, ToolResult, ToolRow } from "./types";
+import type { EvalItem, InventoryDataSource, MovementRaw, MovementType, ToolParams, ToolResult, ToolRow } from "./types";
 
 export const MAX_ROWS = 12;
 /** Días de historial para el consumo medio diario. */
@@ -27,6 +28,11 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
   manual_adjustment: "ajuste manual",
   internal_move: "movimiento entre zonas",
 };
+
+/** Etiqueta de un movimiento; las mermas, por su tipo de salida («invitación», «consumo del personal»). */
+function movementLabel(m: MovementRaw): string {
+  return m.type === "waste" && m.exitKind && m.exitKind !== "merma" ? EXIT_KIND_LABEL[m.exitKind].toLowerCase() : MOVEMENT_LABELS[m.type];
+}
 
 const MOVEMENT_PLURAL_LABELS: Record<MovementType, string> = {
   opening: "aperturas",
@@ -532,8 +538,8 @@ export class InventoryTools implements Tools {
       since: sinceIso(period.from),
     });
     const tz = new Map(ctx.locations.map((l) => [l.id, l]));
-    const groups = new Map<string, { type: MovementType; product: Product; qty: Decimal; value: Decimal; count: number }>();
-    const byType = new Map<MovementType, Decimal>();
+    const groups = new Map<string, { label: string; product: Product; qty: Decimal; value: Decimal; count: number }>();
+    const byType = new Map<string, Decimal>();
     // Sin tipos pedidos, las aperturas (el stock inicial al empezar) y los cambios de zona no cuentan:
     // tapaban lo que se pregunta (32.000 € de «apertura» delante de 13 € de mermas).
     const wanted = params.movementTypes?.length ? new Set(params.movementTypes) : null;
@@ -545,19 +551,21 @@ export class InventoryTools implements Tools {
       if (day < period.from || day > period.to) continue;
       const product = products.get(m.productId);
       if (!product) continue;
-      const key = `${m.type}:${m.productId}`;
+      // Las mermas se separan por tipo de salida: una invitación no es una pérdida.
+      const label = movementLabel(m);
+      const key = `${label}:${m.productId}`;
       const qty = new Decimal(m.qty);
       const value = qty.mul(m.unitCost ?? 0);
-      const g = groups.get(key) ?? { type: m.type, product, qty: new Decimal(0), value: new Decimal(0), count: 0 };
+      const g = groups.get(key) ?? { label, product, qty: new Decimal(0), value: new Decimal(0), count: 0 };
       g.qty = g.qty.plus(qty);
       g.value = g.value.plus(value);
       g.count += 1;
       groups.set(key, g);
-      byType.set(m.type, (byType.get(m.type) ?? new Decimal(0)).plus(value));
+      byType.set(label, (byType.get(label) ?? new Decimal(0)).plus(value));
     }
     const sorted = [...groups.values()].sort((a, b) => b.value.abs().cmp(a.value.abs()));
     const rows: ToolRow[] = sorted.map((g) => ({
-      tipo: MOVEMENT_LABELS[g.type],
+      tipo: g.label,
       producto: g.product.name,
       cantidad: formatStock(g.qty.abs(), g.product),
       valor: formatMoney(g.value.abs()),
@@ -566,7 +574,7 @@ export class InventoryTools implements Tools {
     const totals: Record<string, string> = { periodo: period.label, movimientos: String(raw.length) };
     // «¿cuánta merma…?»: la respuesta habla de mermas, no de «movimientos».
     if (wanted) totals.tipos = [...new Set([...wanted].map((t) => MOVEMENT_PLURAL_LABELS[t]))].join(" y ");
-    for (const [type, value] of byType) totals[`valor_${MOVEMENT_LABELS[type].replace(/ /g, "_")}`] = formatMoney(value.abs());
+    for (const [label, value] of byType) totals[`valor_${label.replace(/ /g, "_")}`] = formatMoney(value.abs());
     return finish("query_movements", rows, totals);
   }
 

@@ -2,6 +2,7 @@
 // Las cifras se piden como texto (`col::text`) para no pasar nunca por number.
 import Decimal from "decimal.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isExitKind } from "../../lib/exit-kinds";
 import type {
   AreaBalanceRaw,
   BalanceRaw,
@@ -114,7 +115,7 @@ export class SupabaseDataSource implements InventoryDataSource {
     const rows = await readAll<Row>("los movimientos", (from, to) => {
       let q = this.db
         .from("stock_movements")
-        .select("id,location_id,product_id,area_id,type,qty:qty::text,unit_cost:unit_cost::text,occurred_at")
+        .select("id,location_id,product_id,area_id,type,qty:qty::text,unit_cost:unit_cost::text,occurred_at,exit_kind")
         .in("location_id", filter.locationIds)
         .gte("occurred_at", filter.since)
         .order("id")
@@ -130,6 +131,7 @@ export class SupabaseDataSource implements InventoryDataSource {
       qty: str(r.qty),
       unitCost: strOrNull(r.unit_cost),
       occurredAt: String(r.occurred_at),
+      exitKind: isExitKind(r.exit_kind) ? r.exit_kind : null,
     }));
   }
 

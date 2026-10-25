@@ -1,3 +1,4 @@
+import type { ExitKind } from "../../lib/exit-kinds";
 import type { BaseUnit } from "../contract/index";
 import type { EvalKind, Herramienta } from "../jev/catalog";
 
@@ -12,6 +13,8 @@ export interface LocationProductRaw { locationId: string; productId: string; min
 export interface MovementRaw {
   locationId: string; productId: string; areaId: string | null; type: MovementType;
   qty: string; unitCost: string | null; occurredAt: string;
+  /** Solo en mermas: pérdida, invitación, consumo del personal… (null: anterior a los tipos = pérdida). */
+  exitKind?: ExitKind | null;
 }
 export interface PriceRaw { supplierId: string; supplierName: string; packId: string; price: string; recordedAt: string }
 export interface TransferRaw {

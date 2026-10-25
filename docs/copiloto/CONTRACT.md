@@ -171,6 +171,7 @@ interface WasteDraft extends DraftBase {
   qtyBase: Decimal; baseUnit: BaseUnit;
   input: QuantityInput;
   reason: string | null;       // "rotura", "caducidad"…
+  exitKind: "merma" | "invitacion" | "consumo_personal" | "degustacion" | "evento"; // solo "merma" es pérdida
 }                              // → RPC register_movement(p_type = 'waste')
 
 interface TransferDraft extends DraftBase {

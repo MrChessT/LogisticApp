@@ -12,6 +12,7 @@ import type { Pack, Product, SessionContext } from "../domain";
 import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/interpret";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
+import { isLoss } from "../../lib/exit-kinds";
 import { addDays } from "../tools/periods";
 import { computeReorder } from "../tools/tools";
 import type { InventoryDataSource } from "../tools/types";
@@ -354,7 +355,7 @@ async function parte({ ctx, source, locationIds, now }: TareaInput): Promise<Tar
     if (!row) continue;
     const value = new Decimal(m.qty).mul(m.unitCost ?? 0).abs();
     if (m.type === "purchase") row.purchases = row.purchases.plus(value);
-    if (m.type === "waste") {
+    if (m.type === "waste" && isLoss(m.exitKind)) {
       row.waste = row.waste.plus(value);
       if (!row.topWaste || value.gt(row.topWaste.value)) row.topWaste = { name: products.get(m.productId)?.name ?? "producto", value };
     }

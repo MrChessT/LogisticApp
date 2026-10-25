@@ -6,6 +6,7 @@ import type { AuditSink } from "../audit/audit";
 import type { AppRoute, Draft, NavigateEvent } from "../contract/index";
 import { hasRole, type SessionContext } from "../domain";
 import { LruCache } from "../cache/lru";
+import { EXIT_KIND_LABEL } from "../../lib/exit-kinds";
 import { applyEdits, EditError } from "./schemas";
 import type { DraftStore } from "./store";
 import { RpcError, type InventoryWriter, type RpcErrorCode } from "./writer-port";
@@ -143,10 +144,11 @@ export class ConfirmService {
           productId: draft.productId,
           qtyBase: draft.qtyBase,
           reason: draft.reason,
+          exitKind: draft.exitKind,
           areaId: draft.areaId,
           clientRef: idempotencyKey,
         });
-        return { ok: true, kind: "merma", documentId: null, movementIds: [movementId], message: "Merma registrada.", navigate: navigate({ locationId: draft.locationId }) };
+        return { ok: true, kind: "merma", documentId: null, movementIds: [movementId], message: draft.exitKind === "merma" ? "Merma registrada." : `${EXIT_KIND_LABEL[draft.exitKind]} registrada.`, navigate: navigate({ locationId: draft.locationId }) };
       }
       case "traspaso": {
         const { transferId } = await writer.createTransfer({

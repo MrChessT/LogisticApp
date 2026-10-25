@@ -256,7 +256,7 @@ describe("confirmación", () => {
     const first = await service.confirm(req, ctx, writer);
     expect(first).toMatchObject({ ok: true, kind: "merma", message: "Merma registrada.", navigate: { route: "/mermas" } });
     expect(writer.calls).toEqual([
-      { method: "registerWaste", args: { locationId: PARADOR!.id, productId: PRODUCTS[0]!.id, qtyBase: "1400", reason: "rotura", areaId: expect.any(String), clientRef: key(1) } },
+      { method: "registerWaste", args: { locationId: PARADOR!.id, productId: PRODUCTS[0]!.id, qtyBase: "1400", reason: "rotura", exitKind: "merma", areaId: expect.any(String), clientRef: key(1) } },
     ]);
     expect(await service.confirm(req, ctx, writer)).toEqual(first);
     expect(writer.calls).toHaveLength(1);

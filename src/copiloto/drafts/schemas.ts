@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { baseUnitOf } from "../domain";
 import { formatDecimal } from "../entities/units";
 import { z } from "zod";
+import { EXIT_KINDS } from "../../lib/exit-kinds";
 import { DecimalString, ROLES, type Draft } from "../contract/index";
 import type { SessionContext } from "../domain";
 
@@ -48,6 +49,7 @@ export const WasteDraftSchema = base.extend({
   baseUnit,
   input: quantityInput,
   reason: z.string().max(200).nullable(),
+  exitKind: z.enum(EXIT_KINDS),
 });
 
 export const TransferDraftSchema = base
