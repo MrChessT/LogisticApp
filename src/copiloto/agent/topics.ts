@@ -45,11 +45,17 @@ export function topicReply(message: string): TopicReply | null {
  * de los recuentos. Se explica en vez de preguntar qué operación es (y acabar en una merma).
  */
 export function consumptionByHand(message: string): TopicReply | null {
-  const text = normalize(message);
-  if (!/\b(consumid[oa]s?|consumo|consumimos|se ha gastado|se han gastado|hemos gastado|gastamos)\b/.test(text)) return null;
-  if (!/\d|\b(apunta|registra|anota|mete)\b|^consumo$/.test(text.trim())) return null;
-  return {
-    text: "El consumo no se apunta a mano: sale de los recuentos (lo que había menos lo que queda). Si se ha roto, caducado o tirado, es una merma («merma de 2 botellas de Larios en el Parador»); si lo has contado, haz un recuento.",
-    route: "/inventarios",
-  };
+  const text = normalize(message).trim();
+  // Una pregunta sobre el consumo («compara el consumo de los 4 locales», «¿cuánto se ha consumido?») se
+  // contesta con los datos; esto es solo para cuando se quiere apuntar.
+  if (/^[¿]?\s*(compara|cuant[oa]s?|que|cual|dame|muestra|ensena|ver|como|cuando|donde)\b/.test(text)) return null;
+  if (text === "consumo") return CONSUMPTION_REPLY;
+  const registers = /\b(se ha consumido|se han consumido|hemos consumido|consumimos|se ha gastado|se han gastado|hemos gastado)\b|\b(apunta|registra|anota|mete)\b.*\bconsumo\b/.test(text);
+  if (!registers || !/\d/.test(text)) return null;
+  return CONSUMPTION_REPLY;
 }
+
+const CONSUMPTION_REPLY: TopicReply = {
+  text: "El consumo no se apunta a mano: sale de los recuentos (lo que había menos lo que queda). Si se ha roto, caducado o tirado, es una merma («merma de 2 botellas de Larios en el Parador»); si lo has contado, haz un recuento.",
+  route: "/inventarios",
+};

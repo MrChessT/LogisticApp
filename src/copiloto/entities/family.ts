@@ -70,6 +70,8 @@ export function familyOf(text: string, products: Product[], options: { exact?: b
     members = products.filter((p) => segmentsOf(p.category).some((s) => s.toLowerCase() === best));
   }
   if (members.length === 0 || members.length === products.length) return null;
-  const label = words.filter((w) => used.has(w)).join(" ");
+  // Una sola familia: su nombre del catálogo («tónicas», no lo escrito con errata); varias encadenadas
+  // («vino blanco»): lo que se dijo.
+  const label = matched.length === 1 ? names.get(matched[0]!)!.toLowerCase() : words.filter((w) => used.has(w)).join(" ");
   return { label, products: members };
 }

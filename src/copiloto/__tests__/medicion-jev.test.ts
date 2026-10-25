@@ -9,6 +9,7 @@ import { isUnitWord, parseQuantities } from "../entities/quantity-parser";
 import { bareCountNeedsWeight } from "../entities/units";
 import { pastPeriod } from "../tools/periods";
 import { movementTypesIn } from "../tools/types";
+import { consumptionByHand } from "../agent/topics";
 import { chat, FakeJev, find, makeAgent, run, type Script } from "./helpers";
 
 const route = (tipo: string, extra: Script = {}): Script => ({ intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: tipo, ...extra });
@@ -59,6 +60,8 @@ describe("batería en producción (2026-10-16)", () => {
   it("una familia del catálogo trae todos sus productos (no solo los que la llevan en el nombre)", () => {
     expect(familyOf("cervezas", catalog)?.products.map((p) => p.name)).toEqual(["Mahou 33 cl"]);
     expect(familyOf("ron", catalog)).toMatchObject({ label: "ron" });
+    // El titular usa el nombre de la familia, no lo escrito con errata.
+    expect(familyOf("cervesas", catalog)).toMatchObject({ label: "cervezas" });
     // Que empiece igual no basta: «espera» no es «Especias», «gasta» no es «Sin gas».
     expect(familyOf("cuanto se espera ganar", [...catalog, P("Comino", "Cocina › Especias")] as Product[])).toBeNull();
     expect(familyOf("lo que más se gasta", [...catalog, P("Font Vella", "Aguas › Sin gas")] as Product[])).toBeNull();
@@ -136,6 +139,9 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
     expect(find(await run(agent, chat("cuanto se espera ganar")), "done")!.text).toContain("ventas");
     expect(find(await run(agent, chat("se han consumido 10 cajas de cocacola y 3 fantas")), "done")!.text).toContain("recuento");
     expect(find(await run(agent, chat("olvídalo")), "done")!.text).toContain("Vale");
+    // Una pregunta sobre el consumo no es «apuntar consumo» («4 locales» no es una cantidad).
+    expect(consumptionByHand("compara el consumo de los 4 locales este mes")).toBeNull();
+    expect(consumptionByHand("cuánto se ha consumido esta semana")).toBeNull();
     expect(jev.calls).toHaveLength(0);
   });
 });
@@ -149,5 +155,14 @@ describe("sacar más de lo que consta (decisión del 16/10: confirmar con revisi
     const events = await run(agent, chat("sí, adelante"));
     expect(JSON.stringify(events)).toContain("márcalos en la tarjeta");
     expect(writer.calls).toHaveLength(0);
+  });
+});
+
+describe("secciones sin stock repartido (producción, 16/10)", () => {
+  it("«¿qué hay en cada sección?» en un local sin stock por zonas: lo dice y enseña el total, no «no hay stock»", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: "query_stock", local: "Pickels" }]);
+    const text = find(await run(makeAgent(jev).agent, chat("¿qué hay en cada sección de Pickels?")), "done")!.text;
+    expect(text).toContain("Aún no hay stock repartido por secciones");
+    expect(text).not.toContain("No hay stock registrado");
   });
 });
