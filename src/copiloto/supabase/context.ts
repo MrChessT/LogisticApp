@@ -11,7 +11,7 @@ interface ProductRow {
   category_id: string | null;
   category: { name: string } | null;
   notes: string | null;
-  packs: Array<{ id: string; name: string; qty_base: string; is_count_default: boolean; is_purchase_default: boolean; active: boolean }>;
+  packs: Array<{ id: string; name: string; qty_base: string; is_count_default: boolean; is_purchase_default: boolean; is_serving?: boolean; active: boolean }>;
 }
 
 /** Lectura paginada con la misma forma `{ data, error }` que una consulta suelta. */
@@ -46,7 +46,7 @@ export class SupabaseContext implements ContextPort {
         readAll<ProductRow>("el catálogo", (from, to) =>
           db
             .from("products")
-            .select("id,name,dimension,notes,category_id,category:categories(name),packs:product_packs(id,name,qty_base:qty_base::text,is_count_default,is_purchase_default,active)")
+            .select("id,name,dimension,notes,category_id,category:categories(name),packs:product_packs(*)")
             .eq("org_id", orgId)
             .eq("active", true)
             .order("name")
@@ -116,7 +116,7 @@ export class SupabaseContext implements ContextPort {
         notes: p.notes ?? null,
         packs: p.packs
           .filter((k) => k.active)
-          .map((k) => ({ id: k.id, name: k.name, qtyBase: String(k.qty_base), isCountDefault: k.is_count_default, isPurchaseDefault: k.is_purchase_default })),
+          .map((k) => ({ id: k.id, name: k.name, qtyBase: String(k.qty_base), isCountDefault: k.is_count_default, isPurchaseDefault: k.is_purchase_default, ...(k.is_serving ? { isServing: true } : {}) })),
       })),
       suppliers: refs(suppliers),
       categories: refs(categories),

@@ -31,6 +31,10 @@ const PACK_HINTS: Record<string, string[]> = {
   saco: ["saco"],
   bandeja: ["bandeja"],
   tercio: ["tercio", "botellin", "33"],
+  copa: ["copa"],
+  chupito: ["chupito"],
+  cana: ["cana"],
+  combinado: ["combinado", "copa combinado"],
 };
 
 /** ¿Este formato es de esa unidad? ("caja" → "Caja 6 botellas"). */
@@ -44,13 +48,16 @@ export function packMatchesUnit(pack: Pick<Pack, "name">, unit: string): boolean
  * primero) y, si se cuenta por unidades y ningún formato es la unidad suelta, también esta ("base").
  */
 export function unitReadings(product: Product): Array<Pack | "base"> {
-  const packs = [...product.packs].sort((a, b) => Number(b.isCountDefault) - Number(a.isCountDefault) || Number(b.isPurchaseDefault) - Number(a.isPurchaseDefault));
+  // Los formatos de servicio (copa, chupito) solo cuentan si se nombran: «5 de ron» son botellas.
+  const packs = [...product.packs]
+    .filter((p) => !p.isServing)
+    .sort((a, b) => Number(b.isCountDefault) - Number(a.isCountDefault) || Number(b.isPurchaseDefault) - Number(a.isPurchaseDefault));
   if (product.dimension !== "count" || packs.some((p) => new Decimal(p.qtyBase).eq(1))) return packs;
   return ["base", ...packs];
 }
 
 function defaultPack(product: Product): Pack | null {
-  const active = product.packs;
+  const active = product.packs.filter((p) => !p.isServing);
   return (
     active.find((p) => p.isCountDefault) ??
     active.find((p) => p.isPurchaseDefault) ??

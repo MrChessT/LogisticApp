@@ -26,8 +26,21 @@ type PackDraft = {
   barcode: string;
   purchaseDefault: boolean;
   countDefault: boolean;
+  /** Copa, chupito, caña…: unidad de consumo (no se compra ni se cuenta en ella). */
+  serving: boolean;
+  /** Pesos de la botella llena y vacía (g), para contar una abierta pesándola. */
+  fullWeight: string;
+  emptyWeight: string;
   active: boolean;
 };
+
+/** Formatos de servicio habituales (por volumen), para añadirlos de un toque. */
+const SERVING_PRESETS = [
+  { name: "Copa de vino 150 ml", ml: 150 },
+  { name: "Copa combinado 50 ml", ml: 50 },
+  { name: "Chupito 40 ml", ml: 40 },
+  { name: "Caña 200 ml", ml: 200 },
+];
 
 type PriceDraft = { key: string; supplierId: string; packKey: string; price: string; lastAt: string | null };
 
@@ -130,6 +143,9 @@ async function load(productId: string): Promise<Loaded> {
       barcode: k.barcode ?? "",
       purchaseDefault: k.is_purchase_default,
       countDefault: k.is_count_default,
+      serving: k.is_serving ?? false,
+      fullWeight: k.full_weight_g === null || k.full_weight_g === undefined ? "" : String(k.full_weight_g),
+      emptyWeight: k.empty_weight_g === null || k.empty_weight_g === undefined ? "" : String(k.empty_weight_g),
       active: k.active,
     };
   });
@@ -236,7 +252,13 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
       return {
         ...d,
         packs: d.packs.map((k) => {
-          if (k.key === key) return { ...k, ...p };
+          // Un formato de servicio no puede ser el de compra ni el de conteo.
+          if (k.key === key) {
+            const next = { ...k, ...p };
+            if (p.serving) return { ...next, purchaseDefault: false, countDefault: false };
+            if (p.purchaseDefault || p.countDefault) return { ...next, serving: false };
+            return next;
+          }
           // Solo puede haber un formato de compra y uno de conteo por defecto.
           return {
             ...k,
@@ -281,6 +303,10 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
       if (!k.name.trim()) return "Todos los formatos necesitan un nombre.";
       const amount = parseNum(k.amount);
       if (!amount || amount.lte(0)) return `Indica una cantidad mayor que 0 en el formato «${k.name}».`;
+      const full = k.fullWeight.trim() ? parseNum(k.fullWeight) : null;
+      const empty = k.emptyWeight.trim() ? parseNum(k.emptyWeight) : null;
+      if ((k.fullWeight.trim() && !full) || (k.emptyWeight.trim() && !empty)) return `Revisa los pesos del formato «${k.name}» (en gramos).`;
+      if (full && empty && full.lte(empty)) return `En «${k.name}», la botella llena tiene que pesar más que la vacía.`;
     }
     const packNames = d.packs.map((k) => k.name.trim().toLowerCase());
     if (new Set(packNames).size !== packNames.length) return "Hay dos formatos con el mismo nombre.";
@@ -364,6 +390,9 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
         barcode: k.barcode.trim() || null,
         is_purchase_default: k.purchaseDefault,
         is_count_default: k.countDefault,
+        is_serving: k.serving,
+        full_weight_g: k.fullWeight.trim() ? parseNum(k.fullWeight)!.toNumber() : null,
+        empty_weight_g: k.emptyWeight.trim() ? parseNum(k.emptyWeight)!.toNumber() : null,
         active: k.active,
       };
       if (k.id) {
@@ -587,7 +616,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
             <div className="editor-section">
               <p className="section-hint">Cómo se compra y se cuenta el producto. Ej.: «Botella 70 cl», «Caja 6 × 70 cl» = 4,2 l.</p>
               <div className="editor-table packs-table">
-                <div className="editor-head"><span>Nombre</span><span>Contenido</span><span>Código de barras</span><span title="Formato de compra por defecto">Compra</span><span title="Formato de conteo por defecto">Conteo</span><span>Activo</span><span /></div>
+                <div className="editor-head"><span>Nombre</span><span>Contenido</span><span>Código de barras</span><span title="Formato de compra por defecto">Compra</span><span title="Formato de conteo por defecto">Conteo</span><span title="Formato de servicio: copa, chupito, caña…">Servicio</span><span>Activo</span><span /></div>
                 {d.packs.map((k) => (
                   <div className="editor-row" key={k.key}>
                     <input value={k.name} onChange={(e) => patchPack(k.key, { name: e.target.value })} placeholder="Botella 70 cl" />
@@ -600,6 +629,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
                     <input value={k.barcode} onChange={(e) => patchPack(k.key, { barcode: e.target.value })} placeholder="Opcional" />
                     <button type="button" className={`star ${k.purchaseDefault ? "on" : ""}`} onClick={() => patchPack(k.key, { purchaseDefault: !k.purchaseDefault })} aria-label="Formato de compra por defecto"><Star size={15} /></button>
                     <button type="button" className={`star ${k.countDefault ? "on" : ""}`} onClick={() => patchPack(k.key, { countDefault: !k.countDefault })} aria-label="Formato de conteo por defecto"><Star size={15} /></button>
+                    <input type="checkbox" checked={k.serving} onChange={(e) => patchPack(k.key, { serving: e.target.checked })} aria-label={`${k.name || "Formato"} es de servicio`} />
                     <input type="checkbox" checked={k.active} onChange={(e) => patchPack(k.key, { active: e.target.checked })} aria-label="Activo" />
                     <button
                       type="button"
@@ -620,13 +650,52 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
                   patch({
                     packs: [
                       ...d.packs,
-                      { key: newKey(), id: null, name: "", amount: "", unit: packUnits[packUnits.length > 1 ? 1 : 0]!.id, barcode: "", purchaseDefault: d.packs.length === 0, countDefault: d.packs.length === 0, active: true },
+                      { key: newKey(), id: null, name: "", amount: "", unit: packUnits[packUnits.length > 1 ? 1 : 0]!.id, barcode: "", purchaseDefault: d.packs.length === 0, countDefault: d.packs.length === 0, serving: false, fullWeight: "", emptyWeight: "", active: true },
                     ],
                   })
                 }
               >
                 <Plus size={14} /> Añadir formato
               </button>
+              {d.dimension === "volume" && (
+                <div className="serving-presets">
+                  <p className="facet-title">Formatos de servicio</p>
+                  <p className="section-hint">La unidad en que se sirve: sirve para apuntar «2 copas» de merma y, más adelante, para vincular la carta y el TPV.</p>
+                  <div>
+                    {SERVING_PRESETS.filter((p) => !d.packs.some((k) => k.name.trim().toLowerCase() === p.name.toLowerCase())).map((p) => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        className="ghost-button"
+                        onClick={() =>
+                          patch({
+                            packs: [
+                              ...d.packs,
+                              { key: newKey(), id: null, name: p.name, amount: String(p.ml), unit: "ml", barcode: "", purchaseDefault: false, countDefault: false, serving: true, fullWeight: "", emptyWeight: "", active: true },
+                            ],
+                          })
+                        }
+                      >
+                        <Plus size={13} /> {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(() => {
+                const countPack = d.packs.find((k) => k.countDefault && k.active);
+                if (!countPack || d.dimension === "count") return null;
+                return (
+                  <div className="weights-section">
+                    <p className="facet-title">Pesaje de la {countPack.name || "botella"} abierta</p>
+                    <p className="section-hint">Con el peso lleno y vacío, en el inventario se puede pesar la botella empezada y se calcula lo que queda.</p>
+                    <div className="editor-grid">
+                      <label>Peso llena (g)<input inputMode="decimal" value={countPack.fullWeight} onChange={(e) => patchPack(countPack.key, { fullWeight: e.target.value })} placeholder="Ej. 1130" /></label>
+                      <label>Peso vacía (g)<input inputMode="decimal" value={countPack.emptyWeight} onChange={(e) => patchPack(countPack.key, { emptyWeight: e.target.value })} placeholder="Ej. 480" /></label>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -769,7 +838,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
 
 /** Formatos para mostrar el stock como se cuenta: la botella (o barril, kg…) y la caja de varias unidades. */
 function countingPacks(d: Draft): CountingPacks {
-  const active = d.packs.filter((k) => k.active && packQtyBase(k, d) > 0);
+  const active = d.packs.filter((k) => k.active && !k.serving && packQtyBase(k, d) > 0);
   const count = active.find((k) => k.countDefault);
   const box = [...active].filter((k) => packQtyBase(k, d) > 1).sort((a, b) => Number(b.purchaseDefault) - Number(a.purchaseDefault) || packQtyBase(b, d) - packQtyBase(a, d))[0];
   return {

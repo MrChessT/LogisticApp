@@ -208,6 +208,7 @@ export type Database = {
           empty_weight_g: number | null;
           is_count_default: boolean;
           is_purchase_default: boolean;
+          is_serving: boolean;
           active: boolean;
         };
         Insert: {
@@ -220,6 +221,7 @@ export type Database = {
           empty_weight_g?: number | null;
           is_count_default?: boolean;
           is_purchase_default?: boolean;
+          is_serving?: boolean;
           active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["product_packs"]["Insert"]>;
@@ -452,6 +454,8 @@ export type Database = {
           started_at: string;
           closed_by: string | null;
           closed_at: string | null;
+          close_reason: string | null;
+          close_note: string | null;
         };
         Insert: {
           id?: string;
@@ -608,7 +612,7 @@ export type Database = {
       send_transfer: { Args: { p_transfer: string }; Returns: undefined };
       receive_transfer: { Args: { p_transfer: string; p_lines?: Json }; Returns: undefined };
       cancel_transfer: { Args: { p_transfer: string }; Returns: undefined };
-      close_count: { Args: { p_count: string; p_zero_uncounted?: boolean; p_as_consumption?: boolean }; Returns: undefined };
+      close_count: { Args: { p_count: string; p_zero_uncounted?: boolean; p_as_consumption?: boolean; p_reason?: string | null; p_note?: string | null }; Returns: undefined };
       count_preview: {
         Args: { p_count: string; p_zero_uncounted?: boolean };
         Returns: Array<{

@@ -92,3 +92,15 @@
 .op-photo { display: flex; flex-direction: column; gap: 6px; }
 .op-photo input[type="file"] { height: auto; padding: 8px; font-size: 12px; }
 .op-photo small { color: #8b978f; font-size: 11px; font-weight: 400; }
+.count-open { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; margin-top: -2px; }
+.count-open > span { color: #8a978f; font-size: 10px; margin-right: 2px; }
+.count-open button { min-width: 40px; height: 32px; padding: 0 8px; border: 1px solid #dce5dd; border-radius: 7px; background: #fff; color: #53655a; font-size: 13px; font-weight: 700; cursor: pointer; }
+.count-open button.active { border-color: #2e8064; background: #e8f3ee; color: #1f6a50; }
+.count-open button:focus-visible { outline: 2px solid #2e8064; outline-offset: 1px; }
+.count-weight { display: flex; align-items: center; gap: 4px; }
+.count-weight input { width: 72px; height: 32px; padding: 0 8px; border: 1px solid #dce5dd; border-radius: 7px; font-size: 13px; text-align: right; }
+.count-weight small { color: #8a978f; font-size: 10px; }
+.count-reason { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px; border-radius: 10px; background: #fff8ec; }
+.count-reason label { display: flex; flex-direction: column; gap: 6px; color: #53655a; font-size: 11px; font-weight: 700; }
+.count-reason select, .count-reason input { height: 40px; margin-top: 0; }
+.count-reason small { color: #8a6d3b; font-size: 11px; }

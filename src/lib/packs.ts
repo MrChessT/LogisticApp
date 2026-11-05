@@ -3,7 +3,18 @@ import type { CountingPacks, UnitDimension } from "@/lib/units";
 
 // Formatos de un producto (botella, caja 6, barril…) tal como los necesitan los formularios.
 
-export type PackRow = { id?: string; name: string; qty_base: number | string; is_count_default: boolean; is_purchase_default?: boolean; active: boolean };
+export type PackRow = {
+  id?: string;
+  name: string;
+  qty_base: number | string;
+  is_count_default: boolean;
+  is_purchase_default?: boolean;
+  /** Copa, chupito, caña…: unidad de consumo; no es formato de compra ni de conteo. */
+  is_serving?: boolean;
+  full_weight_g?: number | string | null;
+  empty_weight_g?: number | string | null;
+  active: boolean;
+};
 /** Cómo se escribe una cantidad: en botellas, cajas, unidades… (factor = unidades base por cada una). */
 export type UnitChoice = { id: string; label: string; factor: string };
 
@@ -22,14 +33,23 @@ export function unitChoices(dimension: UnitDimension, packs: PackRow[]): UnitCho
 
 /** Formato de conteo y caja de compra de un producto (para «2 cajas + 5 ud»). */
 export function countingPacks(dimension: UnitDimension, packs: PackRow[]): CountingPacks {
-  const active = packs.filter((k) => k.active);
+  const active = packs.filter((k) => k.active && !k.is_serving);
   const count = active.find((k) => k.is_count_default);
   const box = [...active]
     .filter((k) => new Decimal(String(k.qty_base)).gt(1))
     .sort((a, b) => Number(b.is_purchase_default ?? false) - Number(a.is_purchase_default ?? false) || new Decimal(String(b.qty_base)).cmp(String(a.qty_base)))[0];
   return {
     dimension,
-    countPack: count ? { name: count.name, qtyBase: String(count.qty_base) } : null,
+    countPack: count
+      ? {
+          name: count.name,
+          qtyBase: String(count.qty_base),
+          // Pesos de la botella llena y vacía, si se conocen (para pesar una abierta).
+          ...(count.full_weight_g != null && count.empty_weight_g != null
+            ? { fullWeightG: String(count.full_weight_g), emptyWeightG: String(count.empty_weight_g) }
+            : {}),
+        }
+      : null,
     purchasePack: box ? { name: box.name, qtyBase: String(box.qty_base) } : null,
   };
 }

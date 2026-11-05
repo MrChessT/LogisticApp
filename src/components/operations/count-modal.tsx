@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { readAll } from "@/lib/supabase/read-all";
 import { loadCountCatalog } from "@/lib/count-catalog";
 import { decimalText, euros, normalizeText, parseDecimal as parse, quantity } from "@/lib/format";
-import { countLayout, countTotal, formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
+import { countLayout, countTotal, formatStock, OPEN_FRACTIONS, openQty, type CountingPacks, type OpenEntry, type UnitDimension } from "@/lib/units";
 
 const unitDimension = (baseUnit: string): UnitDimension => (baseUnit === "ml" ? "volume" : baseUnit === "g" ? "mass" : "count");
 
@@ -19,7 +19,17 @@ const unitDimension = (baseUnit: string): UnitDimension => (baseUnit === "ml" ? 
 //      en un bar sin TPV es el consumo real del periodo y alimenta informes y reposición.
 
 type Product = { id: string; name: string; base_unit: string; family?: string | null; packs?: CountingPacks };
-type Entry = { boxes: string; loose: string };
+type Entry = { boxes: string; loose: string; fraction: string; weight: string };
+
+/** Motivo del ajuste al cerrar (lo que no se registra como consumo). */
+const CLOSE_REASONS = [
+  { value: "consumo_no_registrado", label: "Consumo no registrado" },
+  { value: "merma_no_registrada", label: "Merma o rotura no registrada" },
+  { value: "recepcion_no_registrada", label: "Recepción no registrada" },
+  { value: "error_conteo_anterior", label: "Error en el conteo anterior" },
+  { value: "robo_o_perdida", label: "Robo o pérdida sin explicar" },
+  { value: "otro", label: "Otro (explícalo)" },
+] as const;
 type PreviewRow = { productId: string; name: string; unit: string; expected: Decimal; counted: Decimal; diff: Decimal; value: Decimal };
 type Filter = "todos" | "pendientes" | "contados";
 
@@ -55,6 +65,8 @@ export function CountModal({
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [zeroUncounted, setZeroUncounted] = useState(false);
   const [asConsumption, setAsConsumption] = useState(true);
+  const [reason, setReason] = useState("");
+  const [reasonNote, setReasonNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -89,14 +101,23 @@ export function CountModal({
 
   const layouts = useMemo(() => new Map(products.map((p) => [p.id, countLayout(p.packs ?? { dimension: unitDimension(p.base_unit) })])), [products]);
   const layoutOf = (productId: string) => layouts.get(productId)!;
-  const entryOf = (productId: string): Entry => entries[productId] ?? { boxes: "", loose: "" };
+  const entryOf = (productId: string): Entry => entries[productId] ?? { boxes: "", loose: "", fraction: "", weight: "" };
+  const hasInput = (e: Entry) => !!(e.boxes.trim() || e.loose.trim() || e.fraction || e.weight.trim());
+  /** Botella abierta tecleada: la fracción elegida o el peso. */
+  const openOf = (e: Entry): OpenEntry | null => (e.weight.trim() ? { weightG: e.weight.trim() } : e.fraction ? { fraction: e.fraction } : null);
   const typedOf = (productId: string): Decimal | null | "invalid" => {
     const e = entryOf(productId);
-    if (!e.boxes.trim() && !e.loose.trim()) return null;
+    if (!hasInput(e)) return null;
+    const layout = layoutOf(productId);
     const boxes = e.boxes.trim() ? parse(e.boxes) : null;
     const loose = e.loose.trim() ? parse(e.loose) : null;
     if ((e.boxes.trim() && boxes === null) || (e.loose.trim() && loose === null)) return "invalid";
-    return countTotal(layoutOf(productId), boxes, loose) ?? "invalid";
+    const whole = boxes || loose ? countTotal(layout, boxes, loose) : new Decimal(0);
+    if (whole === null) return "invalid";
+    const open = openOf(e);
+    const opened = open ? openQty(layout, open) : null;
+    if (open && opened === null) return "invalid";
+    return whole.plus(opened ?? 0);
   };
   // Como se cuenta en barra (botellas, cajas + ud…) si se conocen los formatos; si no, en unidad base.
   const show = (q: Decimal, productId: string, unit: string) => {
@@ -106,7 +127,7 @@ export function CountModal({
 
   const groups = useMemo(() => {
     const matches = products.filter((p) => !search || normalizeText(`${p.name} ${p.family ?? ""}`).includes(normalizeText(search)));
-    const isDone = (id: string) => counted.has(id) || !!entries[id]?.boxes.trim() || !!entries[id]?.loose.trim();
+    const isDone = (id: string) => counted.has(id) || (!!entries[id] && hasInput(entries[id]!));
     const shown = matches.filter((p) => filter === "todos" || (filter === "contados") === isDone(p.id));
     // Con búsqueda se ve todo; sin ella, primero el surtido del local.
     const inLocation = (id: string) => !assortment || assortment.size === 0 || assortment.has(id) || !!search;
@@ -129,7 +150,7 @@ export function CountModal({
     if (invalid) {
       const layout = layoutOf(invalid);
       setError(
-        `Revisa ${products.find((p) => p.id === invalid)?.name ?? "un producto"}: las cajas van en números enteros${layout.unit.decimals ? "" : " y las sueltas también"} (usa 2 o 1,5).`,
+        `Revisa ${products.find((p) => p.id === invalid)?.name ?? "un producto"}: las cajas van en números enteros${layout.unit.decimals ? "" : " y las sueltas también"} (usa 2 o 1,5)${layout.open?.weights ? "; el peso, en gramos" : ""}.`,
       );
       return false;
     }
@@ -139,14 +160,19 @@ export function CountModal({
       const e = entryOf(productId);
       const layout = layoutOf(productId);
       const plain = (t: string) => (t.trim() ? parse(t)!.toString() : "0");
+      const open = openOf(e);
+      // La botella abierta queda en la entrada: «1/2» o «640 g» (y lo que suponía en unidad base).
+      const openInput = open
+        ? { open: "fraction" in open ? { fraction: open.fraction } : { weight_g: parse(open.weightG)!.toString(), qty: openQty(layout, open)!.toString() } }
+        : {};
       return {
         count_id: count.id,
         product_id: productId,
         qty: (typedOf(productId) as Decimal).toNumber(),
         // Lo que se tecleó, para poder revisar el conteo: «3 cajas (Caja 24) + 5 ud».
         input: layout.box
-          ? { boxes: plain(e.boxes), box: layout.box.name, loose: plain(e.loose), unit: layout.unit.name }
-          : { amount: plain(e.loose), unit: layout.unit.name },
+          ? { boxes: plain(e.boxes), box: layout.box.name, loose: plain(e.loose), unit: layout.unit.name, ...openInput }
+          : { amount: plain(e.loose), unit: layout.unit.name, ...openInput },
         client_ref: crypto.randomUUID(),
       };
     });
@@ -210,7 +236,23 @@ export function CountModal({
     if (!supabase) return;
     setSaving(true);
     setError("");
-    const { error: err } = await supabase.rpc("close_count", { p_count: count.id, p_zero_uncounted: zeroUncounted, p_as_consumption: asConsumption });
+    if (needsReason && !reason) {
+      setSaving(false);
+      setError("Elige el motivo de las diferencias antes de cerrar.");
+      return;
+    }
+    if (reason === "otro" && !reasonNote.trim()) {
+      setSaving(false);
+      setError("Explica el motivo en una frase.");
+      return;
+    }
+    const { error: err } = await supabase.rpc("close_count", {
+      p_count: count.id,
+      p_zero_uncounted: zeroUncounted,
+      p_as_consumption: asConsumption,
+      p_reason: needsReason ? reason : null,
+      p_note: needsReason && reasonNote.trim() ? reasonNote.trim() : null,
+    });
     setSaving(false);
     if (err) {
       setError(err.message?.includes("forbidden") ? "Solo un encargado puede cerrar el inventario. Guarda el conteo y avísale." : err.message?.includes("invalid_status") ? "Este inventario ya está cerrado." : "No se pudo cerrar el inventario.");
@@ -226,6 +268,34 @@ export function CountModal({
     const already = counted.get(product.id);
     const typed = typedOf(product.id);
     const set = (patch: Partial<Entry>) => setEntries({ ...entries, [product.id]: { ...entry, ...patch } });
+    const openRow = layout.open && (
+      <div className="count-open" role="group" aria-label={`${layout.unit.name} abierta de ${product.name}`}>
+        <span>Abierta</span>
+        {OPEN_FRACTIONS.map((f) => (
+          <button
+            type="button"
+            key={f.value}
+            className={entry.fraction === f.value && !entry.weight.trim() ? "active" : undefined}
+            aria-pressed={entry.fraction === f.value && !entry.weight.trim()}
+            onClick={() => set({ fraction: entry.fraction === f.value ? "" : f.value, weight: "" })}
+          >
+            {f.label}
+          </button>
+        ))}
+        {layout.open.weights && (
+          <label className="count-weight">
+            <input
+              inputMode="decimal"
+              placeholder="peso"
+              value={entry.weight}
+              onChange={(event) => set({ weight: event.target.value, fraction: "" })}
+              aria-label={`Peso de la ${layout.unit.name.toLowerCase()} abierta de ${product.name}, en gramos`}
+            />
+            <small>g</small>
+          </label>
+        )}
+      </div>
+    );
     return (
       <div className={`count-line${typed === "invalid" ? " invalid" : ""}`} key={product.id}>
         <span className="count-line-name">
@@ -245,8 +315,9 @@ export function CountModal({
         )}
         <label className="count-field">
           <input inputMode="decimal" placeholder="0" value={entry.loose} onChange={(event) => set({ loose: event.target.value })} aria-label={`${layout.box ? "Sueltas" : "Cantidad"} de ${product.name}`} />
-          <small>{layout.box ? `${layout.unit.plural} sueltas` : layout.unit.plural}</small>
+          <small>{layout.open ? `${layout.unit.plural} llenas` : layout.box ? `${layout.unit.plural} sueltas` : layout.unit.plural}</small>
         </label>
+        {openRow}
       </div>
     );
   }
@@ -254,6 +325,8 @@ export function CountModal({
   const missing = (preview ?? []).filter((r) => r.diff.lt(0)).reduce((acc, r) => acc.plus(r.value.abs()), new Decimal(0));
   const extra = (preview ?? []).filter((r) => r.diff.gt(0)).reduce((acc, r) => acc.plus(r.value), new Decimal(0));
   const changes = (preview ?? []).filter((r) => !r.diff.isZero());
+  // Lo que no se registra como consumo queda como ajuste: hay que decir por qué.
+  const needsReason = changes.some((r) => r.diff.gt(0) || !asConsumption);
 
   return (
     <div className="op-modal-layer" onClick={() => !saving && onClose()}>
@@ -304,7 +377,7 @@ export function CountModal({
               {catalogState === "error" && <p className="count-empty">No se pudo cargar el catálogo. Cierra y vuelve a abrir el inventario.</p>}
               {catalogState === "ready" && groups.families.length === 0 && groups.others.length === 0 && <p className="count-empty">Ningún producto coincide.</p>}
             </div>
-            <p className="count-hint">Cuenta las cajas cerradas y lo suelto aparte; se suman solas. Lo que guardes se añade a lo ya contado: podéis contar por zonas o entre varias personas.</p>
+            <p className="count-hint">Cuenta las cajas cerradas y lo suelto aparte; se suman solas. La botella empezada va en «Abierta» (¼, ½, ¾ o su peso). Lo que guardes se añade a lo ya contado: podéis contar por zonas o entre varias personas.</p>
             {notice && <p className="count-notice">{notice}</p>}
             {error && <p className="op-modal-error">{error}</p>}
             <div className="op-modal-actions">
@@ -346,6 +419,24 @@ export function CountModal({
               />
               <span><b>Poner a cero lo no contado</b><small>Los productos activos del local que no se han contado pasan a 0. Úsalo solo en un inventario completo.</small></span>
             </label>
+            {needsReason && (
+              <div className="count-reason">
+                <label>
+                  Motivo de las diferencias
+                  <select value={reason} onChange={(event) => { setReason(event.target.value); setError(""); }}>
+                    <option value="">Elige un motivo</option>
+                    {CLOSE_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </label>
+                {reason === "otro" && (
+                  <label>
+                    Explícalo
+                    <input value={reasonNote} maxLength={300} onChange={(event) => setReasonNote(event.target.value)} placeholder="Ej. se contó la cámara dos veces el mes pasado" />
+                  </label>
+                )}
+                <small>Queda en el inventario y en cada ajuste, para entender después por qué no cuadraba.</small>
+              </div>
+            )}
             {error && <p className="op-modal-error">{error}</p>}
             <div className="op-modal-actions">
               <button className="op-modal-submit op-modal-secondary" onClick={() => setStep("count")} disabled={saving}><ArrowLeft size={14} /> Seguir contando</button>
