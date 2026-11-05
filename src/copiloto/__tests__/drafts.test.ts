@@ -171,6 +171,10 @@ describe("borradores desde el chat", () => {
     expect(withPrice.lines).toEqual([
       expect.objectContaining({ packName: "Caja 24 ud", packsQty: "3", packPrice: "13.5", priceSource: "usuario" }),
     ]);
+    // Recepción blindada: 13,50 € frente a los 13,20 € de la última vez se avisa.
+    expect(withPrice.checks).toEqual([
+      expect.objectContaining({ label: "Precio", status: "aviso", detail: "Coca-Cola 20 cl: 13,50 € por Caja 24 ud, 0,30 € (+2,3 %) más que la última vez con Bebidas del Sur (13,20 €)." }),
+    ]);
     const lastPrice = find(await run(makeAgent(new FakeJev([script, { coherencia: 0.9 }])).agent, chat("han llegado 3 cajas de coca en Parador")), "draft") as ReceiptDraft;
     expect(lastPrice.lines[0]).toMatchObject({ packPrice: "13.2", priceSource: "ultimo_precio" });
     expect(lastPrice.supplierName).toBe("Bebidas del Sur");

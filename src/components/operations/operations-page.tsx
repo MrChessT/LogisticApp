@@ -23,6 +23,7 @@ import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import { ProductPicker } from "@/components/product-picker/product-picker";
+import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, photoUrl, priceCheck, type Incident } from "@/lib/receipt-checks";
 import { EXIT_KIND_LABEL, EXIT_KIND_REASONS, EXIT_KINDS, isExitKind, isLoss, type ExitKind } from "@/lib/exit-kinds";
 import "./operations.css";
 import "./operations-modal.css";
@@ -37,10 +38,12 @@ const unitsOf = (product: LookupProduct | null): UnitChoice[] => (product ? unit
 type SupplierOption = { id: string; name: string };
 type Reference = { orgId: string; locations: Location[]; suppliers: SupplierOption[] };
 type TransferLine = { product: LookupProduct | null; qty: string; unit: string };
-type ReceiptLine = { product: LookupProduct | null; packId: string; qty: string; price: string };
+type ReceiptLine = { product: LookupProduct | null; packId: string; qty: string; price: string; incident: Incident | "" };
 
 /** Locales y proveedores compartidos por las cuatro pantallas de operativa (el catálogo ya no se
  *  descarga: cada formulario busca en el servidor solo lo que se escribe). */
+const NO_PRICES = new Map<string, number>();
+
 let referenceCache: (Reference & { userId: string }) | null = null;
 
 type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
@@ -125,7 +128,11 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [rSupplier, setRSupplier] = useState("");
   const [rDocNumber, setRDocNumber] = useState("");
   const [rDocDate, setRDocDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [rLines, setRLines] = useState<ReceiptLine[]>([{ product: null, packId: "", qty: "", price: "" }]);
+  const [rPhoto, setRPhoto] = useState<File | null>(null);
+  /** Último precio de cada formato con el proveedor elegido: lo pactado con lo que se compara el albarán. */
+  const [agreedBySupplier, setAgreedBySupplier] = useState<{ supplierId: string; prices: Map<string, number> } | null>(null);
+  const agreed = agreedBySupplier && agreedBySupplier.supplierId === rSupplier ? agreedBySupplier.prices : NO_PRICES;
+  const [rLines, setRLines] = useState<ReceiptLine[]>([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
 
   // Inventarios
   const [ivLocation, setIvLocation] = useState("");
@@ -173,7 +180,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     if (kind === "recepciones") {
       const { data, error } = await supabase
         .from("goods_receipts")
-        .select("id, doc_number, doc_date, status, suppliers(name), locations(name), receipt_lines(packs_qty, pack_price)")
+        .select("id, doc_number, doc_date, status, attachment_path, suppliers(name), locations(name), receipt_lines(packs_qty, pack_price, expected_price, incident)")
         .order("doc_date", { ascending: false });
       if (error) {
         setLoadError("No se pudieron cargar las recepciones.");
@@ -183,23 +190,47 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       const records = (data ?? []) as unknown as Array<{
         id: string; doc_number: string | null; doc_date: string; status: "open" | "closed" | "cancelled";
         suppliers: { name: string } | null; locations: { name: string } | null;
-        receipt_lines: Array<{ packs_qty: number; pack_price: number }>;
+        attachment_path: string | null;
+        receipt_lines: Array<{ packs_qty: number; pack_price: number; expected_price: number | null; incident: string | null }>;
       }>;
+      // Lo cobrado de más frente a lo pactado (solo subidas) y las incidencias de cada albarán.
+      const overcharge = (r: (typeof records)[number]) =>
+        r.receipt_lines.reduce((sum, l) => (l.expected_price !== null && l.pack_price > l.expected_price + 0.005 ? sum + (l.pack_price - l.expected_price) * l.packs_qty : sum), 0);
+      const incidents = (r: (typeof records)[number]) => r.receipt_lines.filter((l) => l.incident).length;
       setRows(
         records.map((r) => ({
           id: r.id,
           title: r.doc_number ? `Albarán ${r.doc_number}` : "Albarán sin número",
-          detail: r.suppliers?.name ?? "Proveedor sin asignar",
+          detail: [
+            r.suppliers?.name ?? "Proveedor sin asignar",
+            overcharge(r) > 0 ? `${formatCurrency(overcharge(r))} por encima de lo pactado` : null,
+            incidents(r) > 0 ? `${incidents(r)} ${incidents(r) === 1 ? "incidencia" : "incidencias"}` : null,
+            r.attachment_path ? null : "sin foto",
+          ].filter(Boolean).join(" · "),
           status: r.locations?.name ?? "Local sin asignar",
           rawStatus: r.status,
-          statusColor: r.status === "closed" ? "green" : r.status === "cancelled" ? "red" : "orange",
+          statusColor: overcharge(r) > 0 || incidents(r) > 0 ? "orange" : r.status === "closed" ? "green" : r.status === "cancelled" ? "red" : "orange",
           date: formatDate(r.doc_date),
-          actions: [],
+          actions: r.attachment_path
+            ? [{
+                label: "Ver albarán",
+                tone: "secondary" as const,
+                onClick: () => {
+                  // La ventana se abre en el clic (los navegadores bloquean las que se abren después de esperar).
+                  const win = window.open("", "_blank");
+                  void photoUrl(supabase, r.attachment_path!).then((url) => {
+                    if (url && win) win.location.href = url;
+                    else win?.close();
+                  });
+                },
+              }]
+            : [],
         })),
       );
       const openCount = records.filter((r) => r.status === "open").length;
       const total = records.reduce((sum, r) => sum + r.receipt_lines.reduce((s, l) => s + l.packs_qty * l.pack_price, 0), 0);
-      setMetrics([String(openCount), formatCurrency(total), "—", "—"]);
+      const extra = records.reduce((sum, r) => sum + overcharge(r), 0);
+      setMetrics([String(openCount), formatCurrency(total), extra > 0 ? `${formatCurrency(extra)} de más` : "Sin cobros de más", "—"]);
     }
 
     if (kind === "traspasos") {
@@ -333,6 +364,18 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   }
 
   useEffect(() => {
+    if (kind !== "recepciones" || !rSupplier) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = (await createClient()?.from("supplier_prices").select("pack_id, last_price").eq("supplier_id", rSupplier).not("last_price", "is", null)) ?? { data: null };
+      if (!cancelled) setAgreedBySupplier({ supplierId: rSupplier, prices: new Map((data ?? []).map((r) => [r.pack_id as string, Number(r.last_price)])) });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, rSupplier]);
+
+  useEffect(() => {
     async function bootstrap() {
       // Referencia y listado a la vez; el listado solo espera a los locales si los necesita (traspasos).
       const ref = loadReference();
@@ -357,7 +400,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setRSupplier("");
     setRDocNumber("");
     setRDocDate(new Date().toISOString().slice(0, 10));
-    setRLines([{ product: null, packId: "", qty: "", price: "" }]);
+    setRLines([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
+    setRPhoto(null);
     setIvLocation("");
   }
 
@@ -507,7 +551,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     }
 
     const { error: linesError } = await supabase.from("receipt_lines").insert(
-      validLines.map((line) => ({ receipt_id: receipt.id, pack_id: line.packId, packs_qty: Number(line.qty), pack_price: Number(line.price) })),
+      validLines.map((line) => ({ receipt_id: receipt.id, pack_id: line.packId, packs_qty: Number(line.qty), pack_price: Number(line.price), incident: line.incident || null })),
     );
     if (linesError) {
       setFormError("La recepción se creó pero no se pudieron guardar las líneas.");
@@ -520,6 +564,13 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       setFormError("La recepción se guardó pero no se pudo confirmar el stock.");
       setSaving(false);
       return;
+    }
+    if (rPhoto) {
+      const photoError = await attachReceiptPhoto(supabase, { id: receipt.id, orgId, locationId: rLocation }, rPhoto);
+      if (photoError) {
+        // La recepción ya está registrada: se avisa y se cierra igualmente para no duplicarla.
+        setLoadError(`Recepción registrada, pero ${photoError.charAt(0).toLowerCase()}${photoError.slice(1)}`);
+      }
     }
 
     setSaving(false);
@@ -792,10 +843,37 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                         <input type="number" min="0" step="any" placeholder="Precio €" value={line.price} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, price: e.target.value } : l))} />
                         <button onClick={() => setRLines(rLines.filter((_, i) => i !== index))} aria-label="Quitar línea"><Trash2 size={14} /></button>
                       </div>
+                      {(() => {
+                        const expected = line.packId ? agreed.get(line.packId) : undefined;
+                        const check = priceCheck(line.price, expected ?? null);
+                        return (
+                          <div className="op-receipt-check">
+                            {check ? (
+                              <span className={`op-price-check ${check.status}`}>
+                                Pactado {formatCurrency(expected!)}{check.status === "igual" ? " · coincide" : ` · ${describeDiff(check, formatCurrency)}`}
+                              </span>
+                            ) : (
+                              <span className="op-price-check none">{rSupplier ? "Sin precio anterior con este proveedor" : "Elige proveedor para comparar el precio"}</span>
+                            )}
+                            <select
+                              value={line.incident}
+                              aria-label={`Incidencia de la línea ${index + 1}`}
+                              onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, incident: e.target.value as Incident | "" } : l))}
+                            >
+                              <option value="">Sin incidencia</option>
+                              {INCIDENTS.map((k) => <option key={k} value={k}>{INCIDENT_LABEL[k]}</option>)}
+                            </select>
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
-                <button className="op-modal-add-line" onClick={() => setRLines([...rLines, { product: null, packId: "", qty: "", price: "" }])}><Plus size={14} /> Añadir línea</button>
+                <button className="op-modal-add-line" onClick={() => setRLines([...rLines, { product: null, packId: "", qty: "", price: "", incident: "" }])}><Plus size={14} /> Añadir línea</button>
+                <label className="op-photo">Foto del albarán
+                  <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setRPhoto(e.target.files?.[0] ?? null)} />
+                  <small>{rPhoto ? "Se guardará con la recepción como justificante." : "Opcional: queda guardada como justificante."}</small>
+                </label>
                 <button className="op-modal-submit" onClick={handleCreateReceipt} disabled={saving}>{saving ? "Registrando..." : "Registrar recepción"}</button>
               </>
             )}

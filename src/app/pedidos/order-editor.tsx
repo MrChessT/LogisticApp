@@ -9,6 +9,7 @@ import { purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { canManage, orderText, orderTotal, saveDraft, STATUS_LABEL, type Order, type OrderLine, type Reference } from "./orders-data";
 import { describeTerms, formatDayLong, minOrderShortfall, nextDelivery } from "@/lib/supplier-terms";
+import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, priceCheck, type Incident } from "@/lib/receipt-checks";
 
 // Ficha de un pedido. Borrador: se edita y se envía (encargado). Enviado o parcial: se recibe
 // (cualquiera con acceso al local) o se cancela (encargado). Recibido o cancelado: solo lectura.
@@ -46,7 +47,8 @@ export function OrderEditor({
   const [note, setNote] = useState(order?.note ?? "");
   const [expectedDate, setExpectedDate] = useState(order?.expectedDate ?? "");
   const [lines, setLines] = useState<OrderLine[]>(order?.lines ?? []);
-  const [receive, setReceive] = useState<Record<string, { qty: string; price: string }>>({});
+  const [receive, setReceive] = useState<Record<string, { qty: string; price: string; incident: Incident | "" }>>({});
+  const [photo, setPhoto] = useState<File | null>(null);
   const [docNumber, setDocNumber] = useState("");
   const [closeOrder, setCloseOrder] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -163,10 +165,10 @@ export function OrderEditor({
   }
 
   function startReceive() {
-    const initial: Record<string, { qty: string; price: string }> = {};
+    const initial: Record<string, { qty: string; price: string; incident: Incident | "" }> = {};
     for (const l of lines) {
       const remaining = Decimal.max(0, new Decimal(l.packsQty).minus(l.receivedPacks));
-      initial[l.packId] = { qty: remaining.gt(0) ? inputText(remaining) : "", price: inputText(l.packPrice || "0") };
+      initial[l.packId] = { qty: remaining.gt(0) ? inputText(remaining) : "", price: inputText(l.packPrice || "0"), incident: "" };
     }
     setReceive(initial);
     setMode("receive");
@@ -174,21 +176,27 @@ export function OrderEditor({
 
   async function confirmReceive() {
     const received = Object.entries(receive)
-      .map(([packId, r]) => ({ packId, qty: parse(r.qty), price: parse(r.price) }))
+      .map(([packId, r]) => ({ packId, qty: parse(r.qty), price: parse(r.price), incident: r.incident }))
       .filter((r) => r.qty && r.qty.gt(0));
     if (received.length === 0) return setError("Indica al menos una cantidad recibida.");
     if (received.some((r) => r.price === null)) return setError("Revisa los precios: usa números como 12,50.");
     setSaving(true);
     setError("");
-    const { error: err } = (await createClient()?.rpc("receive_order", {
+    const supabase = createClient();
+    const { data: receiptId, error: err } = (await supabase?.rpc("receive_order", {
       p_order: order!.id,
-      p_lines: received.map((r) => ({ pack_id: r.packId, packs_qty: r.qty!.toString(), pack_price: r.price!.toString() })),
+      p_lines: received.map((r) => ({ pack_id: r.packId, packs_qty: r.qty!.toString(), pack_price: r.price!.toString(), incident: r.incident || null })),
       p_doc_number: docNumber.trim() || null,
       p_close: closeOrder,
-    })) ?? { error: null };
+    })) ?? { data: null, error: null };
+    if (err) {
+      setSaving(false);
+      return setError(rpcMessage(err.message, "No se pudo registrar la recepción."));
+    }
+    // La foto se sube con la recepción ya creada: si falla, la mercancía queda recibida y se avisa.
+    const photoError = photo && supabase && receiptId ? await attachReceiptPhoto(supabase, { id: String(receiptId), orgId: reference.orgId, locationId: order!.locationId }, photo) : null;
     setSaving(false);
-    if (err) return setError(rpcMessage(err.message, "No se pudo registrar la recepción."));
-    onChanged("Mercancía recibida: stock y precios actualizados.");
+    onChanged(photoError ? `Mercancía recibida, pero ${photoError.charAt(0).toLowerCase()}${photoError.slice(1)}` : "Mercancía recibida: stock y precios actualizados.");
   }
 
   async function cancel() {
@@ -268,7 +276,8 @@ export function OrderEditor({
                 const pack = { productName: l.productName, name: l.packName };
                 const amount = new Decimal(parse(l.packsQty) ?? 0).mul(parse(l.packPrice) ?? 0);
                 if (mode === "receive") {
-                  const r = receive[l.packId] ?? { qty: "", price: "" };
+                  const r = receive[l.packId] ?? { qty: "", price: "", incident: "" as const };
+                  const check = priceCheck(parse(r.price)?.toString() ?? null, l.packPrice || null);
                   return (
                     <div className="editor-row receive-row" key={l.packId}>
                       <span><b>{pack?.productName ?? "Producto"}</b><small>{pack?.name}</small></span>
@@ -278,6 +287,21 @@ export function OrderEditor({
                       <div className="money-input">
                         <input inputMode="decimal" value={r.price} onChange={(event) => setReceive({ ...receive, [l.packId]: { ...r, price: event.target.value } })} aria-label={`Precio de ${pack?.productName}`} />
                         <span>€</span>
+                      </div>
+                      <div className="receive-check">
+                        {check && check.status !== "igual" ? (
+                          <span className={`price-check ${check.status}`}>Pedido a {euros(Number(l.packPrice))} · {describeDiff(check, euros)}</span>
+                        ) : (
+                          <span className="price-check none">{l.packPrice ? "Precio como en el pedido" : "Sin precio en el pedido"}</span>
+                        )}
+                        <select
+                          value={r.incident}
+                          aria-label={`Incidencia de ${pack?.productName}`}
+                          onChange={(event) => setReceive({ ...receive, [l.packId]: { ...r, incident: event.target.value as Incident | "" } })}
+                        >
+                          <option value="">Sin incidencia</option>
+                          {INCIDENTS.map((k) => <option key={k} value={k}>{INCIDENT_LABEL[k]}</option>)}
+                        </select>
                       </div>
                     </div>
                   );
@@ -319,6 +343,9 @@ export function OrderEditor({
             {mode === "receive" && (
               <div className="editor-grid receive-extra">
                 <label>Nº de albarán<input value={docNumber} onChange={(event) => setDocNumber(event.target.value)} placeholder="Opcional" /></label>
+                <label>Foto del albarán
+                  <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} />
+                </label>
                 <label className="check-option">
                   <input type="checkbox" checked={closeOrder} onChange={(event) => setCloseOrder(event.target.checked)} /> Cerrar el pedido aunque falte algo
                 </label>

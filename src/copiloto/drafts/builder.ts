@@ -283,11 +283,27 @@ export class DraftBuilder {
       described.push(`${formatDecimal(packsQty!, 4)} × ${pack.name} de ${p.product.name}`);
     }
 
-    // Precio y proveedor por defecto: el último precio de compra de cada formato.
-    const prices = await source.supplierPrices(lines.filter((l) => !l.packPrice).map((l) => l.packId));
+    // Precio y proveedor por defecto: el último precio de compra de cada formato. Si el precio lo dice el
+    // usuario (el del albarán), se compara con ese último precio: un cobro por encima se revisa.
+    const prices = await source.supplierPrices(lines.map((l) => l.packId));
     const suppliers = new Set<string>();
+    const checks: DraftCheck[] = [];
     for (const line of lines) {
-      if (line.packPrice) continue;
+      if (line.packPrice) {
+        const last = prices.find((p) => p.packId === line.packId);
+        const diff = last ? new Decimal(line.packPrice).minus(last.lastPrice) : null;
+        if (last && diff && diff.gte(0.005)) {
+          const pct = new Decimal(last.lastPrice).isZero() ? "" : ` (+${formatDecimal(diff.div(last.lastPrice).mul(100), 1)} %)`;
+          checks.push({
+            id: `precio-${line.packId}`,
+            label: "Precio",
+            status: "aviso",
+            detail: `${line.productName}: ${formatMoney(line.packPrice)} por ${line.packName}, ${formatMoney(diff)}${pct} más que la última vez con ${last.supplierName} (${formatMoney(last.lastPrice)}).`,
+            probability: null,
+          });
+        }
+        continue;
+      }
       const last = prices.find((p) => p.packId === line.packId);
       if (last) {
         line.packPrice = new Decimal(last.lastPrice).toString();
@@ -314,6 +330,7 @@ export class DraftBuilder {
       docNumber: null,
       docDate: businessDay(now, location?.timezone ?? "Europe/Madrid", "00:00"),
       lines,
+      ...(checks.length ? { checks } : {}),
     };
     return {
       kind: "draft",
