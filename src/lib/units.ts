@@ -6,6 +6,9 @@ export type UnitDimension = "mass" | "volume" | "count";
 export type Pack = {
   name: string;
   qtyBase: string;
+  /** Peso de la botella llena y vacía (g), para contar una abierta pesándola. */
+  fullWeightG?: string | null;
+  emptyWeightG?: string | null;
 };
 
 export function packsToBase(packs: Decimal.Value, pack: Pack): Decimal {
@@ -88,7 +91,18 @@ export type CountLayout = {
   box: { name: string; qty: Decimal; units: Decimal } | null;
   /** Lo suelto: ud, botellas, barriles o kg. `qty` en unidad base; `decimals` admite «0,5» (botella abierta). */
   unit: { name: string; qty: Decimal; plural: string; decimals: boolean };
+  /** Se puede apuntar una botella (o envase) abierta: por fracción y, si se conocen sus pesos, pesándola. */
+  open: { weights: { full: Decimal; empty: Decimal } | null } | null;
 };
+
+/** Botella abierta: «¼», «½», «¾» o su peso en gramos. */
+export type OpenEntry = { fraction: string } | { weightG: string };
+
+export const OPEN_FRACTIONS = [
+  { value: "0.25", label: "¼" },
+  { value: "0.5", label: "½" },
+  { value: "0.75", label: "¾" },
+] as const;
 
 export function countLayout(packs: CountingPacks): CountLayout {
   const { dimension, countPack, purchasePack } = packs;
@@ -108,7 +122,32 @@ export function countLayout(packs: CountingPacks): CountLayout {
   // Una caja solo tiene sentido si lleva un número entero (> 1) de lo que se cuenta suelto.
   const units = boxQty ? boxQty.div(unit.qty) : null;
   const box = purchasePack && boxQty && units && units.gt(1) && units.isInteger() ? { name: purchasePack.name, qty: boxQty, units } : null;
-  return { box, unit };
+  // Abierta: solo cuando se cuenta en un envase que se abre y se consume poco a poco (botella, garrafa,
+  // barril…), no en kg/l sueltos ni en unidades.
+  const openable = dimension !== "count" && !!countPack && !METRIC_PACK.test(countPack.name.trim()) && unit.qty.gt(0);
+  const full = countPack?.fullWeightG ? new Decimal(countPack.fullWeightG) : null;
+  const empty = countPack?.emptyWeightG ? new Decimal(countPack.emptyWeightG) : null;
+  const weights = full && empty && full.gt(empty) ? { full, empty } : null;
+  return { box, unit, open: openable ? { weights } : null };
+}
+
+/** Lo que queda en la botella abierta, en unidad base. null si no hay o no es válido. */
+export function openQty(layout: CountLayout, entry: OpenEntry | null): Decimal | null {
+  if (!entry || !layout.open) return null;
+  if ("fraction" in entry) {
+    const f = new Decimal(entry.fraction);
+    return f.gt(0) && f.lt(1) ? f.mul(layout.unit.qty) : null;
+  }
+  const w = layout.open.weights;
+  if (!w) return null;
+  let weight: Decimal;
+  try {
+    weight = new Decimal(entry.weightG.replace(",", "."));
+  } catch {
+    return null;
+  }
+  if (weight.isNaN() || weight.lte(0)) return null;
+  return openBottleFromWeight(weight, w.full, w.empty, layout.unit.qty).toDecimalPlaces(2);
 }
 
 /** Cantidad contada en unidad base: cajas × su contenido + sueltas × la unidad. null si algo no es válido. */

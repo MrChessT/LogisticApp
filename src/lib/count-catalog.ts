@@ -24,7 +24,7 @@ export async function loadCountCatalog(): Promise<CountProduct[]> {
     const { data, error } = await readAll((from, to) =>
       supabase
         .from("products")
-        .select("id, name, base_unit, dimension, product_packs(name, qty_base, is_count_default, is_purchase_default, active), category:categories(name, parent:parent_id(name))")
+        .select("id, name, base_unit, dimension, product_packs(name, qty_base, is_count_default, is_purchase_default, is_serving, full_weight_g, empty_weight_g, active), category:categories(name, parent:parent_id(name))")
         .eq("active", true)
         .order("name")
         .order("id")

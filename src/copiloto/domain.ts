@@ -21,6 +21,8 @@ export interface Pack {
   qtyBase: string;
   isCountDefault: boolean;
   isPurchaseDefault: boolean;
+  /** Copa, chupito, caña…: solo se usa si se nombra («2 copas»), nunca como lectura por defecto. */
+  isServing?: boolean;
 }
 
 export interface Product {
