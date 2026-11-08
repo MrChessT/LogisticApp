@@ -15,6 +15,7 @@
 --     los tipos, traspasos desde el obrador y un inventario cerrado con motivo.
 --   · Hoy: un pedido enviado pendiente de recibir, un inventario abierto a medias y salidas de almacén
 --     pendientes de validar.
+--   · Facturas de proveedor de los meses cerrados (una cobra de más, otra aún no ha llegado).
 
 begin;
 
@@ -40,6 +41,7 @@ begin
     delete from inventory_counts where org_id = v_org;
     delete from transfer_lines where transfer_id in (select id from transfers where org_id = v_org);
     delete from transfers where org_id = v_org;
+    delete from invoices where org_id = v_org;
     delete from receipt_lines where receipt_id in (select id from goods_receipts where org_id = v_org);
     delete from goods_receipts where org_id = v_org;
     delete from purchase_order_lines where order_id in (select id from purchase_orders where org_id = v_org);
@@ -700,6 +702,38 @@ from (values ('ARR', 0.88), ('ENS', 0.92)) x(code, f) join demo_recipe d on d.co
 where r.id = d.id;
 select set_config('app.recipe_review', '', true);
 
+-- Facturas: cada proveedor factura a fin de mes sus albaranes de ese mes. Los meses ya cerrados están
+-- facturados (el más antiguo, pagado); los del mes en curso siguen sin factura. Para que se vea el cuadre,
+-- la carne cobra 18 € de más en octubre y la limpieza aún no ha mandado la de octubre.
+create temp table demo_inv on commit drop as
+select g.supplier_id, s.code as sup, s.payment_terms, (date_trunc('month', g.doc_date) + interval '1 month - 1 day')::date as inv_date,
+       array_agg(g.id order by g.doc_date) as receipts, round(sum(t.total), 2) as base
+from goods_receipts g
+join suppliers s on s.id = g.supplier_id
+join lateral (select sum(rl.packs_qty * rl.pack_price) as total from receipt_lines rl where rl.receipt_id = g.id) t on true
+where g.org_id = 'd0000000-0000-4000-8000-000000000001' and g.status = 'closed'
+  and g.doc_date < date_trunc('month', (now() at time zone 'Europe/Madrid'))::date
+group by g.supplier_id, s.code, s.payment_terms, date_trunc('month', g.doc_date);
+delete from demo_inv where sup = 'HIG' and inv_date = (select max(inv_date) from demo_inv);
+update demo_inv set base = base + 18 where sup = 'SER' and inv_date = (select max(inv_date) from demo_inv);
+
+with ins as (
+  insert into invoices (org_id, supplier_id, number, invoice_date, due_date, subtotal, vat_total, total, status, paid_at, created_by)
+  select 'd0000000-0000-4000-8000-000000000001', d.supplier_id,
+         format('%s-%s', d.sup, to_char(d.inv_date, 'YYYY/MM')),
+         d.inv_date, d.inv_date + coalesce(case when d.payment_terms ~* 'contado' then 0 when d.payment_terms ~* 'semanal' then 7
+                                              else substring(d.payment_terms from '(\d+) d')::int end, 30),
+         d.base, round(d.base * case when d.sup in ('HUE', 'LON', 'PRA') then 0.10 else 0.21 end, 2),
+         d.base + round(d.base * case when d.sup in ('HUE', 'LON', 'PRA') then 0.10 else 0.21 end, 2),
+         case when d.inv_date < (select max(inv_date) from demo_inv) then 'pagada' else 'pendiente' end,
+         case when d.inv_date < (select max(inv_date) from demo_inv) then d.inv_date + 20 end,
+         (select id from auth.users where email = 'demo.admin@example.com')
+  from demo_inv d
+  returning id, supplier_id, invoice_date
+)
+insert into invoice_receipts (invoice_id, receipt_id)
+select ins.id, unnest(d.receipts) from ins join demo_inv d on d.supplier_id = ins.supplier_id and d.inv_date = ins.invoice_date;
+
 -- Comprobaciones de coherencia: si algo no cuadra, no se guarda nada.
 do $$
 declare
@@ -744,6 +778,7 @@ union all select 'pedidos', count(*) from purchase_orders where org_id = 'd00000
 union all select 'recepciones', count(*) from goods_receipts where org_id = 'd0000000-0000-4000-8000-000000000001'
 union all select 'traspasos', count(*) from transfers where org_id = 'd0000000-0000-4000-8000-000000000001'
 union all select 'inventarios', count(*) from inventory_counts where org_id = 'd0000000-0000-4000-8000-000000000001'
-union all select 'recetas', count(*) from recipes where org_id = 'd0000000-0000-4000-8000-000000000001';
+union all select 'recetas', count(*) from recipes where org_id = 'd0000000-0000-4000-8000-000000000001'
+union all select 'facturas', count(*) from invoices where org_id = 'd0000000-0000-4000-8000-000000000001';
 
 commit;

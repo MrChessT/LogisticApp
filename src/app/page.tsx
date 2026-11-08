@@ -11,7 +11,7 @@ import { formatStock, type UnitDimension } from "@/lib/units";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { ROLE_LABEL, type Role } from "@/lib/team";
 import "./dashboard-charts.css";
-import { ArrowUpRight, Boxes, ChefHat, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSpreadsheet, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareWarning, Package, Search, ShoppingCart, SlidersHorizontal, Sparkles, Truck, Users, Warehouse, X, XCircle } from "lucide-react";
+import { ArrowUpRight, Boxes, ChefHat, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSpreadsheet, FileText, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareWarning, Package, Search, ShoppingCart, SlidersHorizontal, Sparkles, Truck, Users, Warehouse, X, XCircle } from "lucide-react";
 
 // Resumen de inicio: todo lo que se ve sale de la base de datos (con RLS) y se puede filtrar por local.
 
@@ -398,6 +398,9 @@ export default function Dashboard() {
           <Link className="nav-item" href="/productos"><Package size={18} /><span>Productos</span></Link>
           <Link className="nav-item" href="/proveedores"><Truck size={18} /><span>Proveedores</span></Link>
           <Link className="nav-item" href="/escandallos"><ChefHat size={18} /><span>Escandallos</span></Link>
+          {perms?.seesCosts && identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
+            <Link className="nav-item" href="/facturas"><FileText size={18} /><span>Facturas</span></Link>
+          )}
           {perms?.seesCosts && <Link className="nav-item" href={withLocal("/informes")}><SlidersHorizontal size={18} /><span>Informes</span></Link>}
           {identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
             <Link className="nav-item" href="/equipo"><Users size={18} /><span>Equipo</span></Link>

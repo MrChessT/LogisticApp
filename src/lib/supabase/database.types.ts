@@ -259,6 +259,23 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      invoices: {
+        Row: {
+          id: string; org_id: string; supplier_id: string; code: string; number: string; invoice_date: string; due_date: string | null;
+          subtotal: number; vat_total: number; total: number; status: "pendiente" | "pagada"; paid_at: string | null;
+          attachment_path: string | null; notes: string | null; created_by: string | null; created_at: string;
+        };
+        // Altas y albaranes por save_invoice; aquí solo estado de pago, archivo y borrado.
+        Insert: Record<string, never>;
+        Update: { status?: "pendiente" | "pagada"; paid_at?: string | null; attachment_path?: string | null };
+        Relationships: [];
+      };
+      invoice_receipts: {
+        Row: { invoice_id: string; receipt_id: string };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       recipes: {
         Row: {
           id: string;
@@ -668,6 +685,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      v_invoices: {
+        Row: {
+          id: string; org_id: string; supplier_id: string; supplier_name: string; code: string; number: string; invoice_date: string;
+          due_date: string | null; subtotal: number; vat_total: number; total: number; status: "pendiente" | "pagada"; paid_at: string | null;
+          attachment_path: string | null; notes: string | null; receipts: number; receipts_total: number; difference: number; overdue: boolean;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      v_unbilled_receipts: {
+        Row: {
+          id: string; org_id: string; code: string; doc_number: string | null; doc_date: string; supplier_id: string; supplier_name: string;
+          location_id: string; location_name: string; total: number;
+        };
+        Relationships: [];
+      };
       v_stock_area_valuation: {
         Row: {
           org_id: string;
@@ -821,6 +854,13 @@ export type Database = {
       recipe_line_costs: { Args: { p_recipe: string }; Returns: Array<{ line_id: string; unit_cost: number | null; line_cost: number | null }> };
       product_unit_costs: { Args: { p_products: string[] }; Returns: Array<{ product_id: string; unit_cost: number | null }> };
       mark_recipe_reviewed: { Args: { p_recipe: string }; Returns: undefined };
+      save_invoice: {
+        Args: {
+          p_id: string | null; p_org: string; p_supplier: string; p_number: string; p_date: string; p_due: string | null;
+          p_subtotal: number; p_vat: number; p_total: number; p_notes: string | null; p_receipts: string[];
+        };
+        Returns: string;
+      };
       team_set_costs: { Args: { p_user: string; p_value: boolean; p_org?: string | null }; Returns: undefined };
       import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
       export_catalog: { Args: { p_org: string }; Returns: Json };
