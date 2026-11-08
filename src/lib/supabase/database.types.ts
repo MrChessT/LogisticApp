@@ -258,6 +258,21 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      stock_area_balances: {
+        Row: {
+          area_id: string;
+          product_id: string;
+          qty: number;
+          avg_cost: number;
+          updated_at: string;
+        };
+        // Solo lectura: el saldo por zona lo mantiene el trigger de movimientos.
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [
+          { foreignKeyName: "stock_area_balances_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] },
+        ];
+      };
       location_products: {
         Row: {
           location_id: string;
