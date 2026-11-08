@@ -135,11 +135,7 @@ async function search(f: Filters): Promise<SearchResult> {
     p_offset: (f.pag - 1) * PAGE_SIZE,
   });
   if (error) {
-    throw new Error(
-      error.code === "PGRST202"
-        ? "Falta aplicar la migración 0007_catalogo_filtros.sql en Supabase."
-        : "No se pudo cargar el catálogo. Revisa la conexión e inténtalo de nuevo.",
-    );
+    throw new Error("No se pudo cargar el catálogo. Revisa la conexión e inténtalo de nuevo.");
   }
   const result = data as unknown as SearchResult;
   cache.set(key, { at: Date.now(), data: result });

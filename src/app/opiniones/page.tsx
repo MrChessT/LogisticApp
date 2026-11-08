@@ -39,7 +39,7 @@ export default function OpinionesPage() {
       supabase.rpc("copilot_feedback_list", { p_status: null, p_limit: 500 }),
     ]);
     setAdmin(me?.role === "owner" || me?.role === "admin");
-    if (list.error) return setError("No se pudieron cargar las opiniones. ¿Está aplicada la migración 0025?");
+    if (list.error) return setError("No se pudieron cargar las opiniones.");
     setError("");
     setRows((list.data ?? []) as unknown as FeedbackRow[]);
   }

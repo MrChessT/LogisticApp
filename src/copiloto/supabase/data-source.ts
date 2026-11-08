@@ -198,19 +198,22 @@ export class SupabaseDataSource implements InventoryDataSource {
   }
 
   /**
-   * Lo pendiente de recibir de pedidos abiertos. Si la tabla aún no existe (migración 0012 sin
-   * aplicar) devuelve vacío: la reposición sigue funcionando, solo sin descontar pedidos.
+   * Lo pendiente de recibir de pedidos abiertos. Si no se puede leer, falla: sin ello la reposición
+   * propondría volver a pedir lo que ya está en camino.
    */
   async openOrders(filter: { locationIds: string[] }): Promise<OpenOrderRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    const { data, error } = await this.db
-      .from("purchase_order_lines")
-      .select("packs_qty:packs_qty::text,received_packs:received_packs::text,pack:product_packs(product_id,qty_base:qty_base::text),order:purchase_orders!inner(location_id,status)")
-      .in("order.location_id", filter.locationIds)
-      .in("order.status", ["draft", "sent", "partial"]);
-    if (error) return [];
+    const rows = await readAll<Row>("los pedidos pendientes de recibir", (from, to) =>
+      this.db
+        .from("purchase_order_lines")
+        .select("id,packs_qty:packs_qty::text,received_packs:received_packs::text,pack:product_packs(product_id,qty_base:qty_base::text),order:purchase_orders!inner(location_id,status)")
+        .in("order.location_id", filter.locationIds)
+        .in("order.status", ["draft", "sent", "partial"])
+        .order("id")
+        .range(from, to),
+    );
     const out: OpenOrderRaw[] = [];
-    for (const r of (data ?? []) as Row[]) {
+    for (const r of rows) {
       const pack = r.pack as { product_id: string; qty_base: string } | null;
       const order = r.order as { location_id: string } | null;
       if (!pack || !order) continue;
@@ -222,18 +225,17 @@ export class SupabaseDataSource implements InventoryDataSource {
     return out;
   }
 
-  /** Pedidos por estado. Sin la migración 0012 devuelve vacío (la consulta dice que no hay pedidos). */
+  /** Pedidos por estado (los 200 más recientes). */
   async orders(filter: { locationIds: string[]; statuses: OrderRaw["status"][] }): Promise<OrderRaw[]> {
     if (filter.locationIds.length === 0) return [];
-    const { data, error } = await this.db
+    const data = check<Row[]>("los pedidos", await this.db
       .from("purchase_orders")
       .select("id,location_id,status,created_at,sent_at,expected_date,supplier:suppliers(name),lines:purchase_order_lines(packs_qty:packs_qty::text,pack_price:pack_price::text,received_packs:received_packs::text,pack:product_packs(id,name,product_id))")
       .in("location_id", filter.locationIds)
       .in("status", filter.statuses)
       .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) return [];
-    return ((data ?? []) as Row[]).map((r) => ({
+      .limit(200));
+    return data.map((r) => ({
       id: String(r.id),
       locationId: String(r.location_id),
       supplierName: (r.supplier as { name?: string } | null)?.name ?? "proveedor",
@@ -303,7 +305,10 @@ export class SupabaseDataSource implements InventoryDataSource {
   }
 
   async catalogHealth(filter: { locationIds: string[] }): Promise<HealthIssueRaw[]> {
-    const rows = check<Row[]>("la revisión del catálogo", await this.db.rpc("catalog_health", { p_location: null }));
+    // Una fila por producto, local y problema: con un catálogo grande pasa de 1000 y hay que paginar.
+    const rows = await readAll<Row>("la revisión del catálogo", (from, to) =>
+      this.db.rpc("catalog_health", { p_location: null }).order("product_id").order("location_id").order("issue").range(from, to),
+    );
     return rows
       .filter((r) => r.location_id === null || filter.locationIds.includes(String(r.location_id)))
       .map((r) => ({

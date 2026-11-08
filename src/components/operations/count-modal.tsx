@@ -201,9 +201,11 @@ export function CountModal({
   async function loadPreview(zero: boolean) {
     const supabase = createClient();
     if (!supabase) return;
-    const { data, error: err } = await supabase.rpc("count_preview", { p_count: count.id, p_zero_uncounted: zero });
+    const { data, error: err } = await readAll((from, to) =>
+      supabase.rpc("count_preview", { p_count: count.id, p_zero_uncounted: zero }).order("product_id").range(from, to),
+    );
     if (err) {
-      setError(err.code === "PGRST202" ? "Falta aplicar la migración 0011_consumo_por_inventario.sql en Supabase." : "No se pudo calcular la revisión.");
+      setError("No se pudo calcular la revisión.");
       setPreview(null);
       return;
     }

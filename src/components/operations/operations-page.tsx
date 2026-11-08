@@ -15,10 +15,11 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
-import { euros as formatCurrency } from "@/lib/format";
+import { readAll } from "@/lib/supabase/read-all";
+import { euros as formatCurrency, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
@@ -47,6 +48,28 @@ const NO_PRICES = new Map<string, number>();
 let referenceCache: (Reference & { userId: string }) | null = null;
 
 type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
+
+/** Tarjeta de resumen de cada pantalla: qué se mide, la cifra y de qué periodo es. */
+type Metric = { label: string; value: string; hint: string; tone?: "warn"; small?: boolean };
+
+/** Las listas enseñan lo reciente (y lo pendiente, sea de cuando sea); las cifras, el último mes. */
+const LIST_DAYS = 60;
+const METRIC_DAYS = 30;
+
+/** Lo que sale suele ser menos de un envase (una copa, un chupito): «150 ml» se lee mejor que «0,21 botellas». */
+function wasteAmount(qty: number, packs: ReturnType<typeof countingPacks>) {
+  const pack = packs.countPack;
+  if (packs.dimension !== "count" && pack && new Decimal(qty).lt(pack.qtyBase)) {
+    return quantity(qty, packs.dimension === "mass" ? "g" : "ml");
+  }
+  return formatStock(qty, packs);
+}
+
+function daysAgo(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
 
 type DisplayRow = {
   id: string;
@@ -99,7 +122,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState<DisplayRow[]>([]);
-  const [metrics, setMetrics] = useState<[string, string, string, string]>(["—", "—", "—", "—"]);
+  const [metrics, setMetrics] = useState<Metric[]>([]);
   const [busyId, setBusyId] = useState("");
   const [orgId, setOrgId] = useState("");
   const [locations, setLocations] = useState<Location[]>([]);
@@ -178,10 +201,15 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     }
 
     if (kind === "recepciones") {
-      const { data, error } = await supabase
-        .from("goods_receipts")
-        .select("id, doc_number, doc_date, status, attachment_path, suppliers(name), locations(name), receipt_lines(packs_qty, pack_price, expected_price, incident)")
-        .order("doc_date", { ascending: false });
+      const { data, error } = await readAll((from, to) =>
+        supabase
+          .from("goods_receipts")
+          .select("id, doc_number, doc_date, status, attachment_path, suppliers(name), locations(name), receipt_lines(packs_qty, pack_price, expected_price, incident)")
+          .gte("doc_date", daysAgo(LIST_DAYS))
+          .order("doc_date", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       if (error) {
         setLoadError("No se pudieron cargar las recepciones.");
         setLoading(false);
@@ -227,17 +255,27 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
             : [],
         })),
       );
-      const openCount = records.filter((r) => r.status === "open").length;
-      const total = records.reduce((sum, r) => sum + r.receipt_lines.reduce((s, l) => s + l.packs_qty * l.pack_price, 0), 0);
-      const extra = records.reduce((sum, r) => sum + overcharge(r), 0);
-      setMetrics([String(openCount), formatCurrency(total), extra > 0 ? `${formatCurrency(extra)} de más` : "Sin cobros de más", "—"]);
+      const month = records.filter((r) => r.doc_date >= daysAgo(METRIC_DAYS));
+      const total = month.reduce((sum, r) => sum + r.receipt_lines.reduce((s, l) => s + l.packs_qty * l.pack_price, 0), 0);
+      const overcharged = month.filter((r) => overcharge(r) > 0);
+      const extra = overcharged.reduce((sum, r) => sum + overcharge(r), 0);
+      const incidentCount = month.reduce((sum, r) => sum + incidents(r), 0);
+      const withoutPhoto = month.filter((r) => !r.attachment_path).length;
+      setMetrics([
+        { label: "Albaranes", value: String(month.length), hint: `últimos ${METRIC_DAYS} días` },
+        { label: "Compras", value: formatCurrency(total), hint: `sin IVA · ${METRIC_DAYS} días` },
+        { label: "Cobrado de más", value: formatCurrency(extra), hint: overcharged.length ? `en ${overcharged.length} ${overcharged.length === 1 ? "albarán" : "albaranes"} · reclamar` : "todo según lo pactado", tone: extra > 0 ? "warn" : undefined },
+        { label: "Incidencias", value: String(incidentCount), hint: withoutPhoto ? `${withoutPhoto} sin foto del albarán` : "todos con foto", tone: incidentCount > 0 ? "warn" : undefined },
+      ]);
     }
 
     if (kind === "traspasos") {
       const { data, error } = await supabase
         .from("transfers")
         .select("id, status, created_at, from_location_id, to_location_id, transfer_lines(id, qty_sent)")
-        .order("created_at", { ascending: false });
+        .or(`status.in.(draft,in_transit),created_at.gte.${daysAgo(LIST_DAYS)}`)
+        .order("created_at", { ascending: false })
+        .limit(500);
       if (error) {
         setLoadError("No se pudieron cargar los traspasos.");
         setLoading(false);
@@ -275,23 +313,30 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
           };
         }),
       );
-      const pending = records.filter((t) => t.status === "draft" || t.status === "in_transit").length;
+      const drafts = records.filter((t) => t.status === "draft").length;
       const inTransit = records.filter((t) => t.status === "in_transit").length;
-      setMetrics([String(pending), `${inTransit} en tránsito`, "—", "—"]);
+      const received = records.filter((t) => t.status === "received" && t.created_at >= daysAgo(METRIC_DAYS)).length;
+      setMetrics([
+        { label: "Por enviar", value: String(drafts), hint: drafts ? "borradores sin enviar" : "nada pendiente", tone: drafts ? "warn" : undefined },
+        { label: "En tránsito", value: String(inTransit), hint: inTransit ? "pendientes de recibir" : "nada en camino", tone: inTransit ? "warn" : undefined },
+        { label: "Recibidos", value: String(received), hint: `últimos ${METRIC_DAYS} días` },
+      ]);
     }
 
     if (kind === "inventarios") {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("id, status, started_at, location_id, locations(name), count_lines(id)")
-        .order("started_at", { ascending: false });
+        .select("id, status, started_at, closed_at, close_reason, location_id, locations(name), count_lines(id)")
+        .or(`status.eq.open,started_at.gte.${daysAgo(365)}`)
+        .order("started_at", { ascending: false })
+        .limit(300);
       if (error) {
         setLoadError("No se pudieron cargar los inventarios.");
         setLoading(false);
         return;
       }
       const records = (data ?? []) as unknown as Array<{
-        id: string; status: "open" | "closed" | "cancelled"; started_at: string; location_id: string;
+        id: string; status: "open" | "closed" | "cancelled"; started_at: string; closed_at: string | null; close_reason: string | null; location_id: string;
         locations: { name: string } | null; count_lines: Array<{ id: string }>;
       }>;
       const statusLabel: Record<"open" | "closed" | "cancelled", string> = { open: "En progreso", closed: "Cerrado", cancelled: "Cancelado" };
@@ -321,7 +366,13 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         }),
       );
       const openCount = records.filter((c) => c.status === "open").length;
-      setMetrics([String(openCount), "—", "—", "—"]);
+      const lastClosed = records.find((c) => c.status === "closed");
+      const daysSince = lastClosed?.closed_at ? Math.floor((Date.now() - new Date(lastClosed.closed_at).getTime()) / 86_400_000) : null;
+      setMetrics([
+        { label: "En curso", value: String(openCount), hint: openCount ? "se pueden seguir contando" : "ninguno abierto" },
+        { label: "Último cerrado", value: lastClosed?.closed_at ? formatDate(lastClosed.closed_at) : "Ninguno", hint: lastClosed ? `${lastClosed.locations?.name ?? "?"} · hace ${daysSince} ${daysSince === 1 ? "día" : "días"}` : "aún no se ha cerrado ninguno", tone: daysSince !== null && daysSince > 31 ? "warn" : undefined },
+        { label: "Cerrados", value: String(records.filter((c) => c.status === "closed").length), hint: "último año" },
+      ]);
     }
 
     if (kind === "mermas") {
@@ -329,8 +380,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         .from("stock_movements")
         .select("id, qty, unit_cost, reason, exit_kind, occurred_at, products(name, base_unit, dimension, product_packs(name, qty_base, is_count_default, is_purchase_default, active)), locations(name)")
         .eq("type", "waste")
+        .gte("occurred_at", daysAgo(METRIC_DAYS))
         .order("occurred_at", { ascending: false })
-        .limit(100);
+        .limit(1000);
       if (error) {
         setLoadError("No se pudieron cargar las mermas.");
         setLoading(false);
@@ -345,7 +397,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         records.map((m) => ({
           id: String(m.id),
           title: m.products?.name ?? "Producto",
-          detail: `${EXIT_KIND_LABEL[kindOf(m)]} · ${m.products ? formatStock(Math.abs(m.qty), countingPacks(m.products.dimension, m.products.product_packs ?? [])) : new Decimal(String(Math.abs(m.qty))).toFixed(2)}${m.reason ? ` · ${m.reason}` : ""}`,
+          detail: `${EXIT_KIND_LABEL[kindOf(m)]} · ${m.products ? wasteAmount(Math.abs(m.qty), countingPacks(m.products.dimension, m.products.product_packs ?? [])) : new Decimal(String(Math.abs(m.qty))).toFixed(2)}${m.reason ? ` · ${m.reason}` : ""}`,
           status: m.locations?.name ?? "Local",
           rawStatus: "registrada",
           // Rojo solo lo que es pérdida; una invitación o el consumo del personal no lo es.
@@ -355,9 +407,18 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         })),
       );
       const valueOf = (m: { qty: number; unit_cost: number | null }) => Math.abs(m.qty) * (m.unit_cost ?? 0);
-      const losses = records.filter((m) => isLoss(kindOf(m))).reduce((sum, m) => sum + valueOf(m), 0);
+      const lossRows = records.filter((m) => isLoss(kindOf(m)));
+      const losses = lossRows.reduce((sum, m) => sum + valueOf(m), 0);
       const others = records.filter((m) => !isLoss(kindOf(m))).reduce((sum, m) => sum + valueOf(m), 0);
-      setMetrics([String(records.length), formatCurrency(losses), others > 0 ? `${formatCurrency(others)} sin pérdida` : "—", "—"]);
+      const byProduct = new Map<string, number>();
+      for (const m of lossRows) byProduct.set(m.products?.name ?? "Producto", (byProduct.get(m.products?.name ?? "Producto") ?? 0) + valueOf(m));
+      const worst = [...byProduct.entries()].sort((a, b) => b[1] - a[1])[0];
+      setMetrics([
+        { label: "Pérdidas", value: formatCurrency(losses), hint: `roturas, caducados y errores · ${METRIC_DAYS} días`, tone: losses > 0 ? "warn" : undefined },
+        { label: "Otras salidas", value: formatCurrency(others), hint: "invitaciones, personal, catas y eventos" },
+        { label: "Registros", value: String(records.length), hint: `últimos ${METRIC_DAYS} días` },
+        { label: "Más pérdida", value: worst ? worst[0] : "—", hint: worst ? formatCurrency(worst[1]) : "sin pérdidas", small: true },
+      ]);
     }
 
     setLoading(false);
@@ -637,11 +698,14 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
             <CirclePlus size={17} /> {actionLabels[kind]}
           </button>
         </div>
-        <div className="operation-metrics">
-          <div><span>Pendientes</span><strong>{metrics[0]}</strong><small>requieren atención</small></div>
-          <div><span>Valor asociado</span><strong>{metrics[1]}</strong><small>movimientos registrados</small></div>
-          <div><span>Principal alerta</span><strong>{metrics[2]}</strong><small>revisar esta semana</small></div>
-          <div><span>Periodo</span><strong>{metrics[3]}</strong><small>día de negocio</small></div>
+        <div className="operation-metrics" style={{ "--cols": Math.max(metrics.length, 1) } as CSSProperties}>
+          {(metrics.length ? metrics : [{ label: "Cargando", value: "—", hint: "" }]).map((m) => (
+            <div key={m.label} className={m.tone === "warn" ? "warn" : undefined}>
+              <span>{m.label}</span>
+              <strong className={m.small ? "small" : undefined} title={m.value}>{m.value}</strong>
+              <small>{m.hint}</small>
+            </div>
+          ))}
         </div>
         <section className="operations-panel">
           <div className="operations-toolbar">

@@ -17,6 +17,7 @@
     "db:test": "supabase test db",
     "db:lint": "supabase db lint --local",
     "db:bundle": "node scripts/bundle-migrations.mjs",
+    "demo:seed": "node scripts/demo/seed.mjs",
     "copiloto:eval": "tsx --env-file-if-exists=.env.local src/copiloto/eval/run-eval.ts",
     "copiloto:probe": "tsx --env-file-if-exists=.env.local src/copiloto/eval/probe.ts",
     "copiloto:bateria": "tsx src/copiloto/eval/bateria.ts",

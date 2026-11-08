@@ -95,7 +95,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
   if (locationId) query = query.eq("location_id", locationId);
   const { data, error } = await query;
   if (error) {
-    throw new Error(error.code === "42P01" || error.code === "PGRST205" ? "Falta aplicar la migración 0012_pedidos.sql en Supabase." : "No se pudieron cargar los pedidos.");
+    throw new Error("No se pudieron cargar los pedidos.");
   }
   type Row = {
     id: string; status: OrderStatus; location_id: string; supplier_id: string; note: string | null; expected_date: string | null;

@@ -25,3 +25,8 @@ button, input, select { font: inherit; } button { cursor: pointer; border: 0; } 
   .mobile-backdrop { display: block; position: fixed; inset: 0; z-index: 39; border: 0; background: rgba(22, 40, 30, .3); }
   .order-banner .secondary-button { margin-left: 49px; }
 }
+/* Enlaces de la interfaz que se cargan en cualquier pantalla (antes vivían en el CSS de una sola página). */
+.nav-item, .user-link { color: inherit; text-decoration: none; }
+.user-link:hover strong { text-decoration: underline; }
+.back-link { display: inline-flex; align-items: center; gap: 7px; color: #718078; font-size: 12px; text-decoration: none; }
+.back-link:hover { color: var(--ink); }
