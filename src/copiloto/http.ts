@@ -205,6 +205,8 @@ async function analytics(url: URL, user: RequestUser): Promise<Response> {
   const parsed = AnalyticsQuery.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) return fail(400, { code: "invalid_request", message: "Petición no válida", retryable: false });
   const ctx = await loadContext(user);
+  // Informes son importes: sin el permiso «ve costes» no se sirven (lo decide la pertenencia, no el navegador).
+  if (!ctx.seesCosts) return fail(403, { code: "forbidden", message: "Tu usuario no tiene permiso para ver costes e importes.", retryable: false });
   if (parsed.data.locationId && !ctx.locations.some((l) => l.id === parsed.data.locationId)) {
     return fail(403, { code: "forbidden", message: "No tienes acceso a ese local", retryable: false });
   }

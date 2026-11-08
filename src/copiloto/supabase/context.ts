@@ -100,6 +100,7 @@ export class SupabaseContext implements ContextPort {
       userId: user.userId,
       orgId,
       role,
+      seesCosts: role === "owner" || role === "admin" || role === "manager" || (role === "staff" && membership.data?.can_see_costs === true),
       locations: (locations.data ?? []).map((l) => ({
         id: l.id as string,
         name: l.name as string,

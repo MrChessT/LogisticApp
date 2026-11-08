@@ -19,6 +19,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
 import { readAll } from "@/lib/supabase/read-all";
+import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
@@ -50,7 +51,7 @@ let referenceCache: (Reference & { userId: string }) | null = null;
 type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
 
 /** Tarjeta de resumen de cada pantalla: qué se mide, la cifra y de qué periodo es. */
-type Metric = { label: string; value: string; hint: string; tone?: "warn"; small?: boolean };
+type Metric = { label: string; value: string; hint: string; tone?: "warn"; small?: boolean; money?: boolean };
 
 /** Las listas enseñan lo reciente (y lo pendiente, sea de cuando sea); las cifras, el último mes. */
 const LIST_DAYS = 60;
@@ -123,6 +124,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const perms = usePermissions();
   const [busyId, setBusyId] = useState("");
   const [orgId, setOrgId] = useState("");
   const [locations, setLocations] = useState<Location[]>([]);
@@ -263,8 +265,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       const withoutPhoto = month.filter((r) => !r.attachment_path).length;
       setMetrics([
         { label: "Albaranes", value: String(month.length), hint: `últimos ${METRIC_DAYS} días` },
-        { label: "Compras", value: formatCurrency(total), hint: `sin IVA · ${METRIC_DAYS} días` },
-        { label: "Cobrado de más", value: formatCurrency(extra), hint: overcharged.length ? `en ${overcharged.length} ${overcharged.length === 1 ? "albarán" : "albaranes"} · reclamar` : "todo según lo pactado", tone: extra > 0 ? "warn" : undefined },
+        { label: "Compras", money: true, value: formatCurrency(total), hint: `sin IVA · ${METRIC_DAYS} días` },
+        { label: "Cobrado de más", money: true, value: formatCurrency(extra), hint: overcharged.length ? `en ${overcharged.length} ${overcharged.length === 1 ? "albarán" : "albaranes"} · reclamar` : "todo según lo pactado", tone: extra > 0 ? "warn" : undefined },
         { label: "Incidencias", value: String(incidentCount), hint: withoutPhoto ? `${withoutPhoto} sin foto del albarán` : "todos con foto", tone: incidentCount > 0 ? "warn" : undefined },
       ]);
     }
@@ -414,10 +416,10 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       for (const m of lossRows) byProduct.set(m.products?.name ?? "Producto", (byProduct.get(m.products?.name ?? "Producto") ?? 0) + valueOf(m));
       const worst = [...byProduct.entries()].sort((a, b) => b[1] - a[1])[0];
       setMetrics([
-        { label: "Pérdidas", value: formatCurrency(losses), hint: `roturas, caducados y errores · ${METRIC_DAYS} días`, tone: losses > 0 ? "warn" : undefined },
-        { label: "Otras salidas", value: formatCurrency(others), hint: "invitaciones, personal, catas y eventos" },
+        { label: "Pérdidas", money: true, value: formatCurrency(losses), hint: `roturas, caducados y errores · ${METRIC_DAYS} días`, tone: losses > 0 ? "warn" : undefined },
+        { label: "Otras salidas", money: true, value: formatCurrency(others), hint: "invitaciones, personal, catas y eventos" },
         { label: "Registros", value: String(records.length), hint: `últimos ${METRIC_DAYS} días` },
-        { label: "Más pérdida", value: worst ? worst[0] : "—", hint: worst ? formatCurrency(worst[1]) : "sin pérdidas", small: true },
+        { label: "Más pérdida", money: true, value: worst ? worst[0] : "—", hint: worst ? formatCurrency(worst[1]) : "sin pérdidas", small: true },
       ]);
     }
 
@@ -699,7 +701,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
           </button>
         </div>
         <div className="operation-metrics" style={{ "--cols": Math.max(metrics.length, 1) } as CSSProperties}>
-          {(metrics.length ? metrics : [{ label: "Cargando", value: "—", hint: "" }]).map((m) => (
+          {(metrics.length ? metrics : [{ label: "Cargando", value: "—", hint: "" }]).map((m: Metric) => perms && !perms.seesCosts && m.money ? { ...m, value: "Sin permiso", hint: "pide el permiso «ve costes»", tone: undefined } : m).map((m) => (
             <div key={m.label} className={m.tone === "warn" ? "warn" : undefined}>
               <span>{m.label}</span>
               <strong className={m.small ? "small" : undefined} title={m.value}>{m.value}</strong>

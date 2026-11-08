@@ -83,6 +83,7 @@ export function fixtureContext(role: SessionContext["role"] = "manager"): Sessio
     userId: USER_ID,
     orgId: ORG_ID,
     role,
+    seesCosts: role !== "staff",
     locations: LOCATIONS,
     areas: AREAS,
     products: PRODUCTS,

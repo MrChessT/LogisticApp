@@ -29,6 +29,8 @@ type Member = {
   isSelf: boolean;
   canEdit: boolean;
   canValidate: boolean;
+  /** Ve costes e importes (0032): siempre para encargados y superiores; al personal se le da aquí. */
+  canSeeCosts: boolean;
   /** Modo pruebas del asistente (0025): lo que confirme en el chat no se guarda. */
   testMode: boolean;
 };
@@ -68,6 +70,7 @@ async function loadTeam(): Promise<{ actor: Role | null; members: Member[]; loca
       isSelf: m.is_self,
       canEdit: m.can_edit,
       canValidate: m.can_validate ?? false,
+      canSeeCosts: m.can_see_costs ?? false,
       testMode: testers.has(m.user_id),
     })),
   };
@@ -325,6 +328,7 @@ function MemberEditor({
   const [role, setRole] = useState<Role>(member?.role ?? (roles.includes("staff") ? "staff" : roles[0]!));
   const [allLocations, setAllLocations] = useState(member?.allLocations ?? false);
   const [canValidate, setCanValidate] = useState(member?.canValidate ?? false);
+  const [canSeeCosts, setCanSeeCosts] = useState(member?.canSeeCosts ?? false);
   const [testMode, setTestMode] = useState(member?.testMode ?? false);
   const [selected, setSelected] = useState<Set<string>>(new Set(member?.locationIds ?? (locations.length === 1 ? [locations[0]!.id] : [])));
   const [saving, setSaving] = useState(false);
@@ -391,6 +395,10 @@ function MemberEditor({
           p_can_validate: role === "staff" ? canValidate : null,
         });
         if (err) throw new Error(teamErrorMessage(err));
+        if (role === "staff" && canSeeCosts !== (member.role === "staff" && member.canSeeCosts)) {
+          const { error: costErr } = await supabase.rpc("team_set_costs", { p_user: member.userId, p_value: canSeeCosts });
+          if (costErr) throw new Error(teamErrorMessage(costErr, "Se guardó el acceso, pero no el permiso de costes."));
+        }
         if (testMode !== member.testMode) {
           const { error: testErr } = await supabase.rpc("team_set_tester", { p_user: member.userId, p_on: testMode });
           if (testErr) throw new Error(teamErrorMessage(testErr, "Se guardó el acceso, pero no el modo pruebas."));
@@ -505,6 +513,11 @@ function MemberEditor({
                   <input type="checkbox" checked={canValidate} onChange={(event) => setCanValidate(event.target.checked)} /> Puede validar salidas del almacén
                 </label>
                 <p className="section-hint">Con su PIN (lo pone en «Tu cuenta») confirma lo que se ha sacado para que pase al stock. Los encargados pueden siempre.</p>
+                <p className="facet-title">Costes</p>
+                <label className="check-option">
+                  <input type="checkbox" checked={canSeeCosts} onChange={(event) => setCanSeeCosts(event.target.checked)} disabled={!member} /> Ve costes e importes
+                </label>
+                <p className="section-hint">{member ? "Precios de compra, valor del stock, informes y mermas en euros. Los encargados los ven siempre." : "Se puede dar cuando la persona ya esté en el equipo."}</p>
               </div>
             )}
             <div className="editor-section">
