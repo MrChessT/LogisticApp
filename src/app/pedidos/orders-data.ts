@@ -13,6 +13,8 @@ export type Supplier = { id: string; name: string; email: string | null; phone: 
 export type OrderLine = { id?: string; packId: string; productName?: string; packName?: string; packsQty: string; packPrice: string; receivedPacks: string };
 export type Order = {
   id: string;
+  /** Código legible (PED-2026-0001), 0034. */
+  code: string;
   status: OrderStatus;
   locationId: string;
   locationName: string;
@@ -88,7 +90,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
   if (!supabase) throw new Error("Configura las variables de Supabase.");
   let query = supabase
     .from("purchase_orders")
-    .select("id, status, location_id, supplier_id, note, expected_date, created_at, sent_at, suppliers(name), locations(name), lines:purchase_order_lines(id, pack_id, packs_qty, pack_price, received_packs, pack:product_packs(name, product:products(name)))")
+    .select("id, code, status, location_id, supplier_id, note, expected_date, created_at, sent_at, suppliers(name), locations(name), lines:purchase_order_lines(id, pack_id, packs_qty, pack_price, received_packs, pack:product_packs(name, product:products(name)))")
     .in("status", statuses)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -98,7 +100,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
     throw new Error("No se pudieron cargar los pedidos.");
   }
   type Row = {
-    id: string; status: OrderStatus; location_id: string; supplier_id: string; note: string | null; expected_date: string | null;
+    id: string; code: string | null; status: OrderStatus; location_id: string; supplier_id: string; note: string | null; expected_date: string | null;
     created_at: string; sent_at: string | null; suppliers: { name: string } | null; locations: { name: string } | null;
     lines: Array<{ id: string; pack_id: string; packs_qty: number; pack_price: number | null; received_packs: number; pack: { name: string; product: { name: string } | null } | null }>;
   };
@@ -107,6 +109,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
     status: o.status,
     locationId: o.location_id,
     locationName: o.locations?.name ?? "",
+    code: o.code ?? "",
     supplierId: o.supplier_id,
     supplierName: o.suppliers?.name ?? "",
     note: o.note ?? "",
@@ -126,7 +129,7 @@ export async function loadOrders(statuses: OrderStatus[], locationId: string): P
 }
 
 /** Guarda un borrador: cabecera y líneas (en borrador no hay recepciones, se reemplazan todas). */
-export async function saveDraft(ref: Reference, order: Omit<Order, "id" | "status" | "createdAt" | "sentAt" | "locationName" | "supplierName"> & { id?: string }): Promise<string> {
+export async function saveDraft(ref: Reference, order: Omit<Order, "id" | "code" | "status" | "createdAt" | "sentAt" | "locationName" | "supplierName"> & { id?: string }): Promise<string> {
   const supabase = createClient();
   if (!supabase) throw new Error("Configura las variables de Supabase.");
   const header = { supplier_id: order.supplierId, note: order.note.trim() || null, expected_date: order.expectedDate || null };

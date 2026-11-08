@@ -11,6 +11,7 @@ export type Database = {
       };
       purchase_orders: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           location_id: string;
@@ -54,8 +55,8 @@ export type Database = {
           role: "owner" | "admin" | "manager" | "staff" | "kiosk";
           all_locations: boolean;
           can_validate: boolean;
-          /** Migración 0025. Opcional: se lee con select("*") por si aún no está aplicada. */
-          assistant_test?: boolean;
+          can_see_costs: boolean;
+          assistant_test: boolean;
           created_at: string;
         };
         Insert: {
@@ -258,6 +259,40 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      catalog_changes: {
+        Row: {
+          id: number;
+          org_id: string;
+          entity: "product" | "supplier";
+          entity_id: string;
+          part: string;
+          field: string;
+          old_value: string | null;
+          new_value: string | null;
+          is_cost: boolean;
+          changed_by: string | null;
+          changed_at: string;
+        };
+        // Solo lectura: lo escriben los disparadores (0034).
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      stock_area_balances: {
+        Row: {
+          area_id: string;
+          product_id: string;
+          qty: number;
+          avg_cost: number;
+          updated_at: string;
+        };
+        // Solo lectura: el saldo por zona lo mantiene el trigger de movimientos.
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [
+          { foreignKeyName: "stock_area_balances_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] },
+        ];
+      };
       location_products: {
         Row: {
           location_id: string;
@@ -280,6 +315,7 @@ export type Database = {
       };
       goods_receipts: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           location_id: string;
@@ -393,6 +429,7 @@ export type Database = {
       };
       transfers: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           from_location_id: string;
@@ -445,6 +482,7 @@ export type Database = {
       };
       inventory_counts: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           location_id: string;
@@ -657,6 +695,7 @@ export type Database = {
           is_self: boolean;
           can_edit: boolean;
           can_validate: boolean;
+          can_see_costs: boolean;
         }>;
       };
       team_check_assign: {
@@ -702,6 +741,10 @@ export type Database = {
       area_move_cancel: { Args: { p_id: string }; Returns: undefined };
       area_moves_list: { Args: { p_location: string; p_status?: "pending" | "decided"; p_limit?: number }; Returns: Json };
       kiosk_validators: { Args: Record<string, never>; Returns: Json };
+      sees_costs: { Args: { p_org: string }; Returns: boolean };
+      team_set_costs: { Args: { p_user: string; p_value: boolean; p_org?: string | null }; Returns: undefined };
+      import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
+      export_catalog: { Args: { p_org: string }; Returns: Json };
       area_moves_decide: { Args: { p_decisions: Json; p_validator?: string | null; p_pin?: string | null }; Returns: Json };
       team_remove_member: { Args: { p_user: string; p_org?: string | null }; Returns: undefined };
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string | null };

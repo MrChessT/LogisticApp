@@ -5,34 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
+import { usePermissions } from "@/lib/permissions";
 import { euros, localDay, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { ROLE_LABEL, type Role } from "@/lib/team";
 import "./dashboard-charts.css";
-import {
-  ArrowUpRight,
-  Boxes,
-  ChevronDown,
-  ChevronRight,
-  CircleHelp,
-  ClipboardList,
-  LayoutDashboard,
-  LogOut,
-  MapPin,
-  MessageSquareWarning,
-  Menu,
-  Package,
-  Search,
-  ShoppingCart,
-  SlidersHorizontal,
-  Sparkles,
-  Truck,
-  Users,
-  Warehouse,
-  X,
-  XCircle,
-} from "lucide-react";
+import { ArrowUpRight, Boxes, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSpreadsheet, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareWarning, Package, Search, ShoppingCart, SlidersHorizontal, Sparkles, Truck, Users, Warehouse, X, XCircle } from "lucide-react";
 
 // Resumen de inicio: todo lo que se ve sale de la base de datos (con RLS) y se puede filtrar por local.
 
@@ -282,6 +261,9 @@ async function loadDashboard(supabase: BrowserClient, locationId: string): Promi
 
 export default function Dashboard() {
   const [identity, setIdentity] = useState<Identity | null>(null);
+  // Sin «ve costes» no se enseñan importes (la base de datos ya no da precios de compra).
+  const perms = usePermissions();
+  const money = (v: string | undefined) => (perms && !perms.seesCosts ? "Sin permiso" : value(v));
   const [location, setLocation] = useState("");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -415,7 +397,7 @@ export default function Dashboard() {
         <nav className="main-nav">
           <Link className="nav-item" href="/productos"><Package size={18} /><span>Productos</span></Link>
           <Link className="nav-item" href="/proveedores"><Truck size={18} /><span>Proveedores</span></Link>
-          <Link className="nav-item" href={withLocal("/informes")}><SlidersHorizontal size={18} /><span>Informes</span></Link>
+          {perms?.seesCosts && <Link className="nav-item" href={withLocal("/informes")}><SlidersHorizontal size={18} /><span>Informes</span></Link>}
           {identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
             <Link className="nav-item" href="/equipo"><Users size={18} /><span>Equipo</span></Link>
           )}
@@ -423,6 +405,9 @@ export default function Dashboard() {
             <Link className="nav-item" href="/opiniones"><MessageSquareWarning size={18} /><span>Opiniones del asistente</span></Link>
           )}
           <Link className="nav-item" href="/zonas"><MapPin size={18} /><span>Zonas</span></Link>
+          {identity && ["owner", "admin"].includes(identity.roleKey) && (
+            <Link className="nav-item" href="/importar"><FileSpreadsheet size={18} /><span>Importar catálogo</span></Link>
+          )}
         </nav>
 
         <div className="sidebar-bottom">
@@ -476,17 +461,17 @@ export default function Dashboard() {
           <div className="metric-grid">
             <article className="metric-card featured-card">
               <div className="metric-top"><span>Valor del stock</span></div>
-              <strong className="metric-value">{value(data?.stockValue)}</strong>
+              <strong className="metric-value">{money(data?.stockValue)}</strong>
               <div className="metric-footer"><span className="positive">Valoración actual</span><span>a coste medio</span></div>
             </article>
             <article className="metric-card">
               <div className="metric-top"><span>Consumo del periodo</span></div>
-              <strong className="metric-value">{value(data?.consumptionValue)}</strong>
+              <strong className="metric-value">{money(data?.consumptionValue)}</strong>
               <div className="metric-footer">
                 <span>7 días hasta ayer</span>
                 <span>{data?.consumptionTrend || "sin comparativa"}</span>
               </div>
-              {data && data.consumptionBars.length > 0 && (
+              {data && perms?.seesCosts && data.consumptionBars.length > 0 && (
                 <div className="real-bars" aria-hidden="true">
                   {data.consumptionBars.map((bar, index) => {
                     const max = Math.max(...data.consumptionBars.map((b) => b.value), 0.01);
@@ -497,7 +482,7 @@ export default function Dashboard() {
             </article>
             <article className="metric-card">
               <div className="metric-top"><span>Rotación</span></div>
-              <strong className="metric-value">{value(data?.rotationValue)}</strong>
+              <strong className="metric-value">{money(data?.rotationValue)}</strong>
               <div className="metric-footer"><span>Consumo / valor de stock</span><span>7 días hasta ayer</span></div>
             </article>
             <article className="metric-card alert-card">

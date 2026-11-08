@@ -6,13 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 import Decimal from "decimal.js";
 import { euros as money, inputText as show } from "@/lib/format";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
+import { EntityHistory } from "./product-history";
 import "./product-editor.css";
 
 // Ficha de producto: datos generales, formatos, precios por proveedor y mínimos por local.
 // Se edita todo en borrador y "Guardar cambios" aplica solo lo que ha cambiado. Los permisos los
 // decide RLS (gerente o superior); si una escritura no afecta a ninguna fila se avisa como falta de permiso.
 
-type Tab = "general" | "formatos" | "precios" | "locales";
+type Tab = "general" | "formatos" | "precios" | "locales" | "historial";
 
 type Option = { id: string; name: string };
 type Unit = { id: string; label: string; factor: number };
@@ -523,6 +524,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
               ["formatos", `Formatos${d ? ` (${d.packs.length})` : ""}`],
               ["precios", `Precios${d ? ` (${d.prices.length})` : ""}`],
               ["locales", "Locales y stock"],
+              ["historial", "Historial"],
             ] as Array<[Tab, string]>
           ).map(([id, label]) => (
             <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
@@ -758,6 +760,8 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
               </div>
             </div>
           )}
+
+          {tab === "historial" && <EntityHistory entityId={productId} />}
 
           {d && data && tab === "locales" && (
             <div className="editor-section">

@@ -9,6 +9,7 @@ import { describeTerms, nextDelivery, formatDayLong, shortDays, WEEKDAYS } from 
 import Decimal from "decimal.js";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
+import { EntityHistory } from "../productos/product-history";
 import "./proveedores.css";
 
 // Proveedores: alta, edición, archivar y eliminar, con los últimos precios que tiene cada uno.
@@ -447,6 +448,12 @@ function SupplierEditor({ supplier, venues, onClose, onChanged }: { supplier: Su
                 </div>
               )}
             </div>
+          )}
+          {supplier && (
+            <details className="editor-section supplier-history">
+              <summary className="facet-title">Historial de cambios</summary>
+              <EntityHistory entityId={supplier.id} />
+            </details>
           )}
         </div>
         {error && <p className="editor-message error">{error}</p>}

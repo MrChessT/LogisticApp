@@ -59,6 +59,7 @@ export function OrderEditor({
   const manager = canManage(reference.role);
   const current: Order = {
     id: order?.id ?? "",
+    code: order?.code ?? "",
     status: order?.status ?? "draft",
     locationId,
     locationName: reference.locations.find((l) => l.id === locationId)?.name ?? order?.locationName ?? "",
@@ -224,7 +225,7 @@ export function OrderEditor({
       <section className="product-editor order-editor" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Pedido">
         <header className="editor-header">
           <div>
-            <p className="eyebrow">{isNew ? "Nuevo pedido" : `Pedido · ${STATUS_LABEL[current.status]}`}</p>
+            <p className="eyebrow">{isNew ? "Nuevo pedido" : `Pedido${current.code ? ` ${current.code}` : ""} · ${STATUS_LABEL[current.status]}`}</p>
             <h2>{current.supplierName || "Elige proveedor"}</h2>
             {!isNew && <span className={`order-status ${current.status}`}>{STATUS_LABEL[current.status]}</span>}
           </div>

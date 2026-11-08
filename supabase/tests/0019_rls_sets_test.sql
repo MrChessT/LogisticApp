@@ -48,7 +48,8 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"c1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select is((select count(*)::int from products where org_id = 'c2000000-0000-4000-8000-000000000001'), 1, 'staff reads the catalog');
 select is((select count(*)::int from product_packs where product_id = 'c5000000-0000-4000-8000-000000000001'), 1, 'staff reads the packs');
-select is((select count(*)::int from supplier_prices where pack_id = 'c6000000-0000-4000-8000-000000000001'), 1, 'staff reads the prices');
+-- Sin el permiso «ve costes» (0032) el personal no lee precios de compra.
+select is((select count(*)::int from supplier_prices where pack_id = 'c6000000-0000-4000-8000-000000000001'), 0, 'staff without the costs permission does not read prices');
 select is((select count(*)::int from count_lines where product_id = 'c5000000-0000-4000-8000-000000000001'), 1, 'staff only sees count lines of their location');
 select throws_ok(
   $$insert into products (org_id, name, dimension) values ('c2000000-0000-4000-8000-000000000001', 'Intruso', 'count')$$,

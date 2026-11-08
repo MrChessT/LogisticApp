@@ -19,6 +19,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
 import { readAll } from "@/lib/supabase/read-all";
+import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
@@ -50,7 +51,7 @@ let referenceCache: (Reference & { userId: string }) | null = null;
 type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
 
 /** Tarjeta de resumen de cada pantalla: qué se mide, la cifra y de qué periodo es. */
-type Metric = { label: string; value: string; hint: string; tone?: "warn"; small?: boolean };
+type Metric = { label: string; value: string; hint: string; tone?: "warn"; small?: boolean; money?: boolean };
 
 /** Las listas enseñan lo reciente (y lo pendiente, sea de cuando sea); las cifras, el último mes. */
 const LIST_DAYS = 60;
@@ -123,6 +124,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const perms = usePermissions();
   const [busyId, setBusyId] = useState("");
   const [orgId, setOrgId] = useState("");
   const [locations, setLocations] = useState<Location[]>([]);
@@ -204,7 +206,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       const { data, error } = await readAll((from, to) =>
         supabase
           .from("goods_receipts")
-          .select("id, doc_number, doc_date, status, attachment_path, suppliers(name), locations(name), receipt_lines(packs_qty, pack_price, expected_price, incident)")
+          .select("id, code, doc_number, doc_date, status, attachment_path, suppliers(name), locations(name), receipt_lines(packs_qty, pack_price, expected_price, incident)")
           .gte("doc_date", daysAgo(LIST_DAYS))
           .order("doc_date", { ascending: false })
           .order("id")
@@ -216,7 +218,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         return;
       }
       const records = (data ?? []) as unknown as Array<{
-        id: string; doc_number: string | null; doc_date: string; status: "open" | "closed" | "cancelled";
+        id: string; code: string | null; doc_number: string | null; doc_date: string; status: "open" | "closed" | "cancelled";
         suppliers: { name: string } | null; locations: { name: string } | null;
         attachment_path: string | null;
         receipt_lines: Array<{ packs_qty: number; pack_price: number; expected_price: number | null; incident: string | null }>;
@@ -228,7 +230,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       setRows(
         records.map((r) => ({
           id: r.id,
-          title: r.doc_number ? `Albarán ${r.doc_number}` : "Albarán sin número",
+          title: `${r.code ? `${r.code} · ` : ""}${r.doc_number ? `Albarán ${r.doc_number}` : "albarán sin número"}`,
           detail: [
             r.suppliers?.name ?? "Proveedor sin asignar",
             overcharge(r) > 0 ? `${formatCurrency(overcharge(r))} por encima de lo pactado` : null,
@@ -263,8 +265,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       const withoutPhoto = month.filter((r) => !r.attachment_path).length;
       setMetrics([
         { label: "Albaranes", value: String(month.length), hint: `últimos ${METRIC_DAYS} días` },
-        { label: "Compras", value: formatCurrency(total), hint: `sin IVA · ${METRIC_DAYS} días` },
-        { label: "Cobrado de más", value: formatCurrency(extra), hint: overcharged.length ? `en ${overcharged.length} ${overcharged.length === 1 ? "albarán" : "albaranes"} · reclamar` : "todo según lo pactado", tone: extra > 0 ? "warn" : undefined },
+        { label: "Compras", money: true, value: formatCurrency(total), hint: `sin IVA · ${METRIC_DAYS} días` },
+        { label: "Cobrado de más", money: true, value: formatCurrency(extra), hint: overcharged.length ? `en ${overcharged.length} ${overcharged.length === 1 ? "albarán" : "albaranes"} · reclamar` : "todo según lo pactado", tone: extra > 0 ? "warn" : undefined },
         { label: "Incidencias", value: String(incidentCount), hint: withoutPhoto ? `${withoutPhoto} sin foto del albarán` : "todos con foto", tone: incidentCount > 0 ? "warn" : undefined },
       ]);
     }
@@ -272,7 +274,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     if (kind === "traspasos") {
       const { data, error } = await supabase
         .from("transfers")
-        .select("id, status, created_at, from_location_id, to_location_id, transfer_lines(id, qty_sent)")
+        .select("id, code, status, created_at, from_location_id, to_location_id, transfer_lines(id, qty_sent)")
         .or(`status.in.(draft,in_transit),created_at.gte.${daysAgo(LIST_DAYS)}`)
         .order("created_at", { ascending: false })
         .limit(500);
@@ -282,7 +284,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         return;
       }
       const records = (data ?? []) as unknown as Array<{
-        id: string; status: "draft" | "in_transit" | "received" | "cancelled"; created_at: string;
+        id: string; code: string | null; status: "draft" | "in_transit" | "received" | "cancelled"; created_at: string;
         from_location_id: string; to_location_id: string; transfer_lines: Array<{ id: string; qty_sent: number }>;
       }>;
       const knownLocations = await (locationsOverride ?? locations);
@@ -303,7 +305,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
           /* eslint-enable react-hooks/immutability */
           return {
             id: t.id,
-            title: `${locationName(t.from_location_id)} → ${locationName(t.to_location_id)}`,
+            title: `${t.code ? `${t.code} · ` : ""}${locationName(t.from_location_id)} → ${locationName(t.to_location_id)}`,
             detail: `${t.transfer_lines.length} producto${t.transfer_lines.length === 1 ? "" : "s"}`,
             status: statusLabel[t.status],
             rawStatus: t.status,
@@ -326,7 +328,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     if (kind === "inventarios") {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("id, status, started_at, closed_at, close_reason, location_id, locations(name), count_lines(id)")
+        .select("id, code, status, started_at, closed_at, close_reason, location_id, locations(name), count_lines(id)")
         .or(`status.eq.open,started_at.gte.${daysAgo(365)}`)
         .order("started_at", { ascending: false })
         .limit(300);
@@ -336,7 +338,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         return;
       }
       const records = (data ?? []) as unknown as Array<{
-        id: string; status: "open" | "closed" | "cancelled"; started_at: string; closed_at: string | null; close_reason: string | null; location_id: string;
+        id: string; code: string | null; status: "open" | "closed" | "cancelled"; started_at: string; closed_at: string | null; close_reason: string | null; location_id: string;
         locations: { name: string } | null; count_lines: Array<{ id: string }>;
       }>;
       const statusLabel: Record<"open" | "closed" | "cancelled", string> = { open: "En progreso", closed: "Cerrado", cancelled: "Cancelado" };
@@ -355,7 +357,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
           }
           return {
             id: c.id,
-            title: `Inventario ${c.locations?.name ?? "?"}`,
+            title: `${c.code ? `${c.code} · ` : ""}Inventario ${c.locations?.name ?? "?"}`,
             detail: `${c.count_lines.length} línea${c.count_lines.length === 1 ? "" : "s"} contadas`,
             status: statusLabel[c.status],
             rawStatus: c.status,
@@ -414,10 +416,10 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       for (const m of lossRows) byProduct.set(m.products?.name ?? "Producto", (byProduct.get(m.products?.name ?? "Producto") ?? 0) + valueOf(m));
       const worst = [...byProduct.entries()].sort((a, b) => b[1] - a[1])[0];
       setMetrics([
-        { label: "Pérdidas", value: formatCurrency(losses), hint: `roturas, caducados y errores · ${METRIC_DAYS} días`, tone: losses > 0 ? "warn" : undefined },
-        { label: "Otras salidas", value: formatCurrency(others), hint: "invitaciones, personal, catas y eventos" },
+        { label: "Pérdidas", money: true, value: formatCurrency(losses), hint: `roturas, caducados y errores · ${METRIC_DAYS} días`, tone: losses > 0 ? "warn" : undefined },
+        { label: "Otras salidas", money: true, value: formatCurrency(others), hint: "invitaciones, personal, catas y eventos" },
         { label: "Registros", value: String(records.length), hint: `últimos ${METRIC_DAYS} días` },
-        { label: "Más pérdida", value: worst ? worst[0] : "—", hint: worst ? formatCurrency(worst[1]) : "sin pérdidas", small: true },
+        { label: "Más pérdida", money: true, value: worst ? worst[0] : "—", hint: worst ? formatCurrency(worst[1]) : "sin pérdidas", small: true },
       ]);
     }
 
@@ -699,7 +701,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
           </button>
         </div>
         <div className="operation-metrics" style={{ "--cols": Math.max(metrics.length, 1) } as CSSProperties}>
-          {(metrics.length ? metrics : [{ label: "Cargando", value: "—", hint: "" }]).map((m) => (
+          {(metrics.length ? metrics : [{ label: "Cargando", value: "—", hint: "" }]).map((m: Metric) => perms && !perms.seesCosts && m.money ? { ...m, value: "Sin permiso", hint: "pide el permiso «ve costes»", tone: undefined } : m).map((m) => (
             <div key={m.label} className={m.tone === "warn" ? "warn" : undefined}>
               <span>{m.label}</span>
               <strong className={m.small ? "small" : undefined} title={m.value}>{m.value}</strong>

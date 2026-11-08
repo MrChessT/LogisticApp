@@ -47,6 +47,8 @@ export interface SessionContext {
   userId: string;
   orgId: string;
   role: Role;
+  /** Ve costes e importes (propiedad, administración, encargados o personal con el permiso). */
+  seesCosts: boolean;
   locations: Location[];
   areas: Area[];
   products: Product[];

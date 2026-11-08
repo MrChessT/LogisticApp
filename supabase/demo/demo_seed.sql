@@ -667,6 +667,10 @@ begin
   if n > 0 then problems := problems || format('%s máximos por debajo del mínimo', n); end if;
   select count(*) into n from purchase_orders where org_id = v_org and status = 'sent' and expected_date < (now() at time zone 'Europe/Madrid')::date;
   if n > 0 then problems := problems || format('%s pedidos atrasados sin recibir', n); end if;
+  select count(*) into n from stock_balances b join locations l on l.id = b.location_id
+  where l.org_id = v_org and abs(b.qty - coalesce((select sum(s.qty) from stock_area_balances s join storage_areas a on a.id = s.area_id
+                                                  where a.location_id = b.location_id and s.product_id = b.product_id), 0)) > 0.0001;
+  if n > 0 then problems := problems || format('%s productos cuyas zonas no suman el stock del local', n); end if;
   if cardinality(problems) > 0 then
     raise exception 'Datos de demo incoherentes: %', array_to_string(problems, '; ');
   end if;

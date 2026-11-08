@@ -13,9 +13,10 @@ insert into organizations (id, name) values
 insert into locations (id, org_id, name) values
   ('d3000000-0000-4000-8000-000000000001', 'd2000000-0000-4000-8000-000000000001', 'Bar'),
   ('d3000000-0000-4000-8000-000000000002', 'd2000000-0000-4000-8000-000000000001', 'Terraza');
-insert into memberships (org_id, user_id, role, all_locations) values
-  ('d2000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000001', 'staff', false),
-  ('d2000000-0000-4000-8000-000000000002', 'd1000000-0000-4000-8000-000000000002', 'owner', true);
+-- El empleado tiene «ve costes» (0032): aquí se prueba qué precio elige el buscador, no el permiso.
+insert into memberships (org_id, user_id, role, all_locations, can_see_costs) values
+  ('d2000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000001', 'staff', false, true),
+  ('d2000000-0000-4000-8000-000000000002', 'd1000000-0000-4000-8000-000000000002', 'owner', true, false);
 insert into membership_locations (org_id, user_id, location_id) values
   ('d2000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000001', 'd3000000-0000-4000-8000-000000000001');
 insert into suppliers (id, org_id, name) values

@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { ArrowLeft, ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { usePermissions } from "@/lib/permissions";
 import { daysAgo, euros, quantity } from "@/lib/format";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
@@ -110,6 +111,7 @@ function exportCsv(rows: StockRow[], label: string) {
 }
 
 export default function StockPage() {
+  const perms = usePermissions();
   const [location, setLocation] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [rows, setRows] = useState<StockRow[]>([]);
@@ -267,7 +269,7 @@ export default function StockPage() {
         <div className="stock-summary">
           <div>
             <span>Valor total</span>
-            <strong>{summary ? euros(summary.value) : "..."}</strong>
+            <strong>{perms && !perms.seesCosts ? "Sin permiso" : summary ? euros(summary.value) : "..."}</strong>
             <small>a coste medio</small>
           </div>
           <div>
@@ -322,7 +324,7 @@ export default function StockPage() {
                   </span>
                 </div>
                 <strong>{row.quantity}</strong>
-                <span>{row.value}</span>
+                <span>{perms?.seesCosts ? row.value : "—"}</span>
                 <span>{row.minimum}</span>
                 <span className={`stock-status ${row.status}`}>{STATUS_LABEL[row.status]}</span>
                 <span className="stock-open" aria-hidden="true"><ChevronRight size={17} /></span>

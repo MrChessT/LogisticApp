@@ -27,3 +27,6 @@
   .suppliers-head span:nth-child(2), .suppliers-row > span:nth-child(2), .suppliers-head span:nth-child(5), .suppliers-row > span:nth-child(5) { display: none; }
   .suppliers-head span:nth-child(4), .suppliers-row > span:nth-child(4) { display: inline; }
 }
+
+.supplier-history summary { cursor: pointer; }
+.supplier-history[open] summary { margin-bottom: 8px; }

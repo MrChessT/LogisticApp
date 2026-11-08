@@ -143,6 +143,7 @@ export default function OrdersPage() {
                   <span>
                     <strong>{o.supplierName}</strong>
                     <small>
+                      {o.code ? `${o.code} · ` : ""}
                       {new Date(o.sentAt ?? o.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
                       {o.expectedDate ? ` · entrega ${new Date(`${o.expectedDate}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}` : ""}
                     </small>

@@ -90,3 +90,13 @@
 .serving-presets, .weights-section { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
 .serving-presets > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .serving-presets .ghost-button { min-height: 36px; }
+
+.history-list { margin: 0; padding: 0; list-style: none; }
+.history-list li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f3f0; font-size: 12px; }
+.history-list time { color: #8a978f; font-size: 11px; }
+.history-list b { color: #24372d; }
+.history-list span { color: #55665b; }
+.history-list s { color: #a1aca4; }
+.history-list strong { color: #1f3b2c; }
+.history-list small { display: block; margin-top: 3px; color: #8a978f; font-size: 10px; }
+@media (max-width: 600px) { .history-list li { grid-template-columns: 1fr; gap: 3px; } }
