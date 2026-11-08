@@ -11,6 +11,7 @@ export type Database = {
       };
       purchase_orders: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           location_id: string;
@@ -258,6 +259,25 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      catalog_changes: {
+        Row: {
+          id: number;
+          org_id: string;
+          entity: "product" | "supplier";
+          entity_id: string;
+          part: string;
+          field: string;
+          old_value: string | null;
+          new_value: string | null;
+          is_cost: boolean;
+          changed_by: string | null;
+          changed_at: string;
+        };
+        // Solo lectura: lo escriben los disparadores (0034).
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       stock_area_balances: {
         Row: {
           area_id: string;
@@ -295,6 +315,7 @@ export type Database = {
       };
       goods_receipts: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           location_id: string;
@@ -408,6 +429,7 @@ export type Database = {
       };
       transfers: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           from_location_id: string;
@@ -460,6 +482,7 @@ export type Database = {
       };
       inventory_counts: {
         Row: {
+          code: string;
           id: string;
           org_id: string;
           location_id: string;
