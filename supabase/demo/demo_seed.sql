@@ -29,6 +29,9 @@ begin
     alter table stock_movements disable trigger stock_movements_immutable;
     alter table copilot_audit disable trigger copilot_audit_immutable;
     delete from area_moves where org_id = v_org;
+    delete from recipe_lines where recipe_id in (select id from recipes where org_id = v_org);
+    delete from recipes where org_id = v_org;
+    delete from product_allergens where product_id in (select id from products where org_id = v_org);
     delete from count_results where count_id in (select id from inventory_counts where org_id = v_org);
     delete from count_lines where count_id in (select id from inventory_counts where org_id = v_org);
     delete from stock_movements where org_id = v_org;
@@ -48,9 +51,6 @@ begin
     delete from products where org_id = v_org;
     delete from categories where org_id = v_org;
     delete from suppliers where org_id = v_org;
-    delete from recipe_lines where recipe_id in (select id from recipes where org_id = v_org);
-    delete from recipes where org_id = v_org;
-    delete from product_allergens where product_id in (select id from products where org_id = v_org);
     delete from copilot_drafts where org_id = v_org;
     delete from copilot_sessions where org_id = v_org;
     delete from copilot_audit where org_id = v_org;

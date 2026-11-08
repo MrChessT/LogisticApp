@@ -8,6 +8,7 @@ import { parseWorkbook, SHEET_LABEL, templateSheets, type ParsedImport, type Row
 import { readXlsx, writeXlsx } from "@/lib/xlsx";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
+import { RecipeImportPanel } from "./recipe-import-panel";
 import "./importar.css";
 
 // Importar catálogo: plantilla de Excel → vista previa exacta (la base de datos hace la importación y la
@@ -241,6 +242,8 @@ export default function ImportarPage() {
                 </div>
               </section>
             )}
+
+            <RecipeImportPanel orgId={org.id} />
           </>
         )}
       </div>
