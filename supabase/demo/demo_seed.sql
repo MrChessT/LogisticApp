@@ -48,6 +48,9 @@ begin
     delete from products where org_id = v_org;
     delete from categories where org_id = v_org;
     delete from suppliers where org_id = v_org;
+    delete from recipe_lines where recipe_id in (select id from recipes where org_id = v_org);
+    delete from recipes where org_id = v_org;
+    delete from product_allergens where product_id in (select id from products where org_id = v_org);
     delete from copilot_drafts where org_id = v_org;
     delete from copilot_sessions where org_id = v_org;
     delete from copilot_audit where org_id = v_org;
@@ -642,6 +645,61 @@ begin
   end loop;
 end $$;
 
+-- Alérgenos de los productos y escandallos: 3 elaboraciones base, 8 platos y un combinado.
+insert into product_allergens (product_id, allergen)
+select p.id, a.allergen from demo_prod p
+join (values ('SE2', 'gluten'), ('SE4', 'gluten'), ('CB1', 'gluten'), ('CB2', 'gluten'), ('CE1', 'gluten'), ('CE3', 'gluten'),
+             ('LA4', 'huevo'), ('LA1', 'lacteos'), ('LA2', 'lacteos'), ('LA3', 'lacteos'), ('LA5', 'lacteos'),
+             ('PE1', 'pescado'), ('PE2', 'pescado'), ('PE4', 'crustaceos'), ('PE3', 'moluscos'), ('PE5', 'moluscos'),
+             ('AC3', 'sulfitos'), ('VT1', 'sulfitos'), ('VT2', 'sulfitos'), ('VT3', 'sulfitos'), ('VB1', 'sulfitos'),
+             ('VB2', 'sulfitos'), ('VR1', 'sulfitos'), ('CAV1', 'sulfitos')) a(code, allergen) on a.code = p.code;
+
+create temp table demo_recipe (code text primary key, id uuid default gen_random_uuid(), name text, kind text, category text,
+  yield_qty numeric, yield_unit text, price numeric, vat numeric, target numeric, steps text) on commit drop;
+insert into demo_recipe (code, name, kind, category, yield_qty, yield_unit, price, vat, target, steps) values
+  ('SOF', 'Sofrito de tomate', 'elaboracion', 'Bases', 600, 'g', null, 10, 30, 'Pochar la cebolla 15 min, añadir el tomate rallado y reducir a fuego lento 40 min.'),
+  ('BEC', 'Bechamel para croquetas', 'elaboracion', 'Bases', 1200, 'g', null, 10, 30, 'Roux de mantequilla y harina 3 min; leche caliente poco a poco hasta espesar.'),
+  ('MAY', 'Mayonesa casera', 'elaboracion', 'Salsas', 350, 'g', null, 10, 30, 'Emulsionar huevo, limón y vinagre con el aceite en hilo. Conservar en frío 48 h.'),
+  ('CRO', 'Croquetas de jamón (8 uds)', 'plato', 'Entrantes', 8, 'racion', 9.50, 10, 28, null),
+  ('BRA', 'Patatas bravas', 'plato', 'Entrantes', 4, 'racion', 6.50, 10, 25, null),
+  ('ARR', 'Arroz negro de calamar', 'plato', 'Arroces', 4, 'racion', 18.00, 10, 30, null),
+  ('PUL', 'Pulpo a la gallega', 'plato', 'Principales', 2, 'racion', 19.50, 10, 32, null),
+  ('LUB', 'Lubina a la plancha con patatas', 'plato', 'Principales', 1, 'racion', 21.00, 10, 32, null),
+  ('ENT', 'Entrecot con patatas', 'plato', 'Principales', 1, 'racion', 24.00, 10, 35, null),
+  ('ENS', 'Ensalada de aguacate y langostino', 'plato', 'Entrantes', 2, 'racion', 14.00, 10, 30, null),
+  ('TOS', 'Tostada de jamón con tomate', 'plato', 'Desayunos', 2, 'racion', 8.00, 10, 30, null),
+  ('GIN', 'Gin tonic de la casa', 'plato', 'Barra', 1, 'racion', 9.00, 10, 20, 'Copa balón con hielo, 50 ml de ginebra, tónica fría y piel de lima.');
+insert into recipes (id, org_id, name, kind, category, yield_qty, yield_unit, sale_price, vat_rate, target_food_cost, instructions)
+select id, 'd0000000-0000-4000-8000-000000000001', name, kind, category, yield_qty, yield_unit, price, vat, target, steps from demo_recipe;
+
+-- (receta, producto o elaboración, cantidad en unidad base o en lo que rinde la elaboración, merma %)
+insert into recipe_lines (recipe_id, product_id, sub_recipe_id, qty, waste_pct, sort_order)
+select r.id, p.id, s.id, l.qty, l.waste, l.ord
+from (values
+  ('SOF', 'FV1', null, 1000, 10, 1), ('SOF', 'FV3', null, 300, 10, 2), ('SOF', 'AC1', null, 100, 0, 3),
+  ('BEC', 'LA1', null, 1000, 0, 1), ('BEC', 'LA3', null, 80, 0, 2), ('BEC', 'SE2', null, 90, 0, 3),
+  ('MAY', 'LA4', null, 2, 0, 1), ('MAY', 'AC2', null, 300, 0, 2), ('MAY', 'FV6', null, 30, 50, 3), ('MAY', 'AC3', null, 10, 0, 4),
+  ('CRO', null, 'BEC', 1200, 0, 1), ('CRO', 'CA6', null, 200, 0, 2), ('CRO', 'LA4', null, 3, 0, 3), ('CRO', 'SE4', null, 2, 0, 4), ('CRO', 'AC2', null, 500, 0, 5),
+  ('BRA', 'FV4', null, 1200, 15, 1), ('BRA', null, 'SOF', 200, 0, 2), ('BRA', null, 'MAY', 120, 0, 3), ('BRA', 'AC2', null, 300, 0, 4),
+  ('ARR', 'SE1', null, 400, 0, 1), ('ARR', 'PE5', null, 600, 10, 2), ('ARR', null, 'SOF', 250, 0, 3), ('ARR', 'AC1', null, 60, 0, 4),
+  ('PUL', 'PE3', null, 400, 0, 1), ('PUL', 'FV4', null, 400, 15, 2), ('PUL', 'AC1', null, 30, 0, 3),
+  ('LUB', 'PE1', null, 450, 45, 1), ('LUB', 'FV4', null, 200, 15, 2), ('LUB', 'FV2', null, 1, 0, 3), ('LUB', 'AC1', null, 20, 0, 4), ('LUB', 'FV6', null, 30, 50, 5),
+  ('ENT', 'CA2', null, 300, 8, 1), ('ENT', 'FV4', null, 250, 15, 2), ('ENT', 'AC2', null, 50, 0, 3),
+  ('ENS', 'FV9', null, 300, 30, 1), ('ENS', 'PE4', null, 200, 40, 2), ('ENS', 'FV2', null, 1, 0, 3), ('ENS', 'FV1', null, 200, 10, 4), ('ENS', 'AC1', null, 30, 0, 5), ('ENS', 'AC3', null, 10, 0, 6),
+  ('TOS', 'SE4', null, 1, 0, 1), ('TOS', 'FV1', null, 150, 10, 2), ('TOS', 'CA6', null, 60, 0, 3), ('TOS', 'AC1', null, 15, 0, 4),
+  ('GIN', 'GIN1', null, 50, 0, 1), ('GIN', 'RF4', null, 1, 0, 2), ('GIN', 'FV7', null, 20, 0, 3)
+) l(recipe, product, sub, qty, waste, ord)
+join demo_recipe r on r.code = l.recipe
+left join demo_prod p on p.code = l.product
+left join demo_recipe s on s.code = l.sub;
+
+-- Dos platos revisados hace un mes con un coste algo menor: enseñan el aviso de «coste cambiado».
+select set_config('app.recipe_review', 'on', true);
+update recipes r set reviewed_cost = round((select t.total from recipe_total_cost(r.id) t) * x.f, 4), reviewed_at = now() - interval '30 days'
+from (values ('ARR', 0.88), ('ENS', 0.92)) x(code, f) join demo_recipe d on d.code = x.code
+where r.id = d.id;
+select set_config('app.recipe_review', '', true);
+
 -- Comprobaciones de coherencia: si algo no cuadra, no se guarda nada.
 do $$
 declare
@@ -685,6 +743,7 @@ union all select 'movimientos', count(*) from stock_movements where org_id = 'd0
 union all select 'pedidos', count(*) from purchase_orders where org_id = 'd0000000-0000-4000-8000-000000000001'
 union all select 'recepciones', count(*) from goods_receipts where org_id = 'd0000000-0000-4000-8000-000000000001'
 union all select 'traspasos', count(*) from transfers where org_id = 'd0000000-0000-4000-8000-000000000001'
-union all select 'inventarios', count(*) from inventory_counts where org_id = 'd0000000-0000-4000-8000-000000000001';
+union all select 'inventarios', count(*) from inventory_counts where org_id = 'd0000000-0000-4000-8000-000000000001'
+union all select 'recetas', count(*) from recipes where org_id = 'd0000000-0000-4000-8000-000000000001';
 
 commit;
