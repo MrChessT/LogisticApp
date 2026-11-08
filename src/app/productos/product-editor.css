@@ -100,3 +100,7 @@
 .history-list strong { color: #1f3b2c; }
 .history-list small { display: block; margin-top: 3px; color: #8a978f; font-size: 10px; }
 @media (max-width: 600px) { .history-list li { grid-template-columns: 1fr; gap: 3px; } }
+
+.allergen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+.allergen-option { padding: 9px 10px; border: 1px solid #e2e9e3; border-radius: 8px; }
+.allergen-option.on { color: #7a5a14; background: #fbf3dc; border-color: #f0dca6; }

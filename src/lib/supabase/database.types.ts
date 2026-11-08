@@ -259,6 +259,74 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      recipes: {
+        Row: {
+          id: string;
+          org_id: string;
+          name: string;
+          kind: "plato" | "elaboracion";
+          category: string | null;
+          yield_qty: number;
+          yield_unit: "racion" | "g" | "ml" | "ud";
+          sale_price: number | null;
+          vat_rate: number;
+          target_food_cost: number;
+          instructions: string | null;
+          active: boolean;
+          reviewed_cost: number | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          name: string;
+          kind?: "plato" | "elaboracion";
+          category?: string | null;
+          yield_qty?: number;
+          yield_unit?: "racion" | "g" | "ml" | "ud";
+          sale_price?: number | null;
+          vat_rate?: number;
+          target_food_cost?: number;
+          instructions?: string | null;
+          active?: boolean;
+        };
+        Update: Partial<Database["public"]["Tables"]["recipes"]["Insert"]>;
+        Relationships: [];
+      };
+      recipe_lines: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          product_id: string | null;
+          sub_recipe_id: string | null;
+          qty: number;
+          waste_pct: number;
+          note: string | null;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          product_id?: string | null;
+          sub_recipe_id?: string | null;
+          qty: number;
+          waste_pct?: number;
+          note?: string | null;
+          sort_order?: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["recipe_lines"]["Insert"]>;
+        Relationships: [
+          { foreignKeyName: "recipe_lines_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] },
+        ];
+      };
+      product_allergens: {
+        Row: { product_id: string; allergen: string };
+        Insert: { product_id: string; allergen: string };
+        Update: { product_id?: string; allergen?: string };
+        Relationships: [];
+      };
       catalog_changes: {
         Row: {
           id: number;
@@ -742,6 +810,17 @@ export type Database = {
       area_moves_list: { Args: { p_location: string; p_status?: "pending" | "decided"; p_limit?: number }; Returns: Json };
       kiosk_validators: { Args: Record<string, never>; Returns: Json };
       sees_costs: { Args: { p_org: string }; Returns: boolean };
+      recipe_costs: {
+        Args: { p_org: string };
+        Returns: Array<{
+          recipe_id: string; total_cost: number | null; unit_cost: number | null; portion_cost: number | null; net_price: number | null;
+          food_cost_pct: number | null; margin: number | null; recommended_price: number | null; missing_prices: number;
+          cost_change_pct: number | null; allergens: string[];
+        }>;
+      };
+      recipe_line_costs: { Args: { p_recipe: string }; Returns: Array<{ line_id: string; unit_cost: number | null; line_cost: number | null }> };
+      product_unit_costs: { Args: { p_products: string[] }; Returns: Array<{ product_id: string; unit_cost: number | null }> };
+      mark_recipe_reviewed: { Args: { p_recipe: string }; Returns: undefined };
       team_set_costs: { Args: { p_user: string; p_value: boolean; p_org?: string | null }; Returns: undefined };
       import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
       export_catalog: { Args: { p_org: string }; Returns: Json };
