@@ -702,6 +702,8 @@ export type Database = {
       area_move_cancel: { Args: { p_id: string }; Returns: undefined };
       area_moves_list: { Args: { p_location: string; p_status?: "pending" | "decided"; p_limit?: number }; Returns: Json };
       kiosk_validators: { Args: Record<string, never>; Returns: Json };
+      import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
+      export_catalog: { Args: { p_org: string }; Returns: Json };
       area_moves_decide: { Args: { p_decisions: Json; p_validator?: string | null; p_pin?: string | null }; Returns: Json };
       team_remove_member: { Args: { p_user: string; p_org?: string | null }; Returns: undefined };
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string | null };

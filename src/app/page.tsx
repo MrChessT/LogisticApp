@@ -10,29 +10,7 @@ import { formatStock, type UnitDimension } from "@/lib/units";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { ROLE_LABEL, type Role } from "@/lib/team";
 import "./dashboard-charts.css";
-import {
-  ArrowUpRight,
-  Boxes,
-  ChevronDown,
-  ChevronRight,
-  CircleHelp,
-  ClipboardList,
-  LayoutDashboard,
-  LogOut,
-  MapPin,
-  MessageSquareWarning,
-  Menu,
-  Package,
-  Search,
-  ShoppingCart,
-  SlidersHorizontal,
-  Sparkles,
-  Truck,
-  Users,
-  Warehouse,
-  X,
-  XCircle,
-} from "lucide-react";
+import { ArrowUpRight, Boxes, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSpreadsheet, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareWarning, Package, Search, ShoppingCart, SlidersHorizontal, Sparkles, Truck, Users, Warehouse, X, XCircle } from "lucide-react";
 
 // Resumen de inicio: todo lo que se ve sale de la base de datos (con RLS) y se puede filtrar por local.
 
@@ -423,6 +401,9 @@ export default function Dashboard() {
             <Link className="nav-item" href="/opiniones"><MessageSquareWarning size={18} /><span>Opiniones del asistente</span></Link>
           )}
           <Link className="nav-item" href="/zonas"><MapPin size={18} /><span>Zonas</span></Link>
+          {identity && ["owner", "admin"].includes(identity.roleKey) && (
+            <Link className="nav-item" href="/importar"><FileSpreadsheet size={18} /><span>Importar catálogo</span></Link>
+          )}
         </nav>
 
         <div className="sidebar-bottom">
