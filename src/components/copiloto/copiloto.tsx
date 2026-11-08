@@ -167,8 +167,7 @@ export function Copiloto() {
     const supabase = createClient();
     const userId = (await supabase?.auth.getSession())?.data.session?.user.id;
     if (!supabase || !userId) return;
-    // «*»: sin romper si la migración 0025 aún no está aplicada.
-    const { data } = await supabase.from("memberships").select("*").eq("user_id", userId).limit(1).maybeSingle();
+    const { data } = await supabase.from("memberships").select("assistant_test").eq("user_id", userId).limit(1).maybeSingle();
     setTestMode(data?.assistant_test === true);
   }, []);
 

@@ -112,13 +112,17 @@ const movementLabel: Record<MovementType, string> = {
 };
 
 function formatRelativeTime(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const minutes = Math.round(diffMs / 60000);
+  const when = new Date(iso);
+  const minutes = Math.round((Date.now() - when.getTime()) / 60000);
   if (minutes < 1) return "Ahora mismo";
   if (minutes < 60) return `Hace ${minutes} min`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Hoy, ${new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`;
-  return new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+  const time = when.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  // «Hoy» y «Ayer» por día de calendario, no por «menos de 24 horas».
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (localDay(when) === localDay(new Date())) return `Hoy, ${time}`;
+  if (localDay(when) === localDay(yesterday)) return `Ayer, ${time}`;
+  return `${when.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}, ${time}`;
 }
 
 function greeting(hour: number) {
@@ -156,31 +160,18 @@ async function loadIdentity(supabase: BrowserClient): Promise<Identity | null> {
   };
 }
 
-/** Consumo por día de negocio (misma definición que Informes). Si falta la migración 0009, usa la vista. */
-async function loadUsage(supabase: BrowserClient, since: string, locationId: string): Promise<Array<{ business_day: string; value: number | null }>> {
+/** Consumo por día de negocio (misma definición que Informes): una fila por día. */
+async function loadUsage(supabase: BrowserClient, since: string, locationId: string): Promise<Array<{ business_day: string; value: number | null }> | null> {
   const { data, error } = await supabase.rpc("usage_by_business_day", { p_since: since, p_location: locationId || null });
-  if (!error) return data ?? [];
-  let query = supabase.from("v_movements_by_business_day").select("business_day, value").in("type", ["consumption", "waste"]).gte("business_day", since);
-  if (locationId) query = query.eq("location_id", locationId);
-  const { data: fallback } = await query;
-  return (fallback ?? []) as Array<{ business_day: string; value: number | null }>;
+  return error ? null : (data ?? []);
 }
 
-/** Totales sobre TODO el stock del local (o de todos). Si falta la migración 0009, suma en el navegador. */
+/** Totales sobre TODO el stock del local (o de todos). */
 async function loadSummary(supabase: BrowserClient, locationId: string) {
   const { data, error } = await supabase.rpc("stock_summary", { p_location: locationId || null });
   const row = data?.[0];
-  if (!error && row) return { total: new Decimal(String(row.total_value ?? 0)), attention: Number(row.below_min_count), critical: Number(row.critical_count) };
-  let query = supabase.from("v_stock_valuation").select("qty, stock_value, below_min");
-  if (locationId) query = query.eq("location_id", locationId);
-  const { data: rows, error: rowsError } = await query;
-  if (rowsError) return null;
-  const attention = (rows ?? []).filter((r) => r.below_min);
-  return {
-    total: (rows ?? []).reduce((acc, r) => acc.plus(String(r.stock_value ?? 0)), new Decimal(0)),
-    attention: attention.length,
-    critical: attention.filter((r) => r.qty <= 0).length,
-  };
+  if (error || !row) return null;
+  return { total: new Decimal(String(row.total_value ?? 0)), attention: Number(row.below_min_count), critical: Number(row.critical_count) };
 }
 
 type DashboardData = {
@@ -198,22 +189,24 @@ type DashboardData = {
 };
 
 async function loadDashboard(supabase: BrowserClient, locationId: string): Promise<DashboardData | null> {
+  // Dos semanas completas hasta ayer: hoy aún no ha terminado y compararlo con un día entero engaña.
   const days: string[] = [];
-  for (let i = 13; i >= 0; i -= 1) {
+  for (let i = 14; i >= 1; i -= 1) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     days.push(localDay(d));
   }
-  // Con la migración 0016 la vista trae los formatos para mostrar «12 botellas» o «2 cajas + 5 ud».
-  const STOCK_BASE = "product_name, category_name, base_unit, qty, stock_value, below_min";
-  const STOCK_FULL = `${STOCK_BASE}, dimension, count_pack_name, count_pack_qty, purchase_pack_name, purchase_pack_qty`;
-  const stockQueryFor = (columns: string) => {
-    const q = supabase.from("v_stock_valuation").select(columns).order("below_min", { ascending: false }).order("product_name").limit(4);
-    return locationId ? q.eq("location_id", locationId) : q;
-  };
+  // La vista trae los formatos para mostrar «12 botellas» o «2 cajas + 5 ud».
+  let stockQuery = supabase
+    .from("v_stock_valuation")
+    .select("product_name, category_name, base_unit, qty, stock_value, below_min, dimension, count_pack_name, count_pack_qty, purchase_pack_name, purchase_pack_qty")
+    .order("below_min", { ascending: false })
+    .order("product_name")
+    .limit(4);
+  if (locationId) stockQuery = stockQuery.eq("location_id", locationId);
   let movementQuery = supabase.from("stock_movements").select("id, type, occurred_at, products(name), locations(name)").order("occurred_at", { ascending: false }).limit(6);
   let transferQuery = supabase.from("transfers").select("id", { count: "exact", head: true }).in("status", ["draft", "in_transit"]);
-  // Salidas de almacén por validar (migración 0024; sin ella la consulta falla y cuenta 0).
+  // Salidas de almacén por validar.
   let movesQuery = supabase.from("area_moves").select("id", { count: "exact", head: true }).eq("status", "pending");
   if (locationId) {
     movementQuery = movementQuery.eq("location_id", locationId);
@@ -222,16 +215,15 @@ async function loadDashboard(supabase: BrowserClient, locationId: string): Promi
   }
 
   // Todo en una sola ronda de peticiones.
-  const [fullStock, summary, usage, movements, transfers, moves] = await Promise.all([
-    stockQueryFor(STOCK_FULL),
+  const [stock, summary, usage, movements, transfers, moves] = await Promise.all([
+    stockQuery,
     loadSummary(supabase, locationId),
     loadUsage(supabase, days[0]!, locationId),
     movementQuery,
     transferQuery,
     movesQuery,
   ]);
-  const stock = fullStock.error ? await stockQueryFor(STOCK_BASE) : fullStock; // migración 0016 aún sin aplicar
-  if (stock.error || !summary) return null;
+  if (stock.error || !summary || !usage) return null;
 
   const byDay = new Map<string, number>();
   for (const row of usage) byDay.set(row.business_day, (byDay.get(row.business_day) ?? 0) + Math.abs(row.value ?? 0));
@@ -253,7 +245,7 @@ async function loadDashboard(supabase: BrowserClient, locationId: string): Promi
     attention: summary.attention,
     critical: summary.critical,
     pendingTransfers: transfers.count ?? 0,
-    pendingMoves: moves.error ? 0 : moves.count ?? 0,
+    pendingMoves: moves.count ?? 0,
     stockRows: ((stock.data ?? []) as unknown as HomeStockRow[]).map((row) => {
       const critical = row.qty < 0 || (row.below_min && row.qty <= 0);
       return {
@@ -491,7 +483,7 @@ export default function Dashboard() {
               <div className="metric-top"><span>Consumo del periodo</span></div>
               <strong className="metric-value">{value(data?.consumptionValue)}</strong>
               <div className="metric-footer">
-                <span>Últimos 7 días</span>
+                <span>7 días hasta ayer</span>
                 <span>{data?.consumptionTrend || "sin comparativa"}</span>
               </div>
               {data && data.consumptionBars.length > 0 && (
@@ -506,7 +498,7 @@ export default function Dashboard() {
             <article className="metric-card">
               <div className="metric-top"><span>Rotación</span></div>
               <strong className="metric-value">{value(data?.rotationValue)}</strong>
-              <div className="metric-footer"><span>Consumo / valor de stock</span><span>últimos 7 días</span></div>
+              <div className="metric-footer"><span>Consumo / valor de stock</span><span>7 días hasta ayer</span></div>
             </article>
             <article className="metric-card alert-card">
               <div className="metric-top"><span>Requieren atención</span>{data && data.attention > 0 && <span className="alert-dot" />}</div>
