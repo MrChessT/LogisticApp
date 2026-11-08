@@ -43,3 +43,9 @@
   .import-panel-head { flex-direction: column; }
   .import-stats { grid-template-columns: 1fr 1fr; }
 }
+
+.import-recipes { margin-top: 42px; padding-top: 26px; border-top: 1px solid #e2e9e3; }
+.import-section-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; color: #2e8064; }
+.import-section-head h2 { margin: 0; color: #17251f; font: 600 20px var(--font-display), sans-serif; }
+.import-section-head p { margin: 5px 0 0; color: #7c8983; font-size: 12px; }
+.import-products { max-height: 220px; overflow-y: auto; margin: 10px 0 0; padding: 10px; color: #45574c; background: #f7faf7; border-radius: 8px; font-size: 11px; line-height: 1.6; }
