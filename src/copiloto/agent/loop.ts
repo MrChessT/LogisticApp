@@ -29,12 +29,14 @@ import { HabitsStore } from "./habits";
 import type { Draft } from "../contract/index";
 import type { ConfirmResponse } from "../drafts/confirm";
 import { isShortcut, resolveShortcut } from "./shortcuts";
-import { changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
+import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
 import { tokenize } from "../entities/normalize";
 import { reorderTable, tableFor } from "../writer/table";
 import { followUpsFor } from "./followups";
 import { fastStockPlan } from "./fast-path";
-import { consumptionByHand, topicReply } from "./topics";
+import { consumptionByHand, screenHelp, topicReply } from "./topics";
+import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
+import type { InfoPlan } from "./interpret";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 export type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
@@ -46,6 +48,8 @@ export interface RequestScope {
   drafts?: DraftStore;
   confirmDraft?: ConfirmDraft;
   habits?: HabitsStore;
+  /** Facturas, equipo, escandallos, zonas, inventarios y proveedores (con el JWT del usuario). */
+  info?: InfoSource;
 }
 
 export interface AgentDeps {
@@ -65,6 +69,8 @@ export interface AgentDeps {
   confirmDraft?: ConfirmDraft;
   /** Hábitos del usuario (en producción, con Supabase por petición). */
   habits?: HabitsStore;
+  /** Información de gestión por defecto (tests y desarrollo). */
+  info?: InfoSource;
   /** Vía rápida sin Jev para preguntas de stock puras (por defecto, activada). */
   fastPath?: boolean;
   now?: () => Date;
@@ -129,6 +135,7 @@ export class Agent {
       drafts: scope.drafts ?? this.deps.drafts,
       confirmDraft: scope.confirmDraft ?? this.deps.confirmDraft,
       habits: scope.habits ?? this.deps.habits ?? new HabitsStore(),
+      info: scope.info ?? this.deps.info,
     };
     const timer = new StageTimer();
     const messageId = randomUUID();
@@ -162,16 +169,39 @@ export class Agent {
         session.clarifies.delete(pending.clarifyId);
         let option: string | null = req.clarification.optionId;
         let typed: Extract<FreeTextAnswer, { kind: "quantity" }> | null = null;
+        let price: string | null = null;
+        let cancelled = option === CANCEL_OPTION;
         const text = (req.clarification.freeText ?? req.message).trim();
-        if (option === "otra" || !pending.optionIds.includes(option)) {
-          // Escrito a mano: primero como respuesta a esta pregunta (una opción o una cantidad).
+        if (!cancelled && (option === "otra" || !pending.optionIds.includes(option))) {
+          // Escrito a mano: primero como respuesta a esta pregunta (una opción, una cantidad o un precio).
           const read = readFreeText(pending, text, ctx);
           option = read.kind === "option" ? read.optionId : null;
           if (read.kind === "quantity" && pending.routing) typed = read;
+          if (read.kind === "price") price = read.amount;
+          if (read.kind === "cancel") cancelled = true;
+          // «todos» a «¿qué traspaso ha llegado?»: se reciben de uno en uno, empezando por el primero.
+          if (option === null && pending.field === "documento" && /^(tod[oa]s|todo|ambos|ambas|los dos|las dos)\b/.test(tokenize(text).join(" ")) && pending.optionIds[0]) {
+            option = pending.optionIds[0];
+            overrides = { uno_a_uno: "1" };
+          }
         }
         const changes = changesOperation(text, pending);
+        if (cancelled) {
+          plan = { type: "aviso", text: "Vale, lo dejo. Dime si necesitas otra cosa." };
+          shortcut = true;
+          session.clarifies.clear();
+        }
         const answered = (value: string) => [...(pending.answers ?? []), `${pending.field.replace(/_/g, " ")}: ${value}`].slice(-6);
-        if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text)) {
+        if (cancelled) {
+          // Ya resuelto arriba.
+        } else if (price !== null && pending.routing) {
+          message = pending.message;
+          page = pending.page;
+          pageContext = pending.pageContext;
+          overrides = { ...pending.overrides, precio: price };
+          answers = answered(text);
+          reuse = pending.routing;
+        } else if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text)) {
           // «¿Cómo se llama el producto nuevo?» → «Prueba Luis»: es el nombre, se sigue con la misma orden.
           const { sentido: _sentido, ...rest } = pending.overrides;
           void _sentido;
@@ -192,7 +222,7 @@ export class Agent {
           message = pending.message;
           page = pending.page;
           pageContext = pending.pageContext;
-          overrides = option !== null ? { ...pending.overrides, [overrideKey(pending, option)]: overrideValue(option) } : quantityOverrides(pending, typed!);
+          overrides = option !== null ? { ...pending.overrides, ...overrides, [overrideKey(pending, option)]: overrideValue(option) } : quantityOverrides(pending, typed!);
           answers = answered(option !== null ? (pending.optionLabels?.[pending.optionIds.indexOf(option)] ?? text) : text);
           reuse = pending.routing;
         } else if (ENTITY_FIELDS.has(pending.field) && !pending.restart && !isNewQuestion(text) && !changes) {
@@ -226,11 +256,22 @@ export class Agent {
 
       // Lo que no es del inventario (personal, ventas), el consumo «a mano» y «olvídalo»: respuesta fija.
       if (!plan && !reuse && !req.followUpId) {
-        const topic = topicReply(message) ?? consumptionByHand(message);
+        const topic = topicReply(message) ?? screenHelp(message, ctx.locations.map((l) => l.name)) ?? consumptionByHand(message);
         if (topic) {
           plan = { type: "aviso", text: topic.text, ...(topic.route ? { route: topic.route } : {}) };
           shortcut = true;
           session.clarifies.clear();
+        }
+      }
+
+      // Facturas, equipo, escandallos, zonas, inventarios o proveedores dichos claramente: sin Jev (solo lectura).
+      if (!plan && !reuse && !req.clarification && !activeFocus(session, this.now().getTime())?.draftId) {
+        const infoTool = infoTopicOf(message);
+        if (infoTool) {
+          const named = ctx.locations.filter((l) => tokenize(message).some((w) => tokenize(l.name).includes(w)));
+          const ids = named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id);
+          plan = { type: "info", tool: infoTool, locationIds: ids, locationsDefaulted: named.length === 0 && !pageContext?.locationId, products: [], periodo: "no_indicado" };
+          shortcut = true;
         }
       }
 
@@ -248,9 +289,7 @@ export class Agent {
       if (plan) {
         deps.metrics.shortcuts += 1;
         intent =
-          plan.type === "navegar"
-            ? "navegar"
-            : plan.type === "conversar" || plan.type === "aviso"
+          plan.type === "conversar" || plan.type === "aviso"
               ? "conversar"
               : plan.type === "catalogo" || plan.type === "accion"
                 ? "proponer_accion"
@@ -280,7 +319,7 @@ export class Agent {
         data: { messageId, intent: intentDecision, decisions: decisions.filter((d) => d.id !== "intent"), shortcut },
       });
 
-      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft });
+      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft });
 
       const report: DecisionReport = {
         version: 1,
@@ -344,29 +383,24 @@ export class Agent {
   }
 
   private async clarify(plan: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
-    // La misma pregunta otra vez en pocos turnos: no se entiende algo. En vez de seguir en bucle, se ofrece
-    // hacerlo en su pantalla (o cómo decirlo para que se entienda a la primera).
+    // La misma pregunta otra vez: lo que se escribió no la contestaba. Se dice claro qué falta, con un
+    // ejemplo de respuesta, y se ofrece dejarlo (nunca se manda a otra pantalla).
     const repeated = askedRecently(env.session, plan.question);
-    const route = repeated ? routeForOperation(plan.field, env) : null;
-    if (route) await env.emit({ event: "navigate", data: { route, filters: {}, auto: false } });
-    const question = !repeated
-      ? plan.question
-      : route
-        ? `${plan.question} Si te resulta más fácil, hazlo directamente en ${label(route)}: te dejo el enlace.`
-        : `${plan.question} Si no te entiendo, dímelo en una frase con la operación y los datos (por ejemplo «merma de 2 botellas de Larios en Parador») o elige en Funciones.`;
+    const question = repeated ? `Me falta ese dato para seguir. ${plan.question}${ANSWER_HINT[plan.field] ? ` ${ANSWER_HINT[plan.field]}` : ""}` : plan.question;
+    const options = repeated ? [...plan.options, { id: CANCEL_OPTION, label: "Déjalo", probability: null }] : plan.options;
     const clarify: ClarifyEvent = {
       clarifyId: randomUUID().slice(0, 12),
       question,
       field: plan.field,
-      options: plan.options,
+      options,
       allowFreeText: true,
     };
     this.deps.sessions.addClarify(env.session, {
       clarifyId: clarify.clarifyId,
       field: plan.field,
       ...(plan.segmentIndex !== undefined ? { segmentIndex: plan.segmentIndex } : {}),
-      optionIds: plan.options.map((o) => o.id),
-      optionLabels: plan.options.map((o) => o.label),
+      optionIds: options.map((o) => o.id),
+      optionLabels: options.map((o) => o.label),
       ...(plan.restart ? { restart: true } : {}),
       message: env.message,
       page: env.page,
@@ -417,6 +451,7 @@ export class Agent {
       }
     }
     draft = validateDraft(draft);
+    if (env.overrides.uno_a_uno) draft.warnings.unshift("Van de uno en uno: confirma este y vuelve a pedírmelo para el siguiente.");
     if (plan.type === "accion" && plan.reviewAll) draft.warnings.unshift("Revisa los datos antes de confirmar: puede que falte algo de lo que querías.");
     if (coherence === null) {
       draft.warnings.unshift("No he podido comprobar el borrador: revísalo con atención.");
@@ -490,11 +525,8 @@ export class Agent {
         return { kind: "tarea", tarea: "aviso", text: plan.text, rows: 0 };
       case "bloqueado":
         return { kind: "bloqueado" };
-      case "navegar": {
-        const navigate = { route: plan.route, filters: plan.filters, auto: plan.auto };
-        await emit({ event: "navigate", data: navigate });
-        return { kind: "navegacion", navigate, destino: label(plan.route) };
-      }
+      case "info":
+        return this.info(plan, env);
       case "accion":
       case "catalogo":
       case "documento":
@@ -506,6 +538,24 @@ export class Agent {
       case "tarea":
         return this.tarea(plan, env);
     }
+  }
+
+  /** Facturas, equipo, escandallos, zonas, inventarios o proveedores: texto y tabla ya redactados. */
+  private async info(plan: InfoPlan, env: ExecEnv): Promise<ReportOutcome> {
+    if (!env.info) return { kind: "error", message: "Esa consulta no está disponible ahora mismo." };
+    const result = await env.timer.time("herramientas", () =>
+      runInfo(env.info!, env.ctx, {
+        tool: plan.tool,
+        message: env.message,
+        locationIds: plan.locationIds,
+        locationsChosen: !plan.locationsDefaulted,
+        productNames: plan.products.map((p) => p.product.name),
+        now: this.now(),
+      }),
+    );
+    if (result.table) await env.emit({ event: "table", data: result.table });
+    await env.emit({ event: "navigate", data: { route: result.route, filters: {}, auto: false } });
+    return { kind: "tarea", tarea: plan.tool, text: result.text, rows: result.rows };
   }
 
   /** Tarea de varios pasos: tabla, botones que preparan los borradores y enlace a su pantalla. */
@@ -678,6 +728,7 @@ interface ExecEnv {
   emit: Emit;
   timer: StageTimer;
   tools: Tools;
+  info?: InfoSource;
   /** Decisiones del mensaje; la coherencia del borrador se añade aquí para el informe y la auditoría. */
   decisions: Decision[];
   audit: AuditSink;
@@ -777,32 +828,17 @@ function nextFocus(plan: Plan, outcome: ReportOutcome, previous: Focus | undefin
 /** ¿Se hizo esta misma pregunta en los últimos turnos del asistente? (bucle de aclaraciones) */
 function askedRecently(session: Session, question: string): boolean {
   const recent = session.turns.filter((t) => t.role === "assistant").slice(-3);
-  const head = question.slice(0, 60);
-  return recent.some((t) => t.text.startsWith(head));
+  const head = question.slice(0, 40);
+  return recent.some((t) => t.text.includes(head));
 }
 
-/** Pantalla donde se hace a mano la operación que se está preparando. */
-const OPERATION_ROUTE: Record<string, AppRoute> = {
-  merma: "/mermas",
-  traspaso: "/traspasos",
-  recibir_traspaso: "/traspasos",
-  cancelar_traspaso: "/traspasos",
-  recepcion: "/recepciones",
-  preparar_pedido: "/pedidos",
-  enviar_pedido: "/pedidos",
-  recibir_pedido: "/pedidos",
-  cancelar_pedido: "/pedidos",
-  abrir_inventario: "/inventarios",
-  anotar_conteo: "/inventarios",
-  cierre_inventario: "/inventarios",
-  nuevo_producto: "/productos",
-  cambiar_precio: "/productos",
-  archivar_producto: "/productos",
-  cambiar_minimo: "/stock",
+/** Cómo se contesta cada pregunta, para cuando lo escrito no la contestaba. */
+const ANSWER_HINT: Partial<Record<ClarifyPlan["field"], string>> = {
+  local: "Elige uno o escribe su nombre.",
+  local_destino: "Elige uno o escribe su nombre.",
+  producto: "Elige uno o escribe el nombre como sale en el catálogo.",
+  cantidad: "Escribe solo la cantidad, por ejemplo «3 botellas».",
+  precio: "Escribe solo el precio, por ejemplo «1,50».",
+  formato: "Elige uno de los formatos.",
+  documento: "Elige uno de la lista.",
 };
-
-function routeForOperation(field: ClarifyPlan["field"], env: ExecEnv): AppRoute | null {
-  if (field === "nombre" || field === "sentido" || field === "duplicado") return "/productos";
-  const operation = env.overrides.tipo_accion ?? env.decisions.find((d) => d.id === "tipo_accion")?.value;
-  return (operation && OPERATION_ROUTE[operation]) || null;
-}

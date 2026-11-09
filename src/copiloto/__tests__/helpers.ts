@@ -15,6 +15,7 @@ import { DraftBuilder } from "../drafts/builder";
 import { DraftStore } from "../drafts/store";
 import { ConfirmService } from "../drafts/confirm";
 import { FixtureWriter } from "../dev/fixture-writer";
+import { FixtureInfoSource } from "../dev/fixture-info";
 import { randomUUID } from "node:crypto";
 import { HabitsStore } from "../agent/habits";
 
@@ -55,6 +56,7 @@ export function makeAgent(jev: JevPort, provider: WriterProvider | null = null, 
   const agent = new Agent({
     jev,
     tools: new InventoryTools(new FixtureDataSource(NOW)),
+    info: new FixtureInfoSource(NOW),
     retriever: new LexicalRetriever(),
     writer: new Writer(provider, metrics, { timeoutMs: 2000, attempts: 2 }),
     metrics,

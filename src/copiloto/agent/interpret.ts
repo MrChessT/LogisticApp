@@ -2,7 +2,7 @@
 // Cero adivinanzas: si una decisión en juego no llega a su umbral, el plan es una aclaración.
 import type { TareaPlan } from "../skills/tareas";
 import type { ChoiceResponse } from "@typesafe-ai/sdk";
-import type { AppRoute, ClarifyField, Decision, GateOutcome, NavigateFilters } from "../contract/index";
+import type { AppRoute, ClarifyField, Decision, GateOutcome } from "../contract/index";
 import type { Product, SessionContext } from "../domain";
 import { asChoice, asNoul, gateChoice, gateNoulNo, gateNoulYes, worst, type ChoiceGate, type RankedOption } from "../gates/gate";
 import type { GateSpec, Thresholds } from "../gates/thresholds";
@@ -14,9 +14,10 @@ import {
   TODOS,
   VARIOS,
   type Accion,
+  isInfoTool,
   type Dato,
-  type Destino,
   type Herramienta,
+  type InfoTool,
   type Intent,
   type MotivoMerma,
   type Periodo,
@@ -26,11 +27,9 @@ import type { ToolName } from "../tools/tools";
 import { asksSameAgain, mentionsWaste, referencesPrevious, venueRoles, wantsAreaBreakdown, type RoutingMeta } from "./routing";
 import type { Focus } from "./session";
 import { preferredLocation, type Habits } from "./habits";
-import { VIEW_FOR_TOOL } from "../analytics/analytics";
 import { need, relevant, slotSpec, type ContextKey } from "../gates/policy";
 import { namesAll, namesProduct, unexplainedWords } from "../entities/mentions";
 import { familyOf, type Family } from "../entities/family";
-import { movementTypesIn } from "../tools/types";
 import { formatDecimal } from "../entities/units";
 import { isUnitWord } from "../entities/quantity-parser";
 import { normalize, tokenize } from "../entities/normalize";
@@ -83,11 +82,14 @@ export interface QueryPlan {
   familia?: string;
 }
 
-export interface NavigatePlan {
-  type: "navegar";
-  route: AppRoute;
-  filters: NavigateFilters;
-  auto: boolean;
+/** Información de gestión (facturas, equipo, escandallos, zonas, inventarios, proveedores): tools/info.ts. */
+export interface InfoPlan {
+  type: "info";
+  tool: InfoTool;
+  locationIds: string[];
+  locationsDefaulted: boolean;
+  products: ResolvedProduct[];
+  periodo: Periodo;
 }
 
 export interface ActionPlan {
@@ -149,7 +151,7 @@ export type Plan =
   | CatalogPlan
   | DocumentPlan
   | QueryPlan
-  | NavigatePlan
+  | InfoPlan
   | ActionPlan
   | { type: "conversar" }
   | { type: "fuera_de_ambito" }
@@ -166,8 +168,6 @@ export interface Interpretation {
 /** Respuestas de intent_alt compatibles con cada intención (navegar o conversar pueden leerse como "leer"). */
 const INTENT_ALT_EXPECTED: Record<Intent, string[]> = {
   consultar: ["leer"],
-  // Ir a una pantalla es reversible: cualquier respuesta es compatible ("llévame a mermas" suena a "cambiar").
-  navegar: ["leer", "ninguno", "cambiar"],
   pedir_sugerencias: ["leer"],
   proponer_accion: ["cambiar"],
   // Conversar tampoco escribe nada: «¿cómo hago un traspaso?» suena a «cambiar» (0,63) y es ayuda (1,00).
@@ -338,8 +338,6 @@ export class Interpreter {
     switch (intentValue) {
       case "conversar":
         return this.done(intentValue, { type: "conversar" });
-      case "navegar":
-        return this.done(intentValue, this.navigate());
       case "consultar":
       case "pedir_sugerencias":
         return this.done(intentValue, this.query(intentValue));
@@ -427,30 +425,6 @@ export class Interpreter {
 
   private done(intent: Intent, plan: Plan): Interpretation {
     return { intent, decisions: this.decisions, plan };
-  }
-
-  private navigate(): Plan {
-    const g = this.gate("destino", "Pantalla", this.thresholds.destino);
-    if (!g || g.choice === "ninguna" || g.outcome === "preguntar") {
-      // Sin la pregunta (el mensaje no pedía pantalla) se ofrecen las pantallas más usadas.
-      const ranked = g?.ranked ?? ["/stock", "/pedidos", "/informes"].map((option) => ({ option, probability: 0 }));
-      return this.clarify("destino", "¿A qué pantalla quieres ir?", ranked, ["ninguna"]);
-    }
-    const filters: NavigateFilters = {};
-    const loc = this.readLocation("navegar");
-    if (loc.ids.length === 1 && !loc.defaulted) filters.locationId = loc.ids[0]!;
-    const products = this.resolveProducts("navegar", false);
-    if (!("type" in products) && products.length === 1) filters.productId = products[0]!.product.id;
-    if (g.choice === "/informes") {
-      // Navegar es reversible: basta la consulta más probable para elegir la vista.
-      const tool = this.choice("herramienta")?.choice as Herramienta | undefined;
-      if (tool && tool !== "ninguna") filters.view = VIEW_FOR_TOOL[tool];
-      // «los informes de mermas»: su vista, no la de consumo (las dos salen de movimientos).
-      if (this.meta.message && movementTypesIn(this.meta.message).includes("waste")) filters.view = "mermas";
-      const periodo = this.choice("periodo")?.choice;
-      filters.days = periodo === "semana" || periodo === "fin_de_semana" || periodo === "hoy" || periodo === "ayer" ? 7 : periodo === "mes" ? 30 : 30;
-    }
-    return { type: "navegar", route: g.choice as Destino as AppRoute, filters, auto: g.outcome === "actuar" };
   }
 
   /** Local para una lectura: si no está claro, todos los accesibles (fallback seguro, se avisa). */
@@ -637,6 +611,7 @@ export class Interpreter {
       // «¿y en el Parador?» tras «¿qué tengo que pedir?»: la misma consulta, en otro sitio (Jev lee «stock»).
       tool = focusTool;
     }
+    if (isInfoTool(tool)) return this.info(tool);
     const context: ContextKey = `consulta:${tool as ToolName}`;
     const loc = this.readLocation(context);
     const area = this.readArea(context);
@@ -708,6 +683,14 @@ export class Interpreter {
       ...(inherited.length > 0 ? { inherited } : {}),
       ...(this.familia ? { familia: this.familia } : {}),
     };
+  }
+
+  /** Facturas, equipo, escandallos, zonas, inventarios o proveedores: el local, los productos y el periodo solo filtran. */
+  private info(tool: InfoTool): Plan {
+    const loc = this.readLocation("info");
+    const products = this.resolveProducts("info", false);
+    const periodo = (this.choice("periodo")?.choice ?? NO_INDICADO) as Periodo;
+    return { type: "info", tool, locationIds: loc.ids, locationsDefaulted: loc.defaulted, products: "type" in products ? [] : products, periodo };
   }
 
   /**

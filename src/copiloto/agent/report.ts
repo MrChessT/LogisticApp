@@ -1,5 +1,5 @@
 // Informe de decisión: lo único que ve el redactor. JSON cerrado, sin ids internos ni datos personales.
-import type { ClarifyEvent, Decision, Draft, NavigateEvent } from "../contract/index";
+import type { ClarifyEvent, Decision, Draft } from "../contract/index";
 import type { Dato, EvalKind, Intent, Urgency } from "../jev/catalog";
 import type { ToolName } from "../tools/tools";
 import type { ToolResult } from "../tools/types";
@@ -36,7 +36,6 @@ export type ReportOutcome =
       /** No queda en el local pedido pero sí en otros: dónde (va en la tabla). */
       elsewhere?: string[];
     }
-  | { kind: "navegacion"; navigate: NavigateEvent; destino: string }
   | { kind: "aclaracion"; clarify: ClarifyEvent }
   /** charla: saludo, despedida o agradecimiento (respuesta corta en vez de la ayuda). */
   | { kind: "conversacion"; charla?: "hola" | "gracias" | "adios" }
@@ -76,8 +75,6 @@ export function writerView(report: DecisionReport): Record<string, unknown> {
         ...(o.elsewhere ? { hay_en_otros_locales: o.elsewhere } : {}),
         decisiones,
       };
-    case "navegacion":
-      return { tipo: "navegacion", pantalla: o.destino, automatica: o.navigate.auto };
     case "aclaracion":
       return { tipo: "aclaracion", pregunta: o.clarify.question, opciones: o.clarify.options.map((opt) => opt.label) };
     case "borrador":

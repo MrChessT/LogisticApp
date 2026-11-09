@@ -60,10 +60,12 @@ describe("gráficas en el chat", () => {
     expect(find(events, "navigate")).toMatchObject({ route: "/informes", filters: { view: "reposicion" } });
   });
 
-  it("«llévame a las gráficas de mermas» navega a /informes con la vista de mermas", async () => {
-    const jev = new FakeJev([{ intent: "navegar", intent_alt: "leer", destino: "/informes", herramienta: "query_movements", periodo: "semana" }]);
+  it("«llévame a las gráficas de consumo» dice dónde están y deja el enlace, sin navegar ni llamar a Jev", async () => {
+    const jev = new FakeJev();
     const { agent } = makeAgent(jev);
-    const nav = find(await run(agent, chat("llévame a las gráficas de consumo de esta semana")), "navigate")!;
-    expect(nav).toEqual({ route: "/informes", filters: { view: "consumo", days: 7 }, auto: true });
+    const events = await run(agent, chat("llévame a las gráficas de consumo de esta semana"));
+    expect(jev.calls).toHaveLength(0);
+    expect(find(events, "navigate")).toEqual({ route: "/informes", filters: {}, auto: false });
+    expect(find(events, "done")!.text).toContain("Gestión › Informes");
   });
 });

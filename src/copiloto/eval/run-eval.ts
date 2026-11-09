@@ -36,7 +36,6 @@ interface Case {
   local_destino?: Label;
   producto?: Label;
   periodo?: Label;
-  destino?: Label;
   /** Qué dato pide una consulta (cantidad, valor, precio, proveedor, formatos, mínimo). */
   dato?: Label;
   inyeccion?: boolean;
@@ -46,7 +45,7 @@ interface Case {
   grupo?: string;
 }
 
-const FIELDS = ["intent", "herramienta", "tipo_accion", "local", "local_destino", "producto", "periodo", "destino", "dato"] as const;
+const FIELDS = ["intent", "herramienta", "tipo_accion", "local", "local_destino", "producto", "periodo", "dato"] as const;
 type Field = (typeof FIELDS)[number];
 const QUESTION: Record<Field, string> = {
   intent: "intent",
@@ -56,14 +55,13 @@ const QUESTION: Record<Field, string> = {
   local_destino: "local_destino",
   producto: "producto_0",
   periodo: "periodo",
-  destino: "destino",
   dato: "dato",
 };
 const EXPECTED_PLAN: Record<string, Plan["type"]> = {
   consultar: "consultar",
   pedir_sugerencias: "consultar",
   proponer_accion: "accion",
-  navegar: "navegar",
+  navegar: "aviso",
   conversar: "conversar",
   fuera_de_ambito: "fuera_de_ambito",
 };
@@ -216,7 +214,6 @@ function currentGate(field: Field, risk: "lectura" | "escritura"): GateKey | nul
       return risk === "escritura" ? "intent_accion" : "intent_lectura";
     case "herramienta":
     case "tipo_accion":
-    case "destino":
     case "dato":
       return field;
     case "local":

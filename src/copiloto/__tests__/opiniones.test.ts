@@ -89,12 +89,17 @@ describe("opinión 2026-10-15 (Luis): alta de producto y cambio de operación", 
     expect(find(events, "draft")?.kind).toBe("merma");
   });
 
-  it("si vuelve a hacer la misma pregunta, ofrece la pantalla en vez de seguir en bucle", async () => {
+  it("si vuelve a hacer la misma pregunta, dice qué falta y ofrece dejarlo (sin mandar a otra pantalla)", async () => {
     const jev = new FakeJev([route("nuevo_producto"), route("nuevo_producto")]);
     const { agent } = makeAgent(jev);
     await run(agent, chat("crear producto"));
     const again = await run(agent, chat("crear producto"));
-    expect(find(again, "done")!.text + (find(again, "clarify")?.question ?? "")).toMatch(/Productos/);
-    expect(find(again, "navigate")?.route).toBe("/productos");
+    const clarify = find(again, "clarify")!;
+    expect(clarify.question).toMatch(/^Me falta ese dato para seguir\./);
+    expect(clarify.options.map((o) => o.label)).toContain("Déjalo");
+    expect(find(again, "navigate")).toBeUndefined();
+    // «Déjalo» cierra la pregunta.
+    const done = await run(agent, chat("Déjalo", { clarification: { clarifyId: clarify.clarifyId, optionId: "__dejar" } }));
+    expect(find(done, "done")!.text).toMatch(/lo dejo/);
   });
 });

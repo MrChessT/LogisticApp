@@ -18,6 +18,7 @@ import { SupabaseAuditSink } from "./supabase/audit-sink";
 import { DataError, pingSupabase, userClient } from "./supabase/client";
 import { SupabaseContext } from "./supabase/context";
 import { SupabaseDataSource } from "./supabase/data-source";
+import { SupabaseInfoSource } from "./supabase/info-source";
 import { memoizeSource } from "./supabase/memo-source";
 import { cachedSource, invalidateBusinessCache } from "./supabase/business-cache";
 import { SupabaseDraftPersistence, SupabaseHabitsPersistence, SupabaseSessionPersistence } from "./supabase/state";
@@ -50,6 +51,7 @@ function scopeFor(user: RequestUser) {
     sessions: new SessionStore(new SupabaseSessionPersistence(db)),
     drafts: new DraftStore(new SupabaseDraftPersistence(db)),
     habits: new HabitsStore(new SupabaseHabitsPersistence(db)),
+    info: new SupabaseInfoSource(db),
   };
 }
 
@@ -104,6 +106,7 @@ async function chat(request: Request, user: RequestUser): Promise<Response> {
             sessions: scope.sessions,
             drafts: scope.drafts,
             habits: scope.habits,
+            info: scope.info,
             // «Sí, adelante»: mismo servicio que el botón, con el rol comprobado sobre datos frescos.
             confirmDraft: async (draftId) => {
               const fresh = await loadContext(user, true);

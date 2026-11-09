@@ -14,7 +14,7 @@ export interface WriteResult {
 
 /** Resultados que siempre se dicen con plantilla: son fijos o de seguridad. */
 // Las tareas ya traen su texto con las cifras exactas: no se reescribe.
-const TEMPLATE_ONLY = new Set(["aclaracion", "fuera_de_ambito", "bloqueado", "error", "navegacion", "resuelto", "tarea"]);
+const TEMPLATE_ONLY = new Set(["aclaracion", "fuera_de_ambito", "bloqueado", "error", "resuelto", "tarea"]);
 
 const MAX_CHARS = 900;
 // Sin "$": un "1." al final de un fragmento puede ser el principio de "1.400".

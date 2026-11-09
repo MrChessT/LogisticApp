@@ -45,13 +45,20 @@ const ROUTE_LABELS: Record<AppRoute, string> = {
   "/inventarios": "Inventarios",
   "/mermas": "Mermas",
   "/informes": "Informes",
+  "/almacen": "Almacén",
+  "/proveedores": "Proveedores",
+  "/escandallos": "Escandallos",
+  "/facturas": "Facturas",
+  "/equipo": "Equipo",
+  "/zonas": "Zonas",
 };
 
 const EXAMPLES = [
   "¿Qué me falta para el finde?",
   "Prepara el pedido de la semana",
   "¿Qué pedidos tengo pendientes?",
-  "¿Cuánto he gastado este mes?",
+  "¿Qué facturas vencen esta semana?",
+  "¿Qué platos llevan gluten?",
   "El Barceló ahora cuesta 15 €",
 ];
 
@@ -90,7 +97,7 @@ function understood(ev: DecisionEvent): Array<{ key: string; text: string; doubt
   const by = (id: string) => all.find((d) => d.id === id);
   // «Sin indicar», «Ninguno», «No aplica» no dicen nada: fuera.
   const part = (d: Decision | undefined, text?: string) => (d && !EMPTY_VALUES.has(d.value) ? [{ key: d.id, text: text ?? d.valueLabel, doubtful: d.gate !== "actuar" }] : []);
-  const what = by("tipo_accion") ?? by("herramienta") ?? by("destino") ?? ev.intent;
+  const what = by("tipo_accion") ?? by("herramienta") ?? ev.intent;
   const from = by("local");
   const to = by("local_destino");
   const places = from && to && !EMPTY_VALUES.has(from.value) && !EMPTY_VALUES.has(to.value) ? [{ key: "locales", text: `${from.valueLabel} → ${to.valueLabel}`, doubtful: from.gate !== "actuar" || to.gate !== "actuar" }] : [...part(from), ...part(to)];
@@ -217,7 +224,6 @@ export function Copiloto() {
     setPendingClarify(null);
     setItems((prev) => [...prev, { id: newId(), role: "user", text: display ?? message }, { id: assistantId, role: "assistant", text: "", pending: true }]);
 
-    let autoNavigate: NavigateEvent | null = null;
     try {
       const res = await fetch("/api/copiloto/chat", {
         method: "POST",
@@ -252,9 +258,8 @@ export function Copiloto() {
             const t = data as { delta: string; reset?: boolean };
             update(assistantId, (item) => ({ text: (t.reset ? "" : item.text) + t.delta }));
           } else if (event === "navigate") {
-            const nav = data as NavigateEvent;
-            if (nav.auto) autoNavigate = nav;
-            update(assistantId, () => ({ navigate: nav }));
+            // El asistente nunca cambia de pantalla solo: deja un enlace.
+            update(assistantId, () => ({ navigate: data as NavigateEvent }));
           } else if (event === "clarify") {
             setPendingClarify(data as ClarifyEvent);
             update(assistantId, () => ({ clarify: data as ClarifyEvent }));
@@ -277,7 +282,6 @@ export function Copiloto() {
       update(assistantId, () => ({ pending: false }));
       setBusy(false);
     }
-    if (autoNavigate) window.location.assign(hrefFor(autoNavigate));
   }
 
   function submit(event: React.FormEvent) {
@@ -325,7 +329,7 @@ export function Copiloto() {
                 <span className="copiloto-mark"><Sparkles size={15} /></span>
                 <div>
                   <strong>Asistente</strong>
-                  <small>Consulta, navega y prepara operaciones</small>
+                  <small>Consulta tus datos y prepara operaciones</small>
                 </div>
               </div>
               <div className="copiloto-header-actions">
@@ -408,7 +412,7 @@ export function Copiloto() {
                         ))}
                       </div>
                     )}
-                    {item.navigate && !item.navigate.auto && (
+                    {item.navigate && (
                       <a className="copiloto-link" href={hrefFor(item.navigate)}>
                         Ver en {ROUTE_LABELS[item.navigate.route]} <ArrowRight size={13} />
                       </a>
@@ -824,7 +828,7 @@ function TableCard({ table }: { table: TableEvent }) {
           {table.rows.map((row, i) => (
             <tr key={i} className={flagged.has(i) ? "flagged" : undefined}>
               {table.columns.map((c, j) => (
-                <td key={c.key} className={[c.align === "right" ? "num" : "", j === titleIndex ? "title" : "", j < titleIndex ? "rank" : ""].filter(Boolean).join(" ") || undefined} data-label={c.label}>
+                <td key={c.key} className={[c.align === "right" ? "num" : "", j === titleIndex ? "title" : "", j < titleIndex ? "rank" : "", j !== titleIndex && (row[c.key] ?? "").length <= 14 ? "short" : ""].filter(Boolean).join(" ") || undefined} data-label={c.label}>
                   {row[c.key]}
                 </td>
               ))}

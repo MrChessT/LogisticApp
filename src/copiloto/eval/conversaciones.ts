@@ -45,7 +45,8 @@ interface Expectation {
   titulo?: string;
   consulta?: boolean;
   resuelto?: "confirmado" | "descartado";
-  navegar?: string;
+  /** Enlace a una pantalla (el asistente nunca navega solo). */
+  enlace?: string;
   /** Texto que debe contener la respuesta final. */
   texto?: string;
   /** Textos que NO debe contener (lo que sobra: «€» en una pregunta de cantidad, la ficha entera…). */
@@ -206,7 +207,8 @@ function check(e: Expectation, events: SseEvent[]): string[] {
     else if (e.titulo && !draft.title.includes(e.titulo)) problems.push(`el borrador no dice «${e.titulo}»: ${draft.title}`);
   }
   if (e.resuelto !== undefined && resolved?.status !== e.resuelto) problems.push(`esperaba el borrador ${e.resuelto}`);
-  if (e.navegar !== undefined && !navigate.some((n) => n.route === e.navegar && n.auto)) problems.push(`esperaba ir a ${e.navegar}`);
+  if (e.enlace !== undefined && !navigate.some((n) => n.route === e.enlace)) problems.push(`esperaba un enlace a ${e.enlace}`);
+  if (navigate.some((n) => n.auto)) problems.push("ha cambiado de pantalla solo (no debe)");
   if (e.consulta && (!done || clarify || draft)) problems.push("esperaba una consulta respondida");
   if (e.texto && !done?.text.includes(e.texto)) problems.push(`la respuesta no dice «${e.texto}»`);
   for (const extra of e.sin ?? []) if (done?.text.includes(extra)) problems.push(`sobra «${extra}» en la respuesta`);

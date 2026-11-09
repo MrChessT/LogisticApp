@@ -24,7 +24,18 @@
 .op-action-secondary { color: #56645c; background: #eef2ee; }
 .op-action-danger { color: #b34a3f; background: #fbe9e7; }
 .op-action-primary:disabled, .op-action-secondary:disabled, .op-action-danger:disabled { opacity: .5; }
-.operation-table-head, .operation-row { grid-template-columns: minmax(200px, 1.2fr) 1fr .9fr .8fr auto !important; }
+/* La columna de botones tiene ancho fijo: con «auto» cada fila (su propia rejilla) la medía distinto y las
+   filas con «Ver albarán» descuadraban la fecha frente a las que no tienen botón. */
+.operation-table-head, .operation-row { grid-template-columns: minmax(200px, 1.3fr) 1.1fr .9fr .8fr 168px !important; }
+@media (max-width: 700px) {
+  /* Móvil: referencia y estado en una línea (el estado siempre en el mismo sitio); los botones, debajo. */
+  .operation-table-head, .operation-row { grid-template-columns: minmax(0, 1fr) 96px !important; row-gap: 6px; }
+  .operation-row { padding-top: 10px !important; padding-bottom: 10px !important; }
+  .operation-table-head > span:last-child { display: none; }
+  .operation-table-head > span:nth-child(3) { text-align: right; }
+  .op-row-actions { grid-column: 1 / -1; }
+  .op-row-actions:empty { display: none; }
+}
 /* Conteo en formatos y revisión antes de cerrar. */
 .count-modal { width: min(680px, 100%); }
 .count-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; }

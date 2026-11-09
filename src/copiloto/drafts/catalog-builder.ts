@@ -118,7 +118,7 @@ export class CatalogDraftBuilder {
 
     const newPriceText = overrides.precio ?? parseMoney(message) ?? p.price;
     if (!newPriceText) {
-      return { kind: "clarify", plan: { type: "clarify", field: "cantidad", question: `¿Cuál es el nuevo precio de ${product.name}? (por ejemplo, «15,50 €»)`, options: [] } };
+      return { kind: "clarify", plan: { type: "clarify", field: "precio", question: `¿Cuál es el nuevo precio de ${product.name}? (por ejemplo, «15,50 €»)`, options: [] } };
     }
     const newPrice = new Decimal(newPriceText);
 

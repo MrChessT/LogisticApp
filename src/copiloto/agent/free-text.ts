@@ -14,6 +14,10 @@ export type FreeTextAnswer =
   | { kind: "option"; optionId: string }
   /** Cantidad (y unidad, si la dice) para la pregunta «¿qué cantidad?». */
   | { kind: "quantity"; amount: string; unit: string | null }
+  /** Precio para «¿cuál es el nuevo precio?» («a 1,50», «12,97 €»). */
+  | { kind: "price"; amount: string }
+  /** «déjalo», «cancela», «nada»: se abandona la pregunta. */
+  | { kind: "cancel" }
   | { kind: "unknown" };
 
 /**
@@ -21,7 +25,7 @@ export type FreeTextAnswer =
  * ninguna opción, se añade a la orden original. En el resto (qué operación, qué pantalla, «¿lo
  * confirmo?») lo escrito se trata como un mensaje nuevo: así una orden distinta no arrastra la anterior.
  */
-export const ENTITY_FIELDS: ReadonlySet<ClarifyField> = new Set(["producto", "cantidad", "local", "local_destino", "espacio", "formato"]);
+export const ENTITY_FIELDS: ReadonlySet<ClarifyField> = new Set(["producto", "cantidad", "precio", "local", "local_destino", "espacio", "formato"]);
 
 /**
  * Preguntas cuya respuesta es un nombre libre («¿Cómo se llama el producto nuevo?», «si no, escríbeme el
@@ -111,9 +115,24 @@ function mentions(text: string, label: string): boolean {
   return words.every((w) => labelWords.some((l) => tokenSimilarity(w, l) >= 0.85));
 }
 
+/** Opción especial de las preguntas repetidas: abandonar lo que se estaba preparando. */
+export const CANCEL_OPTION = "__dejar";
+
+/** «déjalo», «cancela», «olvídalo», «nada», «no»: no se quiere seguir con esa pregunta. */
+export function isCancel(text: string): boolean {
+  return /^(no,? )?(dejalo|dejala|dejalo estar|cancela|cancelar|cancelalo|olvidalo|olvida|nada|da igual|salir|stop)$/.test(tokenize(text).join(" "));
+}
+
 export function readFreeText(pending: PendingClarify, text: string, ctx: SessionContext): FreeTextAnswer {
   const labels = pending.optionLabels ?? pending.optionIds;
   const words = text.normalize("NFC").match(/\d+(?:[.,/]\d+)?|[\p{L}\p{M}\p{N}]+/gu) ?? [];
+  if (isCancel(text)) return { kind: "cancel" };
+
+  // «a 1,50», «12,97 €», «1.5»: el precio que se pedía (no es una cantidad).
+  if (pending.field === "precio") {
+    const amount = words.map((w) => parseNumber(w)).find((n) => n !== null && n.gt(0)) ?? null;
+    if (amount) return { kind: "price", amount: amount.toString() };
+  }
 
   if (pending.field === "cantidad") {
     const amount = words.map((w) => parseNumber(w)).find((n) => n !== null && n.gt(0)) ?? null;
