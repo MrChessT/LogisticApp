@@ -107,8 +107,10 @@ function daysFrom(iso: string, now: Date): number {
   return Math.round((target - today) / 86_400_000);
 }
 
-function table(columns: TableEvent["columns"], rows: Array<Record<string, string>>, flagged: number[] = []): TableEvent | undefined {
+function table(allColumns: TableEvent["columns"], rows: Array<Record<string, string>>, flagged: number[] = []): TableEvent | undefined {
   if (rows.length < 2) return undefined;
+  // Una columna sin ningún dato («—» en todas las filas) no aporta: fuera.
+  const columns = allColumns.filter((c, i) => i === 0 || rows.some((r) => (r[c.key] ?? "").trim() !== "" && r[c.key] !== "—"));
   const shown = rows.slice(0, MAX_ROWS);
   const marks = flagged.filter((i) => i < shown.length);
   return { columns, rows: shown, ...(marks.length ? { flagged: marks } : {}), ...(rows.length > MAX_ROWS ? { more: rows.length - MAX_ROWS } : {}) };

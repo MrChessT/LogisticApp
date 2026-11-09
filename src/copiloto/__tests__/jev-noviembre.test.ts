@@ -80,6 +80,21 @@ describe("consultas de gestión (sin Jev si el tema está claro)", () => {
   });
 });
 
+describe("tablas limpias", () => {
+  it("sin columnas vacías: proveedores sin condiciones apuntadas no enseñan columnas de «—»", async () => {
+    const { runInfo } = await import("../tools/info");
+    const { fixtureContext } = await import("../dev/fixture");
+    const source = {
+      suppliers: async () => [
+        { name: "A", contact: null, phone: null, email: null, orderDays: [], cutoff: null, leadHours: null, minOrder: null, paymentTerms: null, locationIds: [] },
+        { name: "B", contact: null, phone: null, email: null, orderDays: [], cutoff: null, leadHours: null, minOrder: null, paymentTerms: "Contado", locationIds: [] },
+      ],
+    } as unknown as Parameters<typeof runInfo>[0];
+    const result = await runInfo(source, fixtureContext(), { tool: "query_suppliers", message: "qué proveedores tenemos", locationIds: [], locationsChosen: false, productNames: [], now: new Date() });
+    expect(result.table!.columns.map((c) => c.label)).toEqual(["Proveedor", "Pago"]);
+  });
+});
+
 describe("sin navegar solo", () => {
   it("dice dónde está cada pantalla y deja el enlace", () => {
     expect(screenHelp("llévame a mermas")).toMatchObject({ route: "/mermas" });
