@@ -216,7 +216,7 @@ async function invoices(source: InfoSource, ctx: SessionContext, p: InfoParams):
   const dueText = (i: InvoiceRaw) => {
     if (!i.due) return "sin vencimiento";
     const d = daysFrom(i.due, p.now);
-    return d < 0 ? `vencida hace ${plural(-d, "día", "días")}` : d === 0 ? "vence hoy" : `${day(i.due)} (en ${plural(d, "día", "días")})`;
+    return d < 0 ? `vencida hace ${plural(-d, "día", "días")}` : d === 0 ? "hoy" : d <= 31 ? `en ${plural(d, "día", "días")}` : day(i.due);
   };
   return {
     text: parts.join(" "),
@@ -241,14 +241,16 @@ async function invoices(source: InfoSource, ctx: SessionContext, p: InfoParams):
 async function team(source: InfoSource, ctx: SessionContext, p: InfoParams): Promise<InfoResult> {
   const route: AppRoute = "/equipo";
   if (ctx.role === "staff") return { text: "El equipo lo ven los encargados y la administración (en Equipo).", route, rows: 0 };
-  let people = await source.team();
+  // Las pantallas de almacén (kiosko) no son personas del equipo.
+  let people = (await source.team()).filter((m) => m.role !== "kiosk");
   if (p.locationsChosen && p.locationIds.length < ctx.locations.length) {
     people = people.filter((m) => m.allLocations || m.locationIds.some((id) => p.locationIds.includes(id)));
   }
   if (people.length === 0) return { text: `No hay nadie en el equipo ${scopeLabel(ctx, p)}.`.replace(/\s+\./, "."), route, rows: 0 };
   const counts = new Map<string, number>();
   for (const m of people) counts.set(m.role, (counts.get(m.role) ?? 0) + 1);
-  const breakdown = ["owner", "admin", "manager", "staff"].filter((r) => counts.has(r)).map((r) => `${counts.get(r)} ${(ROLE_LABEL[r] ?? r).toLowerCase()}`);
+  const GROUP: Record<string, [string, string]> = { owner: ["en propiedad", "en propiedad"], admin: ["en administración", "en administración"], manager: ["encargado", "encargados"], staff: ["de personal", "de personal"] };
+  const breakdown = ["owner", "admin", "manager", "staff"].filter((r) => counts.has(r)).map((r) => plural(counts.get(r)!, GROUP[r]![0], GROUP[r]![1]));
   const pending = people.filter((m) => m.pending).length;
   const order = { owner: 0, admin: 1, manager: 2, staff: 3 } as Record<string, number>;
   const sorted = [...people].sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || a.name.localeCompare(b.name, "es"));

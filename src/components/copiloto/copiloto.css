@@ -103,6 +103,8 @@
 .copiloto-table th { padding: 6px 8px; color: var(--muted); font-size: 10px; font-weight: 600; text-align: left; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .copiloto-table td { padding: 5px 8px; border-bottom: 1px solid #f1f4f2; vertical-align: top; }
 .copiloto-table tr:last-child td { border-bottom: 0; }
+/* Códigos, fechas y cifras cortas no se parten en dos líneas («HUE-2026/10»). */
+.copiloto-table td.short { white-space: nowrap; }
 .copiloto-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .copiloto-table tr.flagged td { background: var(--soft-orange); }
 .copiloto-table tr.flagged td.title::before { content: "⚠ "; }

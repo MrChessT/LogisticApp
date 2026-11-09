@@ -329,7 +329,7 @@ export function Copiloto() {
                 <span className="copiloto-mark"><Sparkles size={15} /></span>
                 <div>
                   <strong>Asistente</strong>
-                  <small>Consulta, navega y prepara operaciones</small>
+                  <small>Consulta tus datos y prepara operaciones</small>
                 </div>
               </div>
               <div className="copiloto-header-actions">
@@ -828,7 +828,7 @@ function TableCard({ table }: { table: TableEvent }) {
           {table.rows.map((row, i) => (
             <tr key={i} className={flagged.has(i) ? "flagged" : undefined}>
               {table.columns.map((c, j) => (
-                <td key={c.key} className={[c.align === "right" ? "num" : "", j === titleIndex ? "title" : "", j < titleIndex ? "rank" : ""].filter(Boolean).join(" ") || undefined} data-label={c.label}>
+                <td key={c.key} className={[c.align === "right" ? "num" : "", j === titleIndex ? "title" : "", j < titleIndex ? "rank" : "", j !== titleIndex && (row[c.key] ?? "").length <= 14 ? "short" : ""].filter(Boolean).join(" ") || undefined} data-label={c.label}>
                   {row[c.key]}
                 </td>
               ))}

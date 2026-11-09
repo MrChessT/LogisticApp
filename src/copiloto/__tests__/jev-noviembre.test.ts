@@ -74,7 +74,7 @@ describe("consultas de gestión (sin Jev si el tema está claro)", () => {
   it("equipo: quiénes son, puesto y locales; el personal no lo ve", async () => {
     const { agent } = makeAgent(new FakeJev());
     const events = await run(agent, chat("cuanto personal hay?"));
-    expect(find(events, "done")!.text).toMatch(/^3 personas en tus locales: 1 propiedad, 1 encargado\/a, 1 personal\. 1 invitación está sin aceptar\./);
+    expect(find(events, "done")!.text).toBe("3 personas en tus locales: 1 en propiedad, 1 encargado, 1 de personal. 1 invitación está sin aceptar.");
     expect(find(events, "table")!.rows).toEqual(expect.arrayContaining([expect.objectContaining({ nombre: "Luis Encargado", locales: "Parador, Pickels" })]));
     expect(find(await run(agent, chat("cuanto personal hay?"), "staff"), "done")!.text).toMatch(/encargados y la administración/);
   });
