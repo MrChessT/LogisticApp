@@ -132,4 +132,17 @@ describe("preguntas: lo escrito contesta la pregunta, sin bucles", () => {
     expect(find(events, "done")!.text).toBe("Vale, lo dejo. Dime si necesitas otra cosa.");
     expect(find(events, "clarify")).toBeUndefined();
   });
+
+  it("la frase nombra la operación y Jev la pone primera: se prepara sin preguntar «¿Qué operación?»", async () => {
+    const jev = new FakeJev([{ ...route("preparar_pedido"), tipo_accion: { dist: { preparar_pedido: 0.55, recepcion: 0.35 } }, local: "Parador" }, { coherencia: 0.9 }]);
+    const events = await run(makeAgent(jev).agent, chat("prepárame el pedido para el parador"));
+    expect(find(events, "clarify")?.question ?? "").not.toBe("¿Qué operación quieres registrar?");
+  });
+
+  it("una consulta que Jev ve probable (sin llegar a «actuar») se contesta en vez de preguntar «¿Qué quieres consultar?»", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: { dist: { query_prices: 0.55, query_product: 0.4 } }, producto_0: "Coca-Cola 20 cl" }]);
+    const events = await run(makeAgent(jev).agent, chat("precio cocacola"));
+    expect(find(events, "clarify")).toBeUndefined();
+    expect(find(events, "done")!.text).toMatch(/Coca-Cola/);
+  });
 });

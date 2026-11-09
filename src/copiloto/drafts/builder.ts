@@ -474,6 +474,18 @@ function boxesPlusLoose(p: ResolvedProduct, warnings: string[]): Quantity | null
 export const BASE_PACK = "base";
 
 /**
+ * La unidad «suelta» de un producto, si es evidente: en lo que se cuenta por unidades, el formato de 1 ud
+ * (o la unidad base); en botellas, garrafas o barriles, el formato con el que se cuenta. Sin uno claro, null.
+ */
+function singleUnit(product: ResolvedProduct["product"]): Pack | typeof BASE_PACK | null {
+  const packs = product.packs.filter((k) => !k.isServing);
+  if (product.dimension === "count") return packs.find((k) => new Decimal(k.qtyBase).eq(1)) ?? BASE_PACK;
+  const count = packs.find((k) => k.isCountDefault);
+  // La caja de compra no es «la unidad»: solo si el formato de conteo es distinto del de compra.
+  return count && !count.isPurchaseDefault ? count : null;
+}
+
+/**
  * Cantidad en unidad base. Si el formato es ambiguo o incompatible, devuelve una aclaración. Sin
  * unidad («5 de ron») y con más de una lectura posible (botellas o cajas) también se pregunta.
  */
@@ -494,6 +506,20 @@ export function resolveQuantity(p: ResolvedProduct, overrides: Record<string, st
   }
   if (p.unit === null && p.amount !== null) {
     const readings = unitReadings(p.product);
+    // «100 cocacolas», «3 absolut»: sin decir «cajas», son unidades (la pieza o la botella con la que se
+    // cuenta). Preguntar el formato cada vez era la pregunta de más más repetida; el borrador lo enseña y
+    // se cambia ahí si eran cajas.
+    const single = singleUnit(p.product);
+    if (readings.length > 1 && single) {
+      const pack = single === BASE_PACK ? null : single;
+      warnings.push(`He contado ${formatDecimal(p.amount, 4)} ${pack ? `× ${pack.name}` : "unidades sueltas"} de ${p.product.name}; si eran cajas, cámbialo aquí.`);
+      return {
+        qtyBase: pack ? new Decimal(p.amount).mul(pack.qtyBase) : new Decimal(p.amount),
+        pack,
+        input: { amount: p.amount, unit: pack?.name ?? p.product.baseUnit, ...(pack ? { packId: pack.id } : {}) },
+        warnings,
+      };
+    }
     if (readings.length > 1) {
       return {
         type: "clarify",

@@ -1,6 +1,6 @@
 [
   {
-    "nombre": "Traspaso sin cantidad ni unidad",
+    "nombre": "Traspaso sin cantidad: «3» son botellas (sin preguntar el formato)",
     "turnos": [
       {
         "usuario": "pasa larios del Parador al Vivero",
@@ -22,18 +22,8 @@
       {
         "usuario": "3",
         "espera": {
-          "aclaracion": "cantidad",
-          "opciones": [
-            "Botella 70 cl",
-            "Caja 6"
-          ]
-        }
-      },
-      {
-        "usuario": "cajas",
-        "espera": {
           "borrador": "traspaso",
-          "titulo": "3 × Caja 6 de Larios 12"
+          "titulo": "3 × Botella 70 cl de Larios 12"
         }
       }
     ]
@@ -56,16 +46,6 @@
           "cantidad_ok_0": 0.94,
           "ambiguo": 0.8
         },
-        "espera": {
-          "aclaracion": "cantidad",
-          "opciones": [
-            "Unidades sueltas",
-            "Caja 24"
-          ]
-        }
-      },
-      {
-        "boton": "Unidades sueltas",
         "espera": {
           "borrador": "traspaso",
           "titulo": "Traspaso Vivero → Pickels: 4 cajas + 4 ud de Heineken tercio 33 cl"
@@ -167,7 +147,7 @@
     ]
   },
   {
-    "nombre": "Cantidad sin unidad en un refresco",
+    "nombre": "Cantidad sin unidad en un refresco: son unidades (sin preguntar)",
     "turnos": [
       {
         "usuario": "pasa 6 cocas de Parador a Pickels",
@@ -183,16 +163,6 @@
           },
           "cantidad_ok_0": 0.95
         },
-        "espera": {
-          "aclaracion": "cantidad",
-          "opciones": [
-            "Unidades sueltas",
-            "Caja 24"
-          ]
-        }
-      },
-      {
-        "boton": "Unidades sueltas",
         "espera": {
           "borrador": "traspaso",
           "titulo": "6 ud de Coca-Cola"
