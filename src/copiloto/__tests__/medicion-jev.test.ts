@@ -115,10 +115,12 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
     expect(find(await run(makeAgent(ok).agent, chat("ha llegado lo del Parador al Vivero")), "draft")).toMatchObject({ operation: "recibir_traspaso" });
   });
 
-  it("«llévame a los informes de mermas» abre la vista de mermas, no la de consumo", async () => {
-    const jev = new FakeJev([{ intent: "navegar", intent_alt: "leer", destino: "/informes", herramienta: "query_movements", periodo: "mes" }]);
-    const nav = find(await run(makeAgent(jev).agent, chat("llévame a los informes de mermas de este mes")), "navigate")!;
-    expect(nav.filters).toMatchObject({ view: "mermas", days: 30 });
+  it("«llévame a los informes de mermas»: dice dónde están (con enlace) y nunca navega solo", async () => {
+    const jev = new FakeJev();
+    const events = await run(makeAgent(jev).agent, chat("llévame a los informes de mermas de este mes"));
+    expect(jev.calls).toHaveLength(0);
+    expect(find(events, "navigate")?.auto).toBe(false);
+    expect(find(events, "done")!.text).toMatch(/Mermas|Informes/);
   });
 
   it("«¿y en el Vivero?» tras preguntar por mermas sigue con las mermas", async () => {
@@ -134,8 +136,9 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
   it("personal, ventas, consumo a mano y «olvídalo»: respuesta directa, sin preguntar ni llamar a Jev", async () => {
     const jev = new FakeJev();
     const { agent } = makeAgent(jev);
-    expect(find(await run(agent, chat("que equipo hay")), "done")!.text).toContain("Equipo");
-    expect(find(await run(agent, chat("dame los nombres del personal")), "done")!.text).toContain("Equipo");
+    // El equipo ahora se consulta (con los permisos de la app): quiénes son, su puesto y sus locales.
+    expect(find(await run(agent, chat("que equipo hay")), "done")!.text).toMatch(/3 personas/);
+    expect(find(await run(agent, chat("dame los nombres del personal")), "table")!.rows.map((r) => r.nombre)).toContain("Luis Encargado");
     expect(find(await run(agent, chat("cuanto se espera ganar")), "done")!.text).toContain("ventas");
     expect(find(await run(agent, chat("se han consumido 10 cajas de cocacola y 3 fantas")), "done")!.text).toContain("recuento");
     expect(find(await run(agent, chat("olvídalo")), "done")!.text).toContain("Vale");

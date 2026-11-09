@@ -77,16 +77,6 @@ export function mentionsPeriod(message: string): boolean {
   return /\b\d{1,2}[/-]\d{1,2}\b/.test(message) || tokenize(message).some((w) => PERIOD_WORDS.has(w));
 }
 
-/** Pide ir a una pantalla («llévame a mermas», «abre los informes»): solo entonces se pregunta cuál. */
-const SCREEN_WORDS = new Set([
-  "lleva", "llevame", "llevarme", "abre", "abreme", "abrir", "ir", "ve", "vete", "voy", "vamos", "pantalla", "pagina", "menu", "entra",
-  "entrar", "informe", "informes", "grafica", "graficas", "grafico", "graficos", "navega", "ensename", "pestana",
-]);
-
-export function mentionsScreen(message: string): boolean {
-  return tokenize(message).some((w) => SCREEN_WORDS.has(w));
-}
-
 /** Por qué se da de baja algo: roturas, caducidad, derrames, invitaciones, errores de servicio. */
 export function mentionsReason(message: string): boolean {
   return /romp|\brot[oa]s?\b|caduc|derram|invit|error|equivoc|estrope|podri|venci|mal servid|se (?:ha|han) caido|cayo|tirad/.test(tokenize(message).join(" "));
@@ -238,7 +228,6 @@ export async function buildRouting(
     askLocation: ctx.locations.length > 1,
     askPeriod: mentionsPeriod(message),
     askReason: mentionsReason(message),
-    askScreen: mentionsScreen(message),
     askFollowUp: turns.length > 0,
     // Con cantidades («pasa 6 cocas») es una operación: no hay «qué dato» que preguntar.
     askAspect: !routingSegments.some((rs) => rs.segment.amount !== null),

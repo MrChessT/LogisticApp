@@ -5,13 +5,12 @@
 // español (contrato interno); el mensaje del usuario va en el state sin traducir.
 import { choice, noul, score, type ChoiceCriteria, type JsonValue, type Questions } from "@typesafe-ai/sdk";
 
-export const CATALOG_VERSION = "2026-10-16.1";
+export const CATALOG_VERSION = "2026-11-09.1";
 
 // Opciones fijas --------------------------------------------------------------
 
 export const INTENTS = {
-  consultar: "Get figures or facts from inventory data: stock levels and value, movements, consumption and what was broken or written off, prices, suppliers, formats and minimum levels of a product, purchases and spending, purchase orders, pending transfers, count differences. Usually a question (\"¿se ha roto algo hoy?\", \"¿cuál es el mínimo…?\", \"¿quién nos trae…?\").",
-  navegar: "Open, show or go to a screen of the app (\"vamos a pedidos\", \"enséñame los informes\"), without asking for figures or changes.",
+  consultar: "Get figures or facts from the business data: stock levels and value, movements, consumption and what was broken or written off, prices, suppliers and their terms, formats and minimum levels of a product, purchases and spending, purchase orders, pending transfers, stock counts and their differences, supplier invoices and what is pending to pay, the team (staff), recipes and dishes (cost, food cost, allergens), storage areas or zones. Usually a question (\"¿se ha roto algo hoy?\", \"¿cuál es el mínimo…?\", \"¿quién nos trae…?\", \"¿qué facturas hay pendientes?\").",
   proponer_accion:
     "An instruction to record or prepare an operation, or a statement of what just happened to the goods, that changes stock, documents or the product catalog: waste or breakage, transfer between venues, receiving or cancelling a transfer, goods receipt, starting a stock count, recording counted quantities, closing a stock count, adding a new product, changing a purchase price, changing a minimum or target stock level, archiving or removing a product, preparing, sending, receiving or cancelling a purchase order.",
   pedir_sugerencias: "Ask what needs attention, what is missing or what to order (a shopping list), without naming a concrete operation.",
@@ -26,20 +25,6 @@ export const INTENT_ALT = {
   ninguno: "Neither: small talk, help, or unrelated.",
 } as const satisfies ChoiceCriteria;
 
-export const DESTINOS = {
-  "/": "Dashboard with an overview of stock value, movements and charts.",
-  "/productos": "Product catalog: products, formats, categories and suppliers.",
-  "/stock": "Current stock per venue and storage area, items below minimum.",
-  "/pedidos": "Purchase orders to suppliers: suggested orders, orders sent and deliveries pending.",
-  "/recepciones": "Goods receipts and supplier delivery notes.",
-  "/traspasos": "Transfers of goods between venues.",
-  "/inventarios": "Stock counts (physical inventory).",
-  "/mermas": "Waste, breakage and write-offs.",
-  "/informes": "Charts and analysis: consumption and waste trends, stock value, price changes, days of coverage, count differences.",
-  ninguna: "No screen fits the request.",
-} as const satisfies ChoiceCriteria;
-export type Destino = keyof typeof DESTINOS;
-
 export const HERRAMIENTAS = {
   query_stock: "Current quantities (how many are left) and value in money of products in a venue or area.",
   query_movements: "What happened over a period: waste and breakage, consumption, goods that arrived or were purchased (\"¿qué me ha llegado hoy?\"), transfers, adjustments.",
@@ -50,10 +35,23 @@ export const HERRAMIENTAS = {
   query_orders: "Purchase orders already placed with suppliers: drafts not sent, orders pending delivery, late deliveries.",
   query_spend: "How much money was spent on purchases (goods received) per supplier over a period.",
   query_top_usage: "Ranking of the products that are used or sold the most over a period (\"what do we go through the most?\", \"top products this month\"), with quantity, value and share of the total.",
+  query_invoices: "Supplier invoices (facturas): which are pending or overdue to pay and when they fall due, how much is owed, invoices that do not match their delivery notes, delivery notes not yet invoiced.",
+  query_team: "The people on the team (staff, personal, empleados, camareros, encargados): who they are, their role and their venues.",
+  query_recipes: "Recipes and dishes (escandallos, platos, recetas, elaboraciones): cost per portion, food cost, margin, sale price and allergens (\"¿qué platos llevan gluten?\", \"¿cuál es el food cost?\").",
+  query_areas: "Storage areas or zones of a venue (zonas, secciones, almacenes, barras, cámaras, neveras): which ones there are and what they hold.",
+  query_counts: "Physical stock counts (inventarios): which are open or in progress and when each venue was last counted.",
+  query_suppliers: "The suppliers we buy from and their terms: order days, cut-off time, delivery lead time, minimum order, payment terms and contact.",
   query_product: "Details of a specific product: its formats (bottle, box), category, who supplies it and last purchase price, and its stock and minimum in each venue (\"what does the Beefeater cost us?\", \"who brings us the Tanqueray?\", \"ficha del Barceló\", \"stats del Larios\").",
   ninguna: "No data lookup is needed.",
 } as const satisfies ChoiceCriteria;
 export type Herramienta = keyof typeof HERRAMIENTAS;
+
+/** Consultas de información de gestión (facturas, equipo, escandallos…): las resuelve tools/info.ts. */
+export const INFO_TOOLS = ["query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers"] as const;
+export type InfoTool = (typeof INFO_TOOLS)[number];
+export function isInfoTool(tool: string): tool is InfoTool {
+  return (INFO_TOOLS as readonly string[]).includes(tool);
+}
 
 export const ACCIONES = {
   merma: "Write off goods that were broken, spilled, expired or spoiled (\"pocho\"), thrown away (\"tira\", \"tírame\", \"baja\", \"dar de baja\") or given away to customers (\"invitación\", \"hemos invitado\").",
@@ -127,7 +125,6 @@ export const RESERVED_KEYS = new Set([NO_INDICADO, TODOS, NO_APLICA, NINGUNO, VA
 
 export const LABELS: Record<string, string> = {
   consultar: "Consultar datos",
-  navegar: "Ir a una pantalla",
   proponer_accion: "Preparar una operación",
   pedir_sugerencias: "Pedir sugerencias",
   conversar: "Conversación",
@@ -141,6 +138,12 @@ export const LABELS: Record<string, string> = {
   "/inventarios": "Inventarios",
   "/mermas": "Mermas",
   "/informes": "Informes",
+  "/almacen": "Almacén",
+  "/proveedores": "Proveedores",
+  "/escandallos": "Escandallos",
+  "/facturas": "Facturas",
+  "/equipo": "Equipo",
+  "/zonas": "Zonas",
   ninguna: "Ninguna",
   query_stock: "Consultar stock",
   query_movements: "Consultar movimientos",
@@ -152,6 +155,12 @@ export const LABELS: Record<string, string> = {
   query_spend: "Gasto en compras",
   query_top_usage: "Lo que más se gasta",
   query_product: "Ficha de producto",
+  query_invoices: "Facturas",
+  query_team: "Equipo",
+  query_recipes: "Escandallos",
+  query_areas: "Zonas",
+  query_counts: "Inventarios",
+  query_suppliers: "Proveedores",
   merma: "Registrar merma",
   traspaso: "Traspaso entre locales",
   recepcion: "Recepción de mercancía",
@@ -211,8 +220,6 @@ export interface RoutingInput {
   askPeriod?: boolean;
   /** false: el mensaje no da un motivo de merma. */
   askReason?: boolean;
-  /** false: el mensaje no pide ir a ninguna pantalla. */
-  askScreen?: boolean;
   /** false: no hay conversación previa que continuar. */
   askFollowUp?: boolean;
   /** false: el mensaje no parece una consulta (lleva cantidades de una operación). */
@@ -249,7 +256,6 @@ export function routingQuestions(input: RoutingInput): Questions {
       'What does the user want the inventory assistant to do with `message`? Use `recent_turns` only to resolve references such as "and in the other bar?".',
       INTENTS,
     ),
-    destino: choice("Which screen of the inventory app best matches what `message` asks for?", DESTINOS),
     local: choice(
       "Which venue does `message` refer to? If goods move from one venue to another, answer the venue they leave from. For a purchase order or goods arriving from a supplier, the venue that receives them. If it names none, answer `current_location` only when the message clearly concerns the screen the user is on.",
       options(input.locations, {
@@ -295,7 +301,6 @@ export function routingQuestions(input: RoutingInput): Questions {
   }
   if (input.askPeriod === false) delete questions.periodo;
   if (input.askReason === false) delete questions.motivo_merma;
-  if (input.askScreen === false) delete questions.destino;
   if (input.askFollowUp === false) delete questions.seguimiento;
   if (input.askAspect === false) delete questions.dato;
 

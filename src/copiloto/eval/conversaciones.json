@@ -314,17 +314,14 @@
     ]
   },
   {
-    "nombre": "Ir a una pantalla y charlar",
+    "nombre": "Dónde está una pantalla (sin navegar) y charlar",
     "turnos": [
       {
         "usuario": "llévame a mermas",
-        "jev": {
-          "intent": "navegar",
-          "intent_alt": "leer",
-          "destino": "/mermas"
-        },
+        "jev": {},
         "espera": {
-          "navegar": "/mermas"
+          "enlace": "/mermas",
+          "texto": "Operativa › Mermas"
         }
       },
       {
@@ -560,7 +557,7 @@
           "intent_alt": "ninguno"
         },
         "espera": {
-          "texto": "Consulto stock"
+          "texto": "Te respondo sobre stock"
         }
       }
     ]

@@ -11,7 +11,10 @@ export const ROLES = ["owner", "admin", "manager", "staff"] as const;
 export const Role = z.enum(ROLES);
 export type Role = z.infer<typeof Role>;
 
-export const APP_ROUTES = ["/", "/productos", "/stock", "/pedidos", "/recepciones", "/traspasos", "/inventarios", "/mermas", "/informes"] as const;
+export const APP_ROUTES = [
+  "/", "/productos", "/stock", "/pedidos", "/recepciones", "/traspasos", "/inventarios", "/mermas", "/informes",
+  "/almacen", "/proveedores", "/escandallos", "/facturas", "/equipo", "/zonas",
+] as const;
 export const AppRoute = z.enum(APP_ROUTES);
 export type AppRoute = z.infer<typeof AppRoute>;
 
@@ -97,8 +100,9 @@ export type ClarifyField =
   | "espacio"
   | "producto"
   | "cantidad"
+  /** Precio nuevo de un producto («a 1,50»): no es una cantidad. */
+  | "precio"
   | "tipo_accion"
-  | "destino"
   | "local_destino"
   | "herramienta"
   | "proveedor"

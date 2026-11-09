@@ -1,7 +1,7 @@
 // Herramientas de solo lectura. Todo el cálculo se hace aquí con decimal.js, sobre datos crudos
 // de InventoryDataSource. Jev nunca calcula cifras: recibe las que salen de aquí ya formateadas.
 import Decimal from "decimal.js";
-import type { Herramienta } from "../jev/catalog";
+import type { Herramienta, InfoTool } from "../jev/catalog";
 import type { Product, SessionContext } from "../domain";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
@@ -46,7 +46,7 @@ const MOVEMENT_PLURAL_LABELS: Record<MovementType, string> = {
   internal_move: "movimientos entre zonas",
 };
 
-export type ToolName = Exclude<Herramienta, "ninguna">;
+export type ToolName = Exclude<Herramienta, "ninguna" | InfoTool>;
 
 export interface Tools {
   /** Fuente de datos de solo lectura (también la usan los borradores). */

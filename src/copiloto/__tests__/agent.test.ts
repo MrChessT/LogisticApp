@@ -53,12 +53,12 @@ describe("enrutado del agente", () => {
 
   it("confianza baja en la intención → aclaración con las opciones más probables; la respuesta reutiliza la llamada nº 1", async () => {
     // La segunda formulación no confirma que sea una lectura: no hay corroboración y se pregunta.
-    const jev = new FakeJev([{ intent: { dist: { consultar: 0.5, navegar: 0.4 } }, intent_alt: { dist: { ninguno: 0.6, leer: 0.4 } }, herramienta: "query_pending_transfers" }]);
+    const jev = new FakeJev([{ intent: { dist: { consultar: 0.5, proponer_accion: 0.4 } }, intent_alt: { dist: { ninguno: 0.6, leer: 0.4 } }, herramienta: "query_pending_transfers" }]);
     const { agent } = makeAgent(jev);
     const first = await run(agent, chat("los traspasos"));
     const clarify = find(first, "clarify")!;
     expect(clarify.field).toBe("intent");
-    expect(clarify.options.map((o) => o.id).slice(0, 2)).toEqual(["consultar", "navegar"]);
+    expect(clarify.options.map((o) => o.id).slice(0, 2)).toEqual(["consultar", "proponer_accion"]);
     expect(clarify.options[0]!.label).toBe("Consultar datos");
     expect(find(first, "done")!.text).toBe(clarify.question);
 
@@ -261,12 +261,13 @@ describe("enrutado del agente", () => {
 });
 
 describe("atajos deterministas", () => {
-  it("/mermas navega sin llamar a Jev", async () => {
+  it("/mermas dice dónde está y deja el enlace (nunca navega solo), sin llamar a Jev", async () => {
     const jev = new FakeJev();
     const { agent, metrics } = makeAgent(jev);
     const events = await run(agent, chat("/mermas"));
     expect(jev.calls).toHaveLength(0);
-    expect(find(events, "navigate")).toEqual({ route: "/mermas", filters: {}, auto: true });
+    expect(find(events, "navigate")).toEqual({ route: "/mermas", filters: {}, auto: false });
+    expect(find(events, "done")!.text).toContain("Mermas");
     expect(find(events, "decision")!.shortcut).toBe(true);
     expect(metrics.shortcuts).toBe(1);
   });

@@ -1,6 +1,6 @@
 import type { ExitKind } from "../../lib/exit-kinds";
 import type { BaseUnit } from "../contract/index";
-import type { EvalKind, Herramienta } from "../jev/catalog";
+import type { EvalKind, Herramienta, InfoTool } from "../jev/catalog";
 
 // Datos crudos (todas las cifras como cadena decimal; nunca number) -----------------
 
@@ -174,7 +174,7 @@ export interface ToolRow {
 }
 
 export interface ToolResult {
-  tool: Exclude<Herramienta, "ninguna">;
+  tool: Exclude<Herramienta, "ninguna" | InfoTool>;
   /** Filas ya formateadas para mostrar/redactar (cifras como texto es-ES). */
   rows: ToolRow[];
   /** Totales formateados. */

@@ -41,6 +41,6 @@ describe("compuertas de confianza", () => {
   it("permite ajustar umbrales por .env y valida el rango", () => {
     const t = loadThresholds({ GATE_PRODUCTO_BORRADOR_ACT: "0.97", GATE_PRODUCTO_BORRADOR_MARGIN: "0.5" });
     expect(t.producto_borrador).toEqual({ act: 0.97, ask: 0.6, minMargin: 0.5 });
-    expect(() => loadThresholds({ GATE_DESTINO_ACT: "1.5" })).toThrow();
+    expect(() => loadThresholds({ GATE_INTENT_LECTURA_ACT: "1.5" })).toThrow();
   });
 });

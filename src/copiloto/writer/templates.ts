@@ -36,16 +36,14 @@ export function renderTemplate(report: DecisionReport): string {
     case "aclaracion":
       return o.clarify.question;
     case "fuera_de_ambito":
-      return "Solo puedo ayudarte con el inventario: stock, movimientos, precios, traspasos, inventarios, recepciones y mermas.";
+      return "Solo puedo ayudarte con el negocio: stock, compras, facturas, escandallos, inventarios, mermas, traspasos y equipo.";
     case "bloqueado":
       return "No puedo hacer eso. Pregúntame por el stock, los movimientos o las operaciones de tus locales.";
     case "conversacion":
       if (o.charla === "gracias") return "¡De nada!";
       if (o.charla === "adios") return "¡Hasta luego!";
       if (o.charla === "hola") return "¡Hola! ¿Qué necesitas?";
-      return "Consulto stock, precios, consumo, lo que más se gasta, pedidos y gasto, y te preparo mermas, traspasos, recepciones, conteos y pedidos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «pasa 2 cajas y 5 sueltas de tónica del Parador a Pickels» o, en Funciones, «Preparar pedidos» y «Equilibrar locales».";
-    case "navegacion":
-      return o.navigate.auto ? `Te llevo a ${o.destino}.` : `¿Quieres ir a ${o.destino}?`;
+      return "Te respondo sobre stock, consumo, mermas, precios, proveedores, pedidos, gasto, facturas, escandallos y alérgenos, zonas, inventarios y equipo. Y te preparo mermas, traspasos, recepciones, recuentos, pedidos y cambios de precio o de mínimos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «¿qué facturas vencen esta semana?», «¿qué platos llevan gluten?» o «pasa 2 cajas de tónica del Parador a Pickles».";
     case "borrador": {
       const review = o.draft.checks?.filter((c) => c.status === "revisar") ?? [];
       if (review.length > 0) {

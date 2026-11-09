@@ -18,7 +18,6 @@ const DEFAULTS = {
   // confirmar; las operaciones críticas siguen exigiendo 0,95 (policy.ts).
   intent_accion: { act: 0.75, ask: 0.5 },
   intent_fuera: { act: 0.8, ask: 0.5 },
-  destino: { act: 0.8, ask: 0.5 },
   herramienta: { act: 0.65, ask: 0.4 },
   // Qué dato pide una consulta: solo cambia qué se enseña, nunca qué se escribe.
   dato: { act: 0.6, ask: 0.4 },
