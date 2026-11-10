@@ -105,6 +105,12 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
     expect(text).toContain("€");
   });
 
+  it("«qué valor de stock de agua hay» enseña los euros aunque Jev dude del dato (real: valor 0,64)", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: "query_stock", producto_0: "Ron Barceló Añejo 70 cl", dato: "general" }]);
+    const text = find(await run(makeAgent(jev).agent, chat("qué valor de stock de Barceló hay")), "done")!.text;
+    expect(text).toContain("€");
+  });
+
   it("«lo que mandó Pickels al Parador» busca ese traspaso, no los que salen del Parador", async () => {
     const jev = new FakeJev([route("recibir_traspaso", { local: "Parador" })]);
     const events = await run(makeAgent(jev).agent, chat("ya llegó lo que mandó Pickels al Parador"));
