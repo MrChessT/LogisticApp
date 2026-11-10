@@ -312,6 +312,7 @@ export default function AlmacenPage() {
   return (
     <main className={`wh-page ${kiosk ? "kiosk" : ""}`}>
       <header className="wh-top">
+        <h1 className="wh-title">Almacén{location?.name ? ` · ${location.name}` : ""}</h1>
         {kiosk ? (
           <span className="wh-brand"><Warehouse size={20} /> Almacén · {location?.name ?? "…"}</span>
         ) : (

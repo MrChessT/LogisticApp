@@ -9,6 +9,7 @@ import type { TableEvent } from "../contract/index";
 import type { Product, SessionContext } from "../domain";
 import { normalize, tokenize } from "../entities/normalize";
 import { formatDecimal, formatMoney } from "../entities/units";
+import { salesTotals, type SalesSource } from "./info-sales";
 
 /** Último precio de compra de un formato (el más reciente de cualquier proveedor). */
 export interface LatestPriceRaw { packId: string; supplierName: string; price: string; at: string | null }
@@ -151,15 +152,19 @@ export function overviewPeriods(message: string, now: Date) {
 }
 
 export async function overview(
-  source: FiguresSource,
+  source: FiguresSource & Partial<SalesSource>,
   ctx: SessionContext,
   p: { message: string; locationIds: string[]; locationsChosen: boolean; now: Date },
 ): Promise<FigureResult> {
   if (!ctx.seesCosts) return { text: NO_COSTS, rows: 0 };
   const period = overviewPeriods(p.message, p.now);
-  const [movements, stock] = await Promise.all([
+  const single = p.locationsChosen && p.locationIds.length === 1 ? p.locationIds[0]! : null;
+  const today = `${p.now.getFullYear()}-${String(p.now.getMonth() + 1).padStart(2, "0")}-${String(p.now.getDate()).padStart(2, "0")}`;
+  const [movements, stock, sold] = await Promise.all([
     source.figureMovements(p.locationIds, period.prevStart),
     source.stockTotals(p.locationsChosen ? p.locationIds : null),
+    // Ventas del TPV del mismo tramo (si las hay importadas).
+    source.salesReport && (single || !p.locationsChosen) ? salesTotals(source as SalesSource, ctx.orgId, period.start, today, single) : Promise.resolve(null),
   ]);
   type Sums = Record<FigureMovementRaw["type"], Decimal> & { receipts: number };
   const empty = (): Sums => ({ purchase: new Decimal(0), consumption: new Decimal(0), waste: new Decimal(0), receipts: 0 });
@@ -190,11 +195,14 @@ export async function overview(
   } else parts.push("sin mermas");
   const first = `En ${period.label}${where} ${parts.join(", ")}.`;
   const stockLine = `Ahora tienes ${formatMoney(stock.value)} en stock y ${plural(stock.belowMin, "producto", "productos")} bajo mínimo${stock.critical > 0 ? `, ${stock.critical} sin stock` : ""}.`;
+  const salesLine = sold && sold.amount.gt(0)
+    ? ` Has vendido ${formatMoney(sold.amount)} sin IVA${sold.costedAmount.gt(0) ? `, con un food cost del ${formatDecimal(sold.cost.div(sold.costedAmount).mul(100), 1)} % en lo que tiene coste` : ""}.`
+    : "";
   const hint = now.consumption.isZero() ? " El consumo se registra con las ventas o al cerrar un inventario; sin él, las cifras de salida se quedan cortas." : "";
 
   const row = (concepto: string, a: Decimal, b: Decimal) => ({ concepto, actual: formatMoney(a), anterior: formatMoney(b), cambio: change(a, b) });
   return {
-    text: `${first} ${stockLine}${hint}`,
+    text: `${first}${salesLine} ${stockLine}${hint}`,
     rows: 3,
     table: {
       columns: [

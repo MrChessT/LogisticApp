@@ -5,6 +5,7 @@
 .wh-brand svg { color: var(--accent); }
 .wh-back { display: inline-flex; align-items: center; gap: 7px; color: #c4d9cc; font-size: 14px; text-decoration: none; }
 .wh-select { height: 40px; padding: 0 12px; color: var(--ink); background: var(--brand-softer); border: 0; border-radius: var(--r-md); font-size: 15px; font-weight: 600; }
+.wh-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .wh-top-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .wh-offline { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; color: var(--warn); background: var(--warn-soft); border-radius: var(--r-md); font-size: var(--fs-md); font-weight: 700; }
 .wh-pending-button { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px; color: var(--ink); background: var(--brand-softer); border-radius: var(--r-lg); font-size: 15px; font-weight: 700; }

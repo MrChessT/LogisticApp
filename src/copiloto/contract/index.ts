@@ -13,7 +13,7 @@ export type Role = z.infer<typeof Role>;
 
 export const APP_ROUTES = [
   "/", "/productos", "/stock", "/pedidos", "/recepciones", "/traspasos", "/inventarios", "/mermas", "/informes",
-  "/almacen", "/proveedores", "/escandallos", "/facturas", "/equipo", "/zonas",
+  "/almacen", "/proveedores", "/escandallos", "/ventas", "/facturas", "/equipo", "/zonas",
 ] as const;
 export const AppRoute = z.enum(APP_ROUTES);
 export type AppRoute = z.infer<typeof AppRoute>;

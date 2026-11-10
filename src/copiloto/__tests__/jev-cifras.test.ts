@@ -73,7 +73,7 @@ describe("cómo voy", () => {
   it("compras, consumo y mermas con su cambio, y el stock de ahora", async () => {
     const r = await overview(new FixtureInfoSource(NOW), fixtureContext(), { message: "¿cómo voy este mes?", locationIds: all, locationsChosen: false, now: NOW });
     expect(r.text).toBe(
-      "En septiembre (del 1 al 23) has comprado 300,00 € (+50 % frente al mismo tramo de agosto), el consumo registrado suma 120,00 €, las mermas 30,00 € (20 % de lo que ha salido). Ahora tienes 4.520,50 € en stock y 3 productos bajo mínimo, 1 sin stock.",
+      "En septiembre (del 1 al 23) has comprado 300,00 € (+50 % frente al mismo tramo de agosto), el consumo registrado suma 120,00 €, las mermas 30,00 € (20 % de lo que ha salido). Has vendido 360,97 € sin IVA, con un food cost del 47 % en lo que tiene coste. Ahora tienes 4.520,50 € en stock y 3 productos bajo mínimo, 1 sin stock.",
     );
     expect(r.table!.rows).toEqual([
       { concepto: "Compras (1 entrada)", actual: "300,00 €", anterior: "200,00 €", cambio: "+50 %" },

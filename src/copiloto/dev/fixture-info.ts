@@ -1,6 +1,7 @@
 // Datos de prueba (ficticios) de facturas, equipo, escandallos, zonas, inventarios y proveedores.
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
+import type { SalesDayRaw, SalesItemRaw } from "../tools/info-sales";
 import { AREAS, LOCATIONS, PRODUCTS } from "./fixture";
 
 const [PARADOR, PICKELS, VIVERO] = LOCATIONS.map((l) => l.id) as [string, string, string, string];
@@ -97,5 +98,25 @@ export class FixtureInfoSource implements InfoSource {
 
   async stockTotals(): Promise<StockTotalsRaw> {
     return { value: "4520.50", belowMin: 3, critical: 1 };
+  }
+  // Ventas: un día (ayer) en el Parador.
+  async salesReport(_orgId: string, from: string, to: string, locationId: string | null): Promise<SalesItemRaw[]> {
+    const day = this.day(-1);
+    if (day < from || day > to || (locationId && locationId !== PARADOR)) return [];
+    return [
+      { name: "Lenguado a la menier", link: "receta", linkName: "Lenguado a la menier", qty: "4", amount: "120.00", cost: "82.00", foodCost: "68.3" },
+      { name: "Croquetas de jamón", link: "receta", linkName: "Croquetas de jamón", qty: "10", amount: "81.80", cost: "34.00", foodCost: "41.6" },
+      { name: "AGUA", link: "producto", linkName: "Agua mineral 50 cl", qty: "11", amount: "50.05", cost: "2.31", foodCost: "4.6" },
+      { name: "Servicio de pan", link: "sin_enlazar", linkName: null, qty: "48", amount: "109.12", cost: null, foodCost: null },
+    ];
+  }
+
+  async salesDays(_orgId: string, from: string, to: string): Promise<SalesDayRaw[]> {
+    const day = this.day(-1);
+    return day >= from && day <= to ? [{ date: day, locationId: PARADOR, total: "360.97" }] : [];
+  }
+
+  async lastSaleDate(): Promise<string | null> {
+    return this.day(-1);
   }
 }

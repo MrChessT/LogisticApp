@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
+import type { SalesDayRaw, SalesItemRaw } from "../tools/info-sales";
 import { DataError, readAll } from "./client";
 
 type Row = Record<string, unknown>;
@@ -161,5 +162,27 @@ export class SupabaseInfoSource implements InfoSource {
     };
     const parts = await Promise.all((locationIds ?? [null]).map(one));
     return parts.reduce((a, b) => ({ value: String(Number(a.value) + Number(b.value)), belowMin: a.belowMin + b.belowMin, critical: a.critical + b.critical }));
+  }
+  async salesReport(orgId: string, from: string, to: string, locationId: string | null): Promise<SalesItemRaw[]> {
+    const data = rows("las ventas", await this.db.rpc("sales_report", { p_org: orgId, p_from: from, p_to: to, p_location: locationId }));
+    return data.map((r) => ({
+      name: String(r.name ?? ""),
+      link: (["receta", "producto", "ignorado"].includes(String(r.link)) ? r.link : "sin_enlazar") as SalesItemRaw["link"],
+      linkName: textOrNull(r.link_name),
+      qty: text(r.qty),
+      amount: text(r.amount),
+      cost: textOrNull(r.cost),
+      foodCost: textOrNull(r.food_cost_pct),
+    }));
+  }
+
+  async salesDays(orgId: string, from: string, to: string): Promise<SalesDayRaw[]> {
+    const data = rows("los días de venta", await this.db.from("sales_days").select("sale_date, location_id, total_amount").eq("org_id", orgId).gte("sale_date", from).lte("sale_date", to).limit(2000));
+    return data.map((r) => ({ date: String(r.sale_date), locationId: String(r.location_id), total: text(r.total_amount) }));
+  }
+
+  async lastSaleDate(orgId: string): Promise<string | null> {
+    const data = rows("los días de venta", await this.db.from("sales_days").select("sale_date").eq("org_id", orgId).order("sale_date", { ascending: false }).limit(1));
+    return data.length ? String(data[0]!.sale_date) : null;
   }
 }

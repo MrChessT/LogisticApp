@@ -139,7 +139,7 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
     // El equipo ahora se consulta (con los permisos de la app): quiénes son, su puesto y sus locales.
     expect(find(await run(agent, chat("que equipo hay")), "done")!.text).toMatch(/3 personas/);
     expect(find(await run(agent, chat("dame los nombres del personal")), "table")!.rows.map((r) => r.nombre)).toContain("Luis Encargado");
-    expect(find(await run(agent, chat("cuanto se espera ganar")), "done")!.text).toContain("ventas");
+    expect(find(await run(agent, chat("cuanto se espera ganar")), "done")!.text).toContain("No hago previsiones");
     expect(find(await run(agent, chat("se han consumido 10 cajas de cocacola y 3 fantas")), "done")!.text).toContain("recuento");
     expect(find(await run(agent, chat("olvídalo")), "done")!.text).toContain("Vale");
     // Una pregunta sobre el consumo no es «apuntar consumo» («4 locales» no es una cantidad).
