@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { harmonizeIngredients, parseAllergens, parseEscandalloBook, parseUnitPrice, productNameOf } from "./recipe-import";
+import { harmonizeIngredients, orderByDependency, parseAllergens, parseEscandalloBook, parseUnitPrice, productNameOf, type ImportRecipe } from "./recipe-import";
 
 // Libro con la forma de la exportación «Escandallo» (datos inventados).
 const HEAD = ["", "Descripción", "Alérgenos/Comentario", "Código", "Familia", "Origen", "C. Unit.", "Cantidad", "Unidad", "Fecha", "Porcentaje", "Coste"];
@@ -33,6 +33,8 @@ const book: string[][] = [
 describe("importar escandallos", () => {
   it("valores sueltos", () => {
     expect(productNameOf("Cebolla Morada (Juliana)")).toBe("Cebolla Morada");
+    expect(productNameOf("Pimiento Rojo (Limpio (sin pepitas ni rabo))")).toBe("Pimiento Rojo");
+    expect(productNameOf("Chuletero de Ternera (Limpio (sin hueso)) extra")).toBe("Chuletero de Ternera extra");
     expect(parseUnitPrice("6 €/Kg")).toEqual({ price: 0.006, dimension: "mass", unitLabel: "Kg" });
     expect(parseUnitPrice("0,079 €/ml")).toEqual({ price: 0.079, dimension: "volume", unitLabel: "ml" });
     expect(parseUnitPrice("11 €/Paquete")).toEqual({ price: 11, dimension: "count", unitLabel: "Paquete" });
@@ -79,6 +81,64 @@ describe("importar escandallos", () => {
     expect(p.recipes.find((r) => r.name === "Migas")!.lines[0]).toMatchObject({ dimension: "count", qty: 1, unitPrice: 0.5 });
     expect(h.converted).toBe(1);
     expect(h.dropped).toEqual([]);
+  });
+
+  it("si el catálogo ya tiene el producto, manda su medida aunque las recetas usen más la otra", () => {
+    const extra: string[][] = [
+      HEAD, ["", "Pan con aceite", "", "", "Desayunos", "", "", "1.0", "Pax", "", "", "1.0"], ING,
+      row("Pan Rústico", "", "4 €/Paquete", 2, 2, "Uni", 1),
+      HEAD, ["", "Migas", "", "", "Desayunos", "", "", "1.0", "Pax", "", "", "1.0"], ING,
+      row("Pan Rústico", "", "5 €/Kg", 100, 100, "g", 0.5),
+    ];
+    const p = parseEscandalloBook([...book, ...extra]);
+    harmonizeIngredients(p.recipes, new Map([["pan rustico", "mass"]]));
+    // En el catálogo va por peso: 2 uds que cuestan 1 € → 200 g a 0,005 €/g.
+    expect(p.recipes.find((r) => r.name === "Pan con aceite")!.lines[0]).toMatchObject({ dimension: "mass", qty: 200, unitPrice: 0.005 });
+  });
+
+  it("pieza que se corta: si el coste cuadra con el bruto, se gasta el bruto en la unidad del precio", () => {
+    const extra: string[][] = [
+      HEAD, ["", "Sándwich", "", "", "Tapas", "", "", "1.0", "Pax", "", "", ""], ING,
+      // 0,4 barras = 2 rebanadas, a 3,43 € la barra: 1,372 €.
+      row("Pan de Molde Brioche (Rebanada)", "", "3,43 €/Uni", 0.4, 2, "Uni", 1.372),
+    ];
+    const p = parseEscandalloBook([...book, ...extra]);
+    expect(p.recipes.find((r) => r.name === "Sándwich")!.lines[0]).toMatchObject({ product: "Pan de Molde Brioche", dimension: "count", qty: 0.4, unitPrice: 3.43, waste: 0 });
+  });
+
+  it("una botella del bar usada en cocina por volumen, sin precio para convertir, va aparte «(cocina)»", () => {
+    const extra: string[][] = [
+      HEAD, ["", "Salsa de brandy", "", "", "Salsas", "", "", "1.0", "Kg", "", "", ""], ING,
+      row("Brandy Terry", "", "", 50, 50, "ml", ""),
+    ];
+    const p = parseEscandalloBook([...book, ...extra]);
+    const h = harmonizeIngredients(p.recipes, new Map([["brandy terry", "count"]]));
+    expect(p.recipes.find((r) => r.name === "Salsa de brandy")!.lines[0]).toMatchObject({ product: "Brandy Terry (cocina)", ingredient: "Brandy Terry (cocina)", dimension: "volume", qty: 50 });
+    expect(h.kitchen).toEqual(["Brandy Terry (cocina)"]);
+    expect(h.dropped).toEqual([]);
+  });
+
+  it("ordena para que cada receta vaya después de las que usa", () => {
+    const r = (name: string, kind: ImportRecipe["kind"], uses: string[]): ImportRecipe => ({
+      name, kind, category: null, yieldQty: 1, yieldUnit: "racion", declaredAllergens: [],
+      lines: uses.map((u) => ({ ingredient: u, product: u, dimension: "mass", qty: 1, waste: 0, unitPrice: null, allergens: [] })),
+    });
+    const list = [r("Plato", "plato", ["Salsa"]), r("Salsa", "elaboracion", ["Fondo"]), r("Fondo", "elaboracion", ["Agua"]), r("Ensalada", "plato", ["Lechuga"])];
+    expect(orderByDependency(list).map((x) => x.name)).toEqual(["Fondo", "Ensalada", "Salsa", "Plato"]);
+  });
+
+  it("unidad casera sin precio («1 Filete») se cuenta en esas unidades, sin coste", () => {
+    const extra: string[][] = [
+      HEAD, ["", "Gilda", "Pescado", "", "Tapas", "", "", "1.0", "Pax", "", "", ""], ING,
+      row("Anchoas Cantábrico 00", "Pescado", "", 1, 1, "Filete", ""),
+      row("Laurel", "", "", 0, 0, "g", ""),
+    ];
+    const p = parseEscandalloBook([...book, ...extra]);
+    expect(p.recipes.find((r) => r.name === "Gilda")!.lines).toEqual([
+      expect.objectContaining({ product: "Anchoas Cantábrico 00", dimension: "count", qty: 1, unitPrice: null, waste: 0 }),
+    ]);
+    // Una cantidad 0 sigue sin poder leerse.
+    expect(p.issues.some((i) => i.message.startsWith("«Laurel»"))).toBe(true);
   });
 
   it("un fichero que no es un escandallo no se lee", () => {
