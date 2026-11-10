@@ -5,7 +5,7 @@
 // español (contrato interno); el mensaje del usuario va en el state sin traducir.
 import { choice, noul, score, type ChoiceCriteria, type JsonValue, type Questions } from "@typesafe-ai/sdk";
 
-export const CATALOG_VERSION = "2026-11-09.1";
+export const CATALOG_VERSION = "2026-11-10.1";
 
 // Opciones fijas --------------------------------------------------------------
 
@@ -41,13 +41,15 @@ export const HERRAMIENTAS = {
   query_areas: "Storage areas or zones of a venue (zonas, secciones, almacenes, barras, cámaras, neveras): which ones there are and what they hold.",
   query_counts: "Physical stock counts (inventarios): which are open or in progress and when each venue was last counted.",
   query_suppliers: "The suppliers we buy from and their terms: order days, cut-off time, delivery lead time, minimum order, payment terms and contact.",
+  query_price_ranking: "Ranking of products by purchase price, without naming one product: the most expensive or the cheapest things we buy (\"¿cuál es el producto más caro?\", \"lo más barato que tiene Pickles\", \"el vino más caro\").",
+  query_overview: "How the business is going this month or this week overall: purchases, consumption and waste compared with the previous period, plus stock value and products below minimum (\"¿cómo voy este mes?\", \"¿cómo vamos esta semana?\", \"resumen del mes\").",
   query_product: "Details of a specific product: its formats (bottle, box), category, who supplies it and last purchase price, and its stock and minimum in each venue (\"what does the Beefeater cost us?\", \"who brings us the Tanqueray?\", \"ficha del Barceló\", \"stats del Larios\").",
   ninguna: "No data lookup is needed.",
 } as const satisfies ChoiceCriteria;
 export type Herramienta = keyof typeof HERRAMIENTAS;
 
 /** Consultas de información de gestión (facturas, equipo, escandallos…): las resuelve tools/info.ts. */
-export const INFO_TOOLS = ["query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers"] as const;
+export const INFO_TOOLS = ["query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview"] as const;
 export type InfoTool = (typeof INFO_TOOLS)[number];
 export function isInfoTool(tool: string): tool is InfoTool {
   return (INFO_TOOLS as readonly string[]).includes(tool);
@@ -161,6 +163,8 @@ export const LABELS: Record<string, string> = {
   query_areas: "Zonas",
   query_counts: "Inventarios",
   query_suppliers: "Proveedores",
+  query_price_ranking: "Lo más caro o barato",
+  query_overview: "Cómo voy",
   merma: "Registrar merma",
   traspaso: "Traspaso entre locales",
   recepcion: "Recepción de mercancía",

@@ -83,7 +83,7 @@ const SCREENS: Array<{ re: RegExp; route: AppRoute; path: string; tip?: string }
   { re: /\binicio\b|\bresumen\b|\bdashboard\b|\bportada\b/, route: "/", path: "Resumen (arriba del todo en el menú)" },
 ];
 
-const GO_TO = /^(llevame|lleveme|vamos|vete|ve|ir|ire|quiero ir|abre|abreme|abrir|ensename|muestrame|pasame|cambia|cambiame|navega|donde (esta|estan|se ve|se ven|se hace|se hacen|puedo ver|veo)|como (llego|voy|entro))\b/;
+const GO_TO = /^(llevame|lleveme|vamos|vete|ve|ir|ire|quiero ir|abre|abreme|abrir|ensename|muestrame|pasame|cambia|cambiame|navega|donde (esta|estan|se ve|se ven|se hace|se hacen|puedo ver|veo)|como (llego|entro|voy a|voy al))\b/;
 
 /** «llévame a mermas», «abre pedidos», «¿dónde están las facturas?»: dónde está y el enlace (sin navegar). */
 export function screenHelp(message: string, locationNames: string[] = []): TopicReply | null {
