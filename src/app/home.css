@@ -55,7 +55,10 @@
 .activity-text b, .activity-text small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .activity-text b { color: var(--ink); font-size: var(--fs-md); font-weight: 500; }
 .activity-text small { color: var(--text-3); font-size: var(--fs-sm); }
-.activity time { flex-shrink: 0; color: var(--text-3); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.activity-side { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
+.activity-qty { color: var(--ink); font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.activity-qty.in { color: var(--brand-strong); }
+.activity time { color: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
 @media (max-width: 1050px) {
   .home { padding: 24px 22px 48px; }

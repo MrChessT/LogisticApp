@@ -80,7 +80,7 @@ const SCREENS: Array<{ re: RegExp; route: AppRoute; path: string; tip?: string }
   { re: /\binformes?\b|\bgraficas?\b|\banalisis\b|\bestadisticas\b/, route: "/informes", path: "Gestión › Informes" },
   { re: /\bequipo\b|\busuarios?\b/, route: "/equipo", path: "Gestión › Equipo" },
   { re: /\bzonas?\b|\bsecciones\b/, route: "/zonas", path: "Gestión › Zonas" },
-  { re: /\binicio\b|\bresumen\b|\bdashboard\b|\bportada\b/, route: "/", path: "Resumen (arriba del todo en el menú)" },
+  { re: /\binicio\b|\bresumen\b|\bpanel\b|\bdashboard\b|\bportada\b/, route: "/", path: "Panel (arriba del todo en el menú)" },
 ];
 
 const GO_TO = /^(llevame|lleveme|vamos|vete|ve|ir|ire|quiero ir|abre|abreme|abrir|ensename|muestrame|pasame|cambia|cambiame|navega|donde (esta|estan|se ve|se ven|se hace|se hacen|puedo ver|veo)|como (llego|entro|voy a|voy al))\b/;

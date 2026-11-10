@@ -46,7 +46,7 @@ const MOVEMENT_TONE: Record<MovementType, "in" | "out" | "adjust"> = {
 };
 
 type LowRow = { key: string; name: string; where: string; stock: string; minimum: string; qty: number; min: number | null; status: "low" | "critical" };
-type Activity = { id: number; type: MovementType; product: string; location: string; when: string };
+type Activity = { id: number; type: MovementType; product: string; location: string; when: string; qty: string };
 type Pending = { label: string; count: number; detail?: string; href: string; tone?: "warn" };
 
 type HomeData = {
@@ -126,7 +126,7 @@ async function loadHome(supabase: BrowserClient, locationId: string): Promise<Ho
       .order("qty", { ascending: true })
       .order("product_name")
       .limit(8),
-    byLocation(supabase.from("stock_movements").select("id, type, occurred_at, products(name), locations(name)")).order("occurred_at", { ascending: false }).limit(8),
+    byLocation(supabase.from("stock_movements").select("id, type, qty, occurred_at, products(name, base_unit, dimension, product_packs(name, qty_base, is_count_default, is_purchase_default)), locations(name)")).order("occurred_at", { ascending: false }).limit(8),
     locationId
       ? supabase.from("transfers").select("id", { count: "exact", head: true }).in("status", ["draft", "in_transit"]).or(`from_location_id.eq.${locationId},to_location_id.eq.${locationId}`)
       : supabase.from("transfers").select("id", { count: "exact", head: true }).in("status", ["draft", "in_transit"]),
@@ -155,7 +155,25 @@ async function loadHome(supabase: BrowserClient, locationId: string): Promise<Ho
     { label: "Pedidos en borrador", count: drafts, detail: "sin enviar al proveedor", href: "/pedidos?estado=draft" },
   ].filter((p) => p.count > 0);
 
-  const movementRows = (movements.data ?? []) as unknown as Array<{ id: number; type: MovementType; occurred_at: string; products: { name: string } | null; locations: { name: string } | null }>;
+  type MovementProduct = { name: string; base_unit: string; dimension: UnitDimension | null; product_packs: Array<{ name: string; qty_base: number; is_count_default: boolean; is_purchase_default: boolean }> | null };
+  const movementRows = (movements.data ?? []) as unknown as Array<{ id: number; type: MovementType; qty: number; occurred_at: string; products: MovementProduct | null; locations: { name: string } | null }>;
+  /** «+6 botellas», «−1 ud»: la cantidad del movimiento en el formato del producto. */
+  const movedQty = (qty: number, p: MovementProduct | null) => {
+    const sign = qty > 0 ? "+" : qty < 0 ? "−" : "";
+    const abs = Math.abs(Number(qty));
+    if (!p) return `${sign}${abs}`;
+    const packs = p.product_packs ?? [];
+    const count = packs.find((k) => k.is_count_default);
+    const purchase = packs.find((k) => k.is_purchase_default);
+    const text = p.dimension
+      ? formatStock(abs, {
+          dimension: p.dimension,
+          countPack: count ? { name: count.name, qtyBase: String(count.qty_base) } : null,
+          purchasePack: purchase ? { name: purchase.name, qtyBase: String(purchase.qty_base) } : null,
+        })
+      : quantity(abs, p.base_unit);
+    return `${sign}${text}`;
+  };
 
   return {
     stockValue: euros(new Decimal(String(totals.total_value ?? 0))),
@@ -181,7 +199,7 @@ async function loadHome(supabase: BrowserClient, locationId: string): Promise<Ho
       };
     }),
     pending,
-    activity: movementRows.map((m) => ({ id: m.id, type: m.type, product: m.products?.name ?? "Producto", location: m.locations?.name ?? "", when: shortTime(m.occurred_at) })),
+    activity: movementRows.map((m) => ({ id: m.id, type: m.type, product: m.products?.name ?? "Producto", location: m.locations?.name ?? "", when: shortTime(m.occurred_at), qty: movedQty(m.qty, m.products) })),
   };
 }
 
@@ -253,7 +271,7 @@ export default function Home() {
     <main className="home">
       <header className="home-head">
         <div>
-          <h1>Resumen</h1>
+          <h1>Panel</h1>
           <p className="home-meta">
             {today}
             {identity ? ` · ${locationName ?? (identity.locations.length === 1 ? identity.locations[0]!.name : allLabel === "Todos" ? "Todos los locales" : "Tus locales")}` : ""}
@@ -287,7 +305,8 @@ export default function Home() {
               "consumo, mermas y ajustes"
             )}
           </span>
-          {seesCosts && data && data.weekOut && (
+          {/* Con menos de 3 días con salidas la minigráfica no dice nada (una barra suelta): fuera. */}
+          {seesCosts && data && data.weekOut && data.bars.filter((v) => v > 0).length >= 3 && (
             <span className="kpi-spark" aria-hidden="true">
               {data.bars.map((v, i) => <i key={i} style={{ height: `${Math.max((v / maxBar) * 100, 6)}%` }} />)}
             </span>
@@ -319,7 +338,7 @@ export default function Home() {
               <span role="columnheader">Producto</span>
               <span role="columnheader">Hay</span>
               <span role="columnheader">Mínimo</span>
-              <span role="columnheader" aria-label="Nivel" />
+              <span role="columnheader">Nivel</span>
             </div>
             {data?.low.map((row) => (
               <div className="low-row" role="row" key={row.key}>
@@ -370,7 +389,10 @@ export default function Home() {
                       <b>{a.product}</b>
                       <small>{MOVEMENT_LABEL[a.type]}{!location && a.location ? ` · ${a.location}` : ""}</small>
                     </span>
-                    <time>{a.when}</time>
+                    <span className="activity-side">
+                      <span className={`activity-qty ${MOVEMENT_TONE[a.type]}`}>{a.qty}</span>
+                      <time>{a.when}</time>
+                    </span>
                   </li>
                 ))}
               </ul>

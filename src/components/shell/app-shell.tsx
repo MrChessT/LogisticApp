@@ -43,7 +43,7 @@ type Item = { label: string; href: string; icon: LucideIcon; badge?: number; loc
 const BARE = [/^\/login/, /^\/auth\//];
 
 const SECTION: Array<[RegExp, string]> = [
-  [/^\/$/, "Resumen"],
+  [/^\/$/, "Panel"],
   [/^\/stock/, "Stock"],
   [/^\/pedidos/, "Pedidos"],
   [/^\/recepciones/, "Recepciones"],
@@ -136,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const admin = ["owner", "admin"].includes(role);
   const withLocal = (path: string) => (local ? `${path}?local=${local}` : path);
   const operativa: Item[] = [
-    { label: "Resumen", href: "/", icon: LayoutDashboard },
+    { label: "Panel", href: "/", icon: LayoutDashboard },
     { label: "Stock", href: withLocal("/stock"), icon: Boxes, badge: counts?.attention },
     { label: "Pedidos", href: "/pedidos", icon: ShoppingCart },
     { label: "Recepciones", href: "/recepciones", icon: PackageCheck },
@@ -207,7 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="shell">
       <aside className={`sidebar${menuOpen ? " open" : ""}`} aria-label="Menú">
         <div className="brand-row">
-          <Link href="/" className="brand-link" aria-label="LogisticApp, ir al resumen" onClick={() => setMenuOpen(false)}><Logo /></Link>
+          <Link href="/" className="brand-link" aria-label="LogisticApp, ir al panel" onClick={() => setMenuOpen(false)}><Logo /></Link>
           <button className="icon-button sidebar-close" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)}><X size={18} /></button>
         </div>
         <div className="workspace">

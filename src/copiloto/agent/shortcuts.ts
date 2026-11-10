@@ -87,7 +87,7 @@ export async function resolveShortcut(
   // "/stock" sin texto: dónde está esa pantalla (con enlace); "/stock agua" consulta.
   if (!tool || (ROUTES[command] && !arg)) {
     const route = ROUTES[command];
-    return route ? { type: "aviso", text: `Lo tienes en el menú de la izquierda: ${route === "/" ? "Resumen" : command[0]!.toUpperCase() + command.slice(1)}. Te dejo el enlace.`, route } : null;
+    return route ? { type: "aviso", text: `Lo tienes en el menú de la izquierda: ${route === "/" ? "Panel" : command[0]!.toUpperCase() + command.slice(1)}. Te dejo el enlace.`, route } : null;
   }
 
   const plan: QueryPlan = {
