@@ -183,7 +183,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         const Icon = item.icon;
         const on = active(item.href);
         return (
-          <Link key={item.label} href={item.href} className={`nav-item${on ? " active" : ""}`} aria-current={on ? "page" : undefined} onClick={() => setMenuOpen(false)}>
+          // Sin precarga al aparecer (el menú está siempre a la vista y descargaba todas las pantallas); se
+          // precarga al ir hacia el enlace, así que la navegación sigue siendo inmediata.
+          <Link
+            key={item.label}
+            href={item.href}
+            prefetch={false}
+            onMouseEnter={() => router.prefetch(item.href)}
+            onFocus={() => router.prefetch(item.href)}
+            onTouchStart={() => router.prefetch(item.href)}
+            className={`nav-item${on ? " active" : ""}`}
+            aria-current={on ? "page" : undefined}
+            onClick={() => setMenuOpen(false)}
+          >
             <Icon size={17} strokeWidth={on ? 2.2 : 1.8} aria-hidden="true" />
             <span>{item.label}</span>
             {item.badge ? <span className="nav-badge" aria-label={`${item.badge} pendientes`}>{item.badge}</span> : null}
