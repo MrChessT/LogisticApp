@@ -1,0 +1,43 @@
+/* Cabeceras y cifras comunes a todas las pantallas, con el mismo estilo que Resumen y Stock:
+   título sobrio, sin el antetítulo que repite la ruta de la barra superior, los mismos márgenes y las
+   cifras en una franja (no en tarjetas sueltas). Se carga después de los estilos de cada pantalla. */
+.shell-content .catalog-content, .shell-content .operations-content, .shell-content .informes-content { max-width: 1280px; padding: 30px 32px 56px; }
+.shell-content .informes-heading h1 { font: 600 26px/1.15 var(--font-display), sans-serif; letter-spacing: -.6px; }
+.shell-content .informes-meta { margin: 6px 0 0; color: var(--text-3); font-size: var(--fs-md); }
+.shell-content .informes-filters { margin-top: 20px; }
+.shell-content .catalog-heading, .shell-content .operations-heading { align-items: flex-end; }
+.shell-content .catalog-heading h1, .shell-content .operations-heading h1 { font: 600 26px/1.15 var(--font-display), sans-serif; letter-spacing: -.6px; }
+/* La barra superior ya dice dónde estás («Grupo · Pedidos»). */
+.shell-content .catalog-heading .eyebrow, .shell-content .operations-heading .operation-eyebrow { display: none; }
+.shell-content .catalog-subtitle, .shell-content .operations-heading p:last-child { margin-top: 6px; color: var(--text-3); font-size: var(--fs-md); }
+
+/* Cifras en franja: cada celda dibuja su separador arriba y a la izquierda; el contenedor recorta los
+   del borde, así vale para cualquier número de columnas y para cuando se parten en dos filas. */
+.shell-content .operation-metrics, .shell-content .recipe-kpis, .shell-content .informes-kpis {
+  gap: 0; overflow: hidden; margin-top: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+}
+.shell-content .operation-metrics > div, .shell-content .recipe-kpis > div, .shell-content .informes-kpi {
+  min-height: 0; gap: 0; padding: 16px 20px 15px; background: transparent; border: 0; border-radius: 0; box-shadow: -1px -1px 0 var(--line-soft);
+}
+.shell-content .operation-metrics > div.warn, .shell-content .recipe-kpis > div.warn { background: transparent; border: 0; }
+.shell-content .operation-metrics span, .shell-content .recipe-kpis span, .shell-content .informes-kpi span { color: var(--text-3); font-size: var(--fs-sm); }
+.shell-content .operation-metrics strong, .shell-content .recipe-kpis strong, .shell-content .informes-kpi strong { margin-top: 8px; color: var(--ink); font: 600 24px/1.1 var(--font-display), sans-serif; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.shell-content .operation-metrics strong.small { font-size: 16px; }
+.shell-content .operation-metrics small, .shell-content .recipe-kpis small { margin-top: 6px; color: var(--text-3); font-size: var(--fs-sm); }
+.shell-content .operation-metrics > div.warn small, .shell-content .recipe-kpis > div.warn small { color: var(--warn); font-weight: 600; }
+.shell-content .informes-kpis { margin-top: 0; }
+
+@media (max-width: 1050px) {
+  .shell-content .catalog-content, .shell-content .operations-content, .shell-content .informes-content { padding: 24px 22px 48px; }
+}
+@media (max-width: 700px) {
+  .shell-content .catalog-content, .shell-content .operations-content, .shell-content .informes-content { padding: 16px 14px 48px; }
+  .shell-content .informes-heading h1 { display: none; }
+  .shell-content .informes-meta { margin: 0; }
+  /* El título ya está en la barra superior del móvil. */
+  .shell-content .catalog-heading h1, .shell-content .operations-heading h1 { display: none; }
+  .shell-content .catalog-subtitle, .shell-content .operations-heading p:last-child { margin-top: 0; }
+  .shell-content .operation-metrics, .shell-content .recipe-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shell-content .operation-metrics > div, .shell-content .recipe-kpis > div, .shell-content .informes-kpi { padding: 13px 14px; }
+  .shell-content .operation-metrics strong, .shell-content .recipe-kpis strong, .shell-content .informes-kpi strong { font-size: 19px; }
+}
