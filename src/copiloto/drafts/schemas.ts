@@ -10,6 +10,12 @@ import type { SessionContext } from "../domain";
 const positive = DecimalString.refine((v) => new Decimal(v).gt(0), "debe ser mayor que cero");
 const nonNegative = DecimalString.refine((v) => new Decimal(v).gte(0), "no puede ser negativo");
 const id = z.string().min(1);
+
+/** Topes de un borrador (los constructores los respetan; el esquema es la última barrera). */
+export const MAX_CHECKS = 12;
+export const MAX_CHECK_DETAIL = 400;
+export const MAX_ORDER_LINES = 80;
+export const MAX_ORDER_SUPPLIERS = 20;
 const baseUnit = z.enum(["g", "ml", "ud"]);
 const quantityInput = z.object({ amount: positive, unit: z.string().min(1), packId: id.optional() });
 
@@ -28,11 +34,11 @@ const base = z.object({
         id: z.string().min(1),
         label: z.string().min(1),
         status: z.enum(["ok", "aviso", "revisar"]),
-        detail: z.string().min(1).max(400),
+        detail: z.string().min(1).max(MAX_CHECK_DETAIL),
         probability: z.number().min(0).max(1).nullable(),
       }),
     )
-    .max(12)
+    .max(MAX_CHECKS)
     .optional(),
   acknowledged: z.boolean().optional(),
 });
@@ -204,11 +210,11 @@ export const OrderDraftSchema = base.extend({
             }),
           )
           .min(1)
-          .max(80),
+          .max(MAX_ORDER_LINES),
       }),
     )
     .min(1)
-    .max(20),
+    .max(MAX_ORDER_SUPPLIERS),
 });
 
 export const DocumentDraftSchema = base.extend({
