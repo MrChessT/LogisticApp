@@ -44,6 +44,16 @@ const TAREA_COMMANDS: Record<string, TareaId> = {
   parte: "parte",
 };
 
+/**
+ * «¿qué errores hay?», «¿qué no cuadra?», «revisar catálogo»: la revisión del catálogo (formatos, precios,
+ * stock negativo, costes incoherentes). Antes acababa en «¿Qué quieres hacer?».
+ */
+export function tareaTopicOf(message: string): TareaId | null {
+  const text = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ").trim();
+  if (/\b(que|cuales|cuantos) errores\b|\berrores (hay|tengo|tenemos|del catalogo|en el catalogo|en los datos)\b|\bhay (algun |algunos )?errores?\b|\bque (esta|hay) mal\b|\bque no cuadra\b|\brevisa(r)? (el )?catalogo\b|\bproblemas (del|en el) catalogo\b/.test(text)) return "catalogo";
+  return null;
+}
+
 /** Puntuación mínima y ventaja sobre el segundo candidato para aceptar un producto sin preguntar. */
 const MIN_SCORE = 0.8;
 const MIN_LEAD = 1.3;

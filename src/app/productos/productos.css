@@ -9,3 +9,14 @@
 
 .facet-option.facet-child { padding-left: 20px; color: var(--text-3); }
 .facet-option.facet-child span::before { content: "· "; color: var(--text-3); }
+/* Móvil: nombre y stock, nada más. El icono y «Activo» (casi siempre igual) quitaban sitio al nombre,
+   que se partía en tres líneas; el estado solo se ve si el producto está archivado. */
+@media (max-width: 700px) {
+  .catalog-head, .catalog-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .catalog-product-icon { display: none; }
+  .catalog-head > span:nth-child(2), .catalog-row > span:nth-child(2),
+  .catalog-head > span:nth-child(3), .catalog-row > span:nth-child(3),
+  .catalog-head > span:nth-child(5), .catalog-row > .active-status:not(.inactive-status) { display: none; }
+  .catalog-head > span:nth-child(4), .catalog-row > span:nth-child(4) { display: block; justify-self: end; text-align: right; }
+  .catalog-row > .inactive-status { grid-column: 1 / -1; }
+}

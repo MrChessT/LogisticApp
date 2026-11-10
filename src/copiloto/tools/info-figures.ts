@@ -87,6 +87,9 @@ export async function priceRanking(
     lines.push({ product, unit: unit.label, perUnit, supplier: price.supplierName });
   }
   const where = p.locationsChosen ? ` en ${p.locationIds.map((id) => ctx.locations.find((l) => l.id === id)?.name).filter(Boolean).join(", ")}` : "";
+  // En el orden de la ruta del producto: «vinos › tinto», no «tinto › vinos».
+  const firstPath = (lines[0]?.product.category ?? "").split(" › ");
+  const label = category ? [...named].sort((a, b) => firstPath.indexOf(a) - firstPath.indexOf(b)).join(" › ").toLowerCase() : "";
   const what = category ? category.name.toLowerCase() : "productos";
   if (lines.length === 0) return { text: `No encuentro precios de compra de ${what}${where}. Se apuntan al recibir mercancía o desde la ficha de cada producto.`, rows: 0 };
 
@@ -94,7 +97,7 @@ export async function priceRanking(
   const top = lines[0]!;
   const shown = lines.slice(0, MAX_ROWS);
   const text =
-    `${cheapest ? "Lo más barato" : "Lo más caro"}${category ? ` en ${category.name.toLowerCase()}` : ""}${where} es ${top.product.name}: ${formatMoney(top.perUnit)} por ${top.unit} (${top.supplier}). ` +
+    `${cheapest ? "Lo más barato" : "Lo más caro"}${category ? ` en ${label}` : ""}${where} es ${top.product.name}: ${formatMoney(top.perUnit)} por ${top.unit} (${top.supplier}). ` +
     `Te pongo ${shown.length === 1 ? "su precio" : `los ${shown.length} ${cheapest ? "más baratos" : "más caros"}`} de ${plural(lines.length, "producto con precio", "productos con precio")}, por su unidad (botella, ud, kg o l), con el último precio de compra.`;
   return {
     text,

@@ -1,20 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, MessagesSquare } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2 } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import type { AnalyticsResponse, AnalyticsView } from "@/copiloto/contract";
 import "../productos/productos.css";
 import "./informes.css";
 
-const VIEWS: Array<{ id: AnalyticsView; label: string; question: string }> = [
-  { id: "resumen", label: "Resumen", question: "¿Qué debería revisar hoy?" },
-  { id: "consumo", label: "Consumo", question: "¿Cómo va el consumo esta semana?" },
-  { id: "mermas", label: "Mermas", question: "¿Qué productos tienen más merma?" },
-  { id: "stock", label: "Stock", question: "¿Qué productos tienen más valor en stock?" },
-  { id: "precios", label: "Precios", question: "¿Ha subido algún proveedor los precios?" },
-  { id: "reposicion", label: "Reposición", question: "¿Qué me falta para el finde?" },
-  { id: "desvios", label: "Desvíos", question: "¿Qué desvíos hubo en el último inventario?" },
+const VIEWS: Array<{ id: AnalyticsView; label: string }> = [
+  { id: "resumen", label: "Resumen" },
+  { id: "consumo", label: "Consumo" },
+  { id: "mermas", label: "Mermas" },
+  { id: "stock", label: "Stock" },
+  { id: "precios", label: "Precios" },
+  { id: "reposicion", label: "Reposición" },
+  { id: "desvios", label: "Desvíos" },
 ];
 const PERIODS = [7, 30, 90] as const;
 
@@ -23,10 +23,6 @@ function readFilters(): { view: AnalyticsView; location: string; days: number } 
   const view = VIEWS.find((v) => v.id === params.get("vista"))?.id ?? "resumen";
   const days = Number(params.get("dias"));
   return { view, location: params.get("local") ?? "", days: PERIODS.includes(days as 7) ? days : 30 };
-}
-
-function askAssistant(message: string) {
-  window.dispatchEvent(new CustomEvent("copiloto:ask", { detail: { message } }));
 }
 
 export default function InformesPage() {
@@ -86,12 +82,9 @@ export default function InformesPage() {
       <div className="informes-content">
         <div className="informes-heading">
           <div>
-            <p className="eyebrow">Análisis · {data?.locationName ?? "Todos los locales"} · últimos {days} días</p>
-            <h1>{current.label}</h1>
+            <h1>Informes</h1>
+            <p className="informes-meta">{current.label} · {data?.locationName ?? "Todos los locales"} · últimos {days} días</p>
           </div>
-          <button type="button" className="secondary-button" onClick={() => askAssistant(current.question)}>
-            <MessagesSquare size={15} /> Preguntar al asistente
-          </button>
         </div>
 
         <div className="informes-filters" role="toolbar" aria-label="Filtros">

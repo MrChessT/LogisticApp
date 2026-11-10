@@ -28,7 +28,7 @@ import { activeFocus, type Focus, type PendingClarify, type Session, type Sessio
 import { HabitsStore } from "./habits";
 import type { Draft } from "../contract/index";
 import type { ConfirmResponse } from "../drafts/confirm";
-import { isShortcut, resolveShortcut } from "./shortcuts";
+import { isShortcut, resolveShortcut, tareaTopicOf } from "./shortcuts";
 import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
 import { tokenize } from "../entities/normalize";
 import { reorderTable, tableFor } from "../writer/table";
@@ -266,8 +266,13 @@ export class Agent {
 
       // Facturas, equipo, escandallos, zonas, inventarios o proveedores dichos claramente: sin Jev (solo lectura).
       if (!plan && !reuse && !req.clarification && !activeFocus(session, this.now().getTime())?.draftId) {
-        const infoTool = infoTopicOf(message);
-        if (infoTool) {
+        const tarea = tareaTopicOf(message);
+        const infoTool = tarea ? null : infoTopicOf(message);
+        if (tarea) {
+          const named = ctx.locations.filter((l) => tokenize(message).some((w) => tokenize(l.name).includes(w)));
+          plan = { type: "tarea", tarea, locationIds: named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id) };
+          shortcut = true;
+        } else if (infoTool) {
           const named = ctx.locations.filter((l) => tokenize(message).some((w) => tokenize(l.name).includes(w)));
           const ids = named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id);
           plan = { type: "info", tool: infoTool, locationIds: ids, locationsDefaulted: named.length === 0 && !pageContext?.locationId, products: [], periodo: "no_indicado" };

@@ -52,7 +52,7 @@ describe("lo más caro", () => {
     expect(r.table!.rows.map((x) => x.producto)).toEqual(["Ginebra Tanqueray 70 cl", "Ron Barceló Añejo 70 cl"]);
     const wines = { ...ctx, categories: [...ctx.categories, { id: "v", name: "Vinos" }, { id: "t", name: "Tinto" }], products: ctx.products.map((p, i) => (i === 2 ? { ...p, category: "Vinos › Tinto" } : p)) };
     const tinto = await priceRanking(new FixtureInfoSource(NOW), wines, { message: "el vino tinto más caro", locationIds: all, locationsChosen: false });
-    expect(tinto.text).toMatch(/^Lo más caro en (vinos › tinto|tinto › vinos) es Ginebra Tanqueray/);
+    expect(tinto.text).toMatch(/^Lo más caro en vinos › tinto es Ginebra Tanqueray/);
   });
 
   it("sin «ve costes» no enseña precios", async () => {
@@ -115,5 +115,31 @@ describe("por el chat", () => {
     const { agent } = makeAgent(jev);
     const events = await run(agent, chat("qué tal llevamos las cuentas"));
     expect(find(events, "done")!.text).toContain("has comprado");
+  });
+});
+
+describe("pedir sugerencias aunque la segunda lectura dude", () => {
+  it("«Qué reponer» (sugerencias 0,98; la segunda formulación lo lee como «cambiar») contesta, no pregunta", async () => {
+    const jev = new FakeJev([{ intent: "pedir_sugerencias", intent_alt: "cambiar" }]);
+    const { agent } = makeAgent(jev);
+    const events = await run(agent, chat("Qué reponer"));
+    expect(find(events, "clarify")).toBeUndefined();
+    expect(find(events, "table")).toBeDefined();
+  });
+
+  it("una consulta con la segunda lectura en contra sigue preguntando (podría ser un cambio)", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "cambiar" }]);
+    const { agent } = makeAgent(jev);
+    const events = await run(agent, chat("pon el mínimo de agua a 25"));
+    expect(find(events, "clarify")).toBeDefined();
+  });
+});
+
+describe("errores del catálogo", () => {
+  it.each(["que errores hay", "Revisar catálogo", "¿qué no cuadra?"])("«%s» revisa el catálogo sin preguntar", async (message) => {
+    const { agent } = makeAgent(new FakeJev([]));
+    const events = await run(agent, chat(message));
+    expect(find(events, "clarify")).toBeUndefined();
+    expect(find(events, "done")!.text).toMatch(/^Hay 1 problema que da cifras falsas/);
   });
 });
