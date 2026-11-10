@@ -35,11 +35,17 @@ export type RecipeFileIssue = { recipe: string; row: number; message: string };
 export type ParsedRecipes = { recipes: ImportRecipe[]; issues: RecipeFileIssue[]; format: "escandallo" | null };
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+/** Nombre para comparar: sin tildes, en minúsculas y con espacios simples (como norm_text en la base). */
+export const normName = norm;
 const clean = (s: string | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
 
 /** «Limón (Piel)» → «Limón»; «Cebolla Morada (Juliana)» → «Cebolla Morada». */
 export function productNameOf(ingredient: string): string {
-  const stripped = clean(ingredient.replace(/\([^)]*\)/g, " "));
+  // Paréntesis anidados («Pimiento Rojo (Limpio (sin pepitas ni rabo))»): se quitan de dentro afuera, y
+  // luego cualquier paréntesis suelto que quede.
+  let s = ingredient;
+  for (let prev = ""; prev !== s; ) { prev = s; s = s.replace(/\([^()]*\)/g, " "); }
+  const stripped = clean(s.replace(/[()]/g, " "));
   return stripped || clean(ingredient);
 }
 
@@ -146,6 +152,10 @@ export function parseEscandalloBook(rows: string[][], kind?: "plato" | "elaborac
         } else if (cost !== null && cost > 0 && price && price.price > 0 && gross && net) {
           // Unidades caseras: la cantidad sale del coste y del precio.
           netBase = (cost / price.price) * (net / gross);
+        } else if (!metric && !price && net !== null && net > 0) {
+          // Unidad casera sin precio («1 Filete», «0,625 Lata»): se cuenta en esas unidades. El coste
+          // queda pendiente hasta que el producto tenga precio (como en el original).
+          netBase = net;
         }
         if (netBase === null || !(netBase > 0)) {
           issues.push({ recipe: name, row: excelRow, message: `«${ingredient}»: no se puede saber la cantidad (${clean(r[7])} ${unit}).` });
@@ -187,14 +197,20 @@ export function parseEscandalloBook(rows: string[][], kind?: "plato" | "elaborac
  * los precios del propio escandallo (mismo coste). Las que no se puedan convertir se dejan como están y
  * la base de datos las señala. También deja un único precio por producto (el más repetido).
  */
-export function harmonizeIngredients(recipes: ImportRecipe[]): { converted: number; dropped: RecipeFileIssue[] } {
+export function harmonizeIngredients(
+  recipes: ImportRecipe[],
+  /** Medida que ya tiene el producto en el catálogo (por nombre normalizado): manda sobre la mayoría. */
+  fixed: ReadonlyMap<string, IngredientDimension> = new Map(),
+): { converted: number; dropped: RecipeFileIssue[]; kitchen: string[] } {
   const byProduct = new Map<string, ImportLine[]>();
+  const kitchen = new Set<string>();
   for (const r of recipes) for (const l of r.lines) byProduct.set(norm(l.product), [...(byProduct.get(norm(l.product)) ?? []), l]);
   let converted = 0;
   const unusable = new Set<ImportLine>();
-  for (const lines of byProduct.values()) {
+  for (const [key, lines] of byProduct) {
     const weight = (d: IngredientDimension) => lines.filter((l) => (d === "count" ? l.dimension === "count" : l.dimension !== "count")).length;
-    const target: IngredientDimension = weight("count") > lines.length - weight("count") ? "count" : (lines.find((l) => l.dimension !== "count")?.dimension ?? "mass");
+    const target: IngredientDimension = fixed.get(key)
+      ?? (weight("count") > lines.length - weight("count") ? "count" : (lines.find((l) => l.dimension !== "count")?.dimension ?? "mass"));
     const same = lines.filter((l) => (target === "count") === (l.dimension === "count") && l.unitPrice && l.unitPrice > 0);
     const prices = same.map((l) => l.unitPrice!).sort((a, b) => a - b);
     const ref = prices.length ? prices[Math.floor(prices.length / 2)]! : null;
@@ -206,6 +222,11 @@ export function harmonizeIngredients(recipes: ImportRecipe[]): { converted: numb
         converted++;
       } else if (sameKind && l.dimension !== target) {
         l.dimension = target; // g ↔ ml: misma cantidad.
+      } else if (!sameKind && fixed.has(key)) {
+        // El catálogo ya lo tiene en la otra medida (una botella del bar usada en cocina por ml) y no hay
+        // precios para convertir: va como ingrediente de cocina aparte, sin tocar el del catálogo.
+        l.product = l.ingredient = `${l.product} (cocina)`;
+        kitchen.add(l.product);
       } else if (!sameKind) {
         unusable.add(l); // Ni precio para convertir: en el original tampoco tiene coste.
       }
@@ -220,5 +241,30 @@ export function harmonizeIngredients(recipes: ImportRecipe[]): { converted: numb
     }
     r.lines = keep;
   }
-  return { converted, dropped };
+  return { converted, dropped, kitchen: [...kitchen].sort() };
+}
+
+/**
+ * Orden de envío: cada receta después de las que usa como ingrediente (así la base la encuentra como
+ * elaboración y no crea un producto con su nombre); a igual profundidad, elaboraciones antes que platos.
+ */
+export function orderByDependency(recipes: ImportRecipe[]): ImportRecipe[] {
+  const byName = new Map(recipes.map((r) => [norm(r.name), r]));
+  const depth = new Map<ImportRecipe, number>();
+  const depthOf = (r: ImportRecipe, path: Set<ImportRecipe>): number => {
+    const known = depth.get(r);
+    if (known !== undefined) return known;
+    if (path.has(r)) return 0; // ciclo: la base lo rechaza con su propio aviso
+    path.add(r);
+    let d = 0;
+    for (const l of r.lines) {
+      const sub = byName.get(norm(l.ingredient)) ?? byName.get(norm(l.product));
+      if (sub && sub !== r) d = Math.max(d, depthOf(sub, path) + 1);
+    }
+    path.delete(r);
+    depth.set(r, d);
+    return d;
+  };
+  const rank = (r: ImportRecipe) => (r.kind === "elaboracion" ? 0 : 1);
+  return recipes.map((r, i) => ({ r, i, d: depthOf(r, new Set()) })).sort((a, b) => a.d - b.d || rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r);
 }

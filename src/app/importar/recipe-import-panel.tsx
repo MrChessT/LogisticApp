@@ -4,20 +4,23 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ChefHat, Loader2, RotateCcw, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { harmonizeIngredients, parseEscandalloBook, type ImportRecipe, type RecipeFileIssue } from "@/lib/recipe-import";
+import { harmonizeIngredients, normName, orderByDependency, parseEscandalloBook, type IngredientDimension, type ImportRecipe, type RecipeFileIssue } from "@/lib/recipe-import";
 import { readXlsx } from "@/lib/xlsx";
 
 // Importar escandallos (exportación «Escandallo» de otros programas de cocina): se pueden subir a la vez
-// el libro de elaboraciones y el de platos. Vista previa exacta y aplicar en una transacción (import_recipes).
+// el libro de elaboraciones y el de platos. Vista previa y aplicar con import_recipes, por tandas: cada
+// llamada a la base tiene 8 s y un recetario de 400 recetas tarda el doble. Cada tanda es atómica y volver
+// a importar actualiza por nombre, así que si una tanda falla basta con repetir.
 
 type Stats = { recipes_created: number; recipes_updated: number; lines: number; matched: number; sub_recipes: number; products_created: number; allergens_added: number };
-type Result = { stats: Stats; new_products: string[] | null; errors: Array<{ row: number; label: string; message: string }>; applied: boolean };
+type Result = { stats: Stats; new_products: string[] | null; errors: Array<{ row: number; label: string; message: string }>; applied: boolean; saved?: number };
 type Stage =
   | { kind: "idle" }
   | { kind: "checking" }
   | { kind: "preview" | "applying"; files: string[]; recipes: ImportRecipe[]; notices: RecipeFileIssue[]; result: Result }
   | { kind: "done"; files: string[]; result: Result };
 
+const BATCH = 50;
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("es-ES")} ${n === 1 ? one : many}`;
 
 export function RecipeImportPanel({ orgId }: { orgId: string }) {
@@ -30,17 +33,44 @@ export function RecipeImportPanel({ orgId }: { orgId: string }) {
   async function run(recipes: ImportRecipe[], apply: boolean, create: boolean): Promise<Result> {
     const supabase = createClient();
     if (!supabase) throw new Error("Sin conexión.");
-    // Elaboraciones primero: así los platos que las usan las encuentran.
-    const ordered = [...recipes].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "elaboracion" ? -1 : 1));
-    const payload = {
-      recipes: ordered.map((r) => ({
-        name: r.name, kind: r.kind, category: r.category, yield_qty: r.yieldQty, yield_unit: r.yieldUnit,
-        lines: r.lines.map((l) => ({ ingredient: l.ingredient, product: l.product, dimension: l.dimension, qty: l.qty, waste: l.waste, unit_price: l.unitPrice, allergens: l.allergens })),
-      })),
-    };
-    const { data, error: err } = await supabase.rpc("import_recipes", { p_org: orgId, p_payload: payload, p_apply: apply, p_create_missing: create });
-    if (err) throw new Error(err.message.includes("too_many_rows") ? "Demasiadas recetas en una vez (máximo 3.000)." : err.code === "57014" ? "La importación ha tardado demasiado: prueba con un fichero cada vez." : "No se pudo comprobar el fichero.");
-    return data as unknown as Result;
+    // Cada receta después de las elaboraciones que usa: así la base las encuentra como elaboración.
+    const ordered = orderByDependency(recipes);
+    const total: Result = { stats: { recipes_created: 0, recipes_updated: 0, lines: 0, matched: 0, sub_recipes: 0, products_created: 0, allergens_added: 0 }, new_products: [], errors: [], applied: apply };
+    for (let from = 0; from < ordered.length; from += BATCH) {
+      const payload = {
+        recipes: ordered.slice(from, from + BATCH).map((r) => ({
+          name: r.name, kind: r.kind, category: r.category, yield_qty: r.yieldQty, yield_unit: r.yieldUnit,
+          lines: r.lines.map((l) => ({ ingredient: l.ingredient, product: l.product, dimension: l.dimension, qty: l.qty, waste: l.waste, unit_price: l.unitPrice, allergens: l.allergens })),
+        })),
+      };
+      const { data, error: err } = await supabase.rpc("import_recipes", { p_org: orgId, p_payload: payload, p_apply: apply, p_create_missing: create });
+      if (err) {
+        const done = apply && from > 0 ? ` Se han guardado ${plural(from, "receta", "recetas")}; vuelve a importar para terminar (las guardadas se actualizan, no se duplican).` : "";
+        throw new Error((err.code === "57014" ? "La importación ha tardado demasiado." : "No se pudo comprobar el fichero.") + done);
+      }
+      const part = data as unknown as Result;
+      for (const k of Object.keys(total.stats) as Array<keyof Stats>) total.stats[k] += part.stats[k];
+      total.new_products = [...new Set([...(total.new_products ?? []), ...(part.new_products ?? [])])].sort((a, b) => a.localeCompare(b, "es"));
+      total.errors.push(...part.errors.map((e) => ({ ...e, row: e.row + from })));
+      total.applied = total.applied && part.applied;
+      // Al aplicar, una tanda con errores no se guarda y no se sigue: se corrige y se repite.
+      if (apply && !part.applied) break;
+      if (apply) total.saved = from + payload.recipes.length;
+    }
+    return total;
+  }
+
+  /** Medida de cada producto que ya está en el catálogo: manda sobre la del escandallo. */
+  async function catalogDimensions(): Promise<Map<string, IngredientDimension>> {
+    const supabase = createClient();
+    const dims = new Map<string, IngredientDimension>();
+    if (!supabase) return dims;
+    for (let from = 0; ; from += 1000) {
+      const { data, error: err } = await supabase.from("products").select("name, dimension").eq("org_id", orgId).range(from, from + 999);
+      if (err) throw new Error("No se pudo leer el catálogo.");
+      for (const p of data ?? []) dims.set(normName(p.name), p.dimension as IngredientDimension);
+      if ((data ?? []).length < 1000) return dims;
+    }
   }
 
   async function onFiles(list: FileList | null) {
@@ -62,7 +92,9 @@ export function RecipeImportPanel({ orgId }: { orgId: string }) {
         recipes.push(...parsed.recipes);
         notices.push(...parsed.issues);
       }
-      notices.push(...harmonizeIngredients(recipes).dropped);
+      const h = harmonizeIngredients(recipes, await catalogDimensions());
+      notices.push(...h.dropped);
+      if (h.kitchen.length) notices.push({ recipe: "", row: 0, message: `En el catálogo van de otra forma (por ejemplo, botellas del bar) y las recetas los usan por peso o volumen sin precio para convertir: se crean aparte para cocina ${h.kitchen.map((k) => `«${k}»`).join(", ")}.` });
       const result = await run(recipes, false, createMissing);
       setStage({ kind: "preview", files: files.map((f) => f.name), recipes, notices, result });
     } catch (err) {
@@ -90,7 +122,9 @@ export function RecipeImportPanel({ orgId }: { orgId: string }) {
       const result = await run(stage.recipes, true, createMissing);
       if (!result.applied) {
         setStage({ ...stage, kind: "preview", result });
-        return setError("Algo cambió mientras revisabas: mira los errores y vuelve a intentarlo.");
+        return setError(result.saved
+          ? `Se han guardado ${plural(result.saved, "receta", "recetas")}, pero otras tienen errores: corrígelos y vuelve a importar (las guardadas se actualizan, no se duplican).`
+          : "Algo cambió mientras revisabas: mira los errores y vuelve a intentarlo.");
       }
       setStage({ kind: "done", files: stage.files, result });
     } catch (err) {
