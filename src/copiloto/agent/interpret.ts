@@ -60,7 +60,7 @@ export interface ResolvedProduct {
 }
 
 /** Dinero metido en el stock (no precio de compra): «pasta», «dinero», «euros» con «tenemos/hay/metido». */
-const MONEY_OF_STOCK = /\b(pasta|dinero|pelas|euros|pasta gansa)\b.*\b(tenemos|hay|metid[oa]s?|invertid[oa]s?|parad[oa]s?|en stock)\b|\b(tenemos|hay)\b.*\b(metid[oa]s?|invertid[oa]s?)\b.*\b(pasta|dinero|euros)\b/;
+const MONEY_OF_STOCK = /\b(pasta|dinero|pelas|euros|pasta gansa)\b.*\b(tenemos|hay|metid[oa]s?|invertid[oa]s?|parad[oa]s?|en stock)\b|\b(tenemos|hay)\b.*\b(metid[oa]s?|invertid[oa]s?)\b.*\b(pasta|dinero|euros)\b|\bvalor(acion)? (de|del|en) (stock|inventario|almacen)\b|\bque valor\b.*\b(hay|tenemos)\b/;
 
 /** El fragmento es el mensaje entero (la cantidad no traía producto): no se cita en la pregunta. */
 function wholeMessage(segment: { text: string; productText: string }): boolean {

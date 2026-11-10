@@ -99,3 +99,56 @@ describe("por el chat", () => {
     expect(find(events, "done")!.text).toContain("360,97 €");
   });
 });
+
+describe("un escandallo pedido por su nombre que no existe", () => {
+  const recipe = async (message: string) => {
+    const { runInfo } = await import("../tools/info");
+    return runInfo(new FixtureInfoSource(NOW), fixtureContext(), { tool: "query_recipes", message, locationIds: all, locationsChosen: false, productNames: [], now: NOW });
+  };
+
+  it("lo dice en vez de dar el resumen de todos", async () => {
+    expect((await recipe("necesito saber la receta de los macarrones con queso")).text).toBe("No hay ningún escandallo de «macarrones con queso». Se crea en Escandallos o se importa desde Importar.");
+  });
+
+  it("si existe, o si se pregunta en general, como siempre", async () => {
+    expect((await recipe("coste de las croquetas de jamón")).text).toMatch(/^Croquetas de jamón \(Entrantes\)/);
+    expect((await recipe("food cost de los platos")).text).toMatch(/platos? y/);
+    expect((await recipe("quiero hacer una receta")).text).toMatch(/platos? y/);
+  });
+});
+
+describe("frases medidas con Jev real (10/11)", () => {
+  it("un día con su mes no es el mes entero", () => {
+    expect(salesPeriod("cuánto vendimos el 30 de octubre", NOW)).toMatchObject({ from: "2025-10-30", to: "2025-10-30", label: "el 30/10/2025" });
+    expect(salesPeriod("qué tal fue la caja del 2 de septiembre", NOW)).toMatchObject({ from: "2026-09-02", to: "2026-09-02" });
+    expect(salesPeriod("ventas del 1 al 15 de agosto", NOW)).toMatchObject({ from: "2026-08-01", to: "2026-08-15" });
+    expect(salesPeriod("cuánta pasta hicimos el jueves 18", NOW)).toMatchObject({ from: "2026-09-18", to: "2026-09-18" });
+    expect(salesPeriod("ventas del día 30", NOW)).toMatchObject({ from: "2026-08-30", to: "2026-08-30" });
+  });
+
+  it.each([
+    "qué plato vende más",
+    "qué plato tiene el food cost más alto en octubre",
+    "cuánta pasta hicimos el jueves 30",
+    "qué tal fue la caja de ayer",
+  ])("«%s» → ventas", (m) => expect(infoTopicOf(m)).toBe("query_sales"));
+
+  it.each(["food cost de las croquetas", "cuántas cajas de coca quedan"])("«%s» no es ventas", (m) => expect(infoTopicOf(m)).not.toBe("query_sales"));
+
+  it("ticket medio: se dice que el TPV no trae tickets, y se da lo vendido", async () => {
+    expect((await ask("ticket medio de ayer")).text).toMatch(/^El TPV exporta lo vendido por artículo, sin tickets ni comensales.*Ayer se vendieron 360,97 €/);
+  });
+
+  it("«el día 22 de septiembre» da ese día", async () => {
+    expect((await ask("cuánto vendimos el 22 de septiembre")).text).toMatch(/^El 22\/9\/2026 se vendieron 360,97 €/);
+  });
+});
+
+describe("locales nombrados en la vía rápida", () => {
+  it("«la» de «La Oliva» no es nombrar La Oliva", async () => {
+    const { namedLocations } = await import("../agent/loop");
+    expect(namedLocations(LOCATIONS, "qué tal fue la caja de ayer")).toEqual([]);
+    expect(namedLocations(LOCATIONS, "facturas de la oliva").map((l) => l.name)).toEqual(["La Oliva"]);
+    expect(namedLocations(LOCATIONS, "ventas del parador").map((l) => l.name)).toEqual(["Parador"]);
+  });
+});

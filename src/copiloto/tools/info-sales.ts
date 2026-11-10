@@ -46,7 +46,7 @@ export function salesPeriod(message: string, now: Date): SalesPeriod {
   const text = normalize(message);
   const today = iso(now);
   if (/\banteayer\b/.test(text)) { const d = addDays(today, -2); return { from: d, to: d, label: "anteayer", explicit: true }; }
-  if (/\bayer\b/.test(text)) { const d = addDays(today, -1); return { from: d, to: d, label: "ayer", explicit: true }; }
+  if (/\b(ayer|anoche)\b/.test(text)) { const d = addDays(today, -1); return { from: d, to: d, label: "ayer", explicit: true }; }
   if (/\bhoy\b/.test(text)) return { from: today, to: today, label: "hoy", explicit: true };
   const monday = addDays(today, -((now.getDay() + 6) % 7));
   if (/\bsemana (pasada|anterior)\b/.test(text)) return { from: addDays(monday, -7), to: addDays(monday, -1), label: "la semana pasada", explicit: true };
@@ -54,6 +54,28 @@ export function salesPeriod(message: string, now: Date): SalesPeriod {
   if (/\bmes (pasado|anterior)\b/.test(text)) {
     const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     return { from: iso(first), to: iso(new Date(now.getFullYear(), now.getMonth(), 0)), label: MONTHS[first.getMonth()]!, explicit: true };
+  }
+  // Un día con su mes («el 30 de octubre», «del 1 al 15 de octubre») va antes que el mes entero.
+  const yearOf = (month: number) => (month > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear());
+  const monthAlt = MONTHS.join("|");
+  const range = new RegExp(`\\bdel? (\\d{1,2}) al? (\\d{1,2}) de (${monthAlt})\\b`).exec(text);
+  if (range) {
+    const m = MONTHS.indexOf(range[3]!);
+    const a = iso(new Date(yearOf(m), m, Number(range[1]))), b = iso(new Date(yearOf(m), m, Number(range[2])));
+    return { from: a, to: b, label: `del ${dayText(a)} al ${dayText(b)}`, explicit: true };
+  }
+  const dayMonth = new RegExp(`\\b(\\d{1,2}) de (${monthAlt})\\b`).exec(text);
+  if (dayMonth && Number(dayMonth[1]) >= 1 && Number(dayMonth[1]) <= 31) {
+    const m = MONTHS.indexOf(dayMonth[2]!);
+    const d = iso(new Date(yearOf(m), m, Number(dayMonth[1])));
+    return { from: d, to: d, label: `el ${dayText(d)}`, explicit: true };
+  }
+  // «el jueves 30», «el día 30»: ese día de este mes, o del anterior si aún no ha llegado.
+  const bareDay = /\b(?:dia|lunes|martes|miercoles|jueves|viernes|sabado|domingo) (\d{1,2})\b(?![/-])/.exec(text);
+  if (bareDay && Number(bareDay[1]) >= 1 && Number(bareDay[1]) <= 31) {
+    const n = Number(bareDay[1]);
+    const d = iso(n <= now.getDate() ? new Date(now.getFullYear(), now.getMonth(), n) : new Date(now.getFullYear(), now.getMonth() - 1, n));
+    return { from: d, to: d, label: `el ${dayText(d)}`, explicit: true };
   }
   const named = MONTHS.findIndex((m) => new RegExp(`\\b${m}\\b`).test(text));
   if (named >= 0) {
@@ -102,6 +124,8 @@ export async function sales(source: SalesSource, ctx: SessionContext, p: { messa
   }
 
   const dec = (v: string | null) => new Decimal(v ?? 0);
+  // El TPV exporta artículos, no tickets: sin número de tickets no hay ticket medio; se dice y se da lo que sí hay.
+  const noTickets = /\b(ticket medio|tickets?|comensales|cubiertos|clientes)\b/.test(text) ? "El TPV exporta lo vendido por artículo, sin tickets ni comensales, así que no puedo darte el ticket medio. " : "";
   const total = items.reduce((s, i) => s.plus(i.amount), new Decimal(0));
   const costed = items.filter((i) => i.cost !== null);
   const cost = costed.reduce((s, i) => s.plus(dec(i.cost)), new Decimal(0));
@@ -172,7 +196,7 @@ export async function sales(source: SalesSource, ctx: SessionContext, p: { messa
   if (fc) parts.push(`Coste teórico ${money(cost)}: food cost ${pct(fc)} y margen bruto ${money(costedAmount.minus(cost))}${covered.lt(99.5) ? `, sobre el ${formatDecimal(covered, 0)} % de la venta que tiene coste` : ""}.`);
   else parts.push("Aún no hay coste: enlaza los artículos a su escandallo o producto en Ventas.");
   if (unlinked.length) parts.push(`Faltan por enlazar ${plural(unlinked.length, "artículo", "artículos")} (${money(unlinked.reduce((s, i) => s.plus(i.amount), new Decimal(0)))}).`);
-  return { text: parts.join(" "), table: tableOf(ranked), rows: ranked.length };
+  return { text: noTickets + parts.join(" "), table: tableOf(ranked), rows: ranked.length };
 }
 
 /** Venta y coste teórico de un periodo, para el resumen «¿cómo voy?» (null si no hay ventas). */

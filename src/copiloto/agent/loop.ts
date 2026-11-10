@@ -269,11 +269,11 @@ export class Agent {
         const tarea = tareaTopicOf(message);
         const infoTool = tarea ? null : infoTopicOf(message);
         if (tarea) {
-          const named = ctx.locations.filter((l) => tokenize(message).some((w) => tokenize(l.name).includes(w)));
+          const named = namedLocations(ctx.locations, message);
           plan = { type: "tarea", tarea, locationIds: named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id) };
           shortcut = true;
         } else if (infoTool) {
-          const named = ctx.locations.filter((l) => tokenize(message).some((w) => tokenize(l.name).includes(w)));
+          const named = namedLocations(ctx.locations, message);
           const ids = named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id);
           plan = { type: "info", tool: infoTool, locationIds: ids, locationsDefaulted: named.length === 0 && !pageContext?.locationId, products: [], periodo: "no_indicado" };
           shortcut = true;
@@ -847,3 +847,9 @@ const ANSWER_HINT: Partial<Record<ClarifyPlan["field"], string>> = {
   formato: "Elige uno de los formatos.",
   documento: "Elige uno de la lista.",
 };
+
+/** Locales nombrados en el mensaje por sus palabras con sentido («la» de «La Oliva» no cuenta: «la caja de ayer»). */
+export function namedLocations<L extends { name: string }>(locations: readonly L[], message: string): L[] {
+  const words = new Set(tokenize(message));
+  return locations.filter((l) => tokenize(l.name).some((w) => w.length > 2 && words.has(w)));
+}

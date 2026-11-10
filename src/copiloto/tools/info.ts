@@ -301,6 +301,7 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
       const bits = [`${r.name}${r.category ? ` (${r.category})` : ""}`];
       if (costs && r.portionCost !== null) bits.push(`coste ${money(r.portionCost)}${r.kind === "plato" ? " por ración" : ""}`);
       if (costs && r.salePrice !== null) bits.push(`PVP ${money(r.salePrice)}`);
+      else if (costs && r.kind === "plato") bits.push("sin PVP (ponlo en su escandallo para ver food cost y margen; el de lo vendido está en Ventas)");
       if (costs && r.foodCostPct !== null) bits.push(`food cost ${pct(r.foodCostPct)} (objetivo ${pct(r.target)})`);
       if (costs && r.margin !== null) bits.push(`margen ${money(r.margin)}`);
       if (costs && r.missingPrices > 0) bits.push(`${plural(r.missingPrices, "ingrediente sin precio", "ingredientes sin precio")}`);
@@ -308,6 +309,19 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
       return bits.join(" · ");
     });
     return { text: lines.join("\n"), route, rows: named.length };
+  }
+
+  // Se pide uno por su nombre y no existe («la receta de los macarrones con queso»): se dice, con los
+  // parecidos si los hay, en vez de soltar el resumen de todos.
+  const asked = /\b(?:receta|escandallo|ficha(?: tecnica)?|coste|alergenos?)\s+(?:de\s+(?:la|las|los)|del|de)\s+(.+?)\s*\??$/.exec(text)?.[1];
+  if (named.length === 0 && asked && !/\b(platos?|recetas?|escandallos?|todos?|todas?|cada|mes|semana|hoy|ayer)\b/.test(asked)) {
+    const words = asked.split(" ").filter((w) => w.length >= 4);
+    const close = all.filter((r) => { const n = normalize(r.name); return words.some((w) => n.includes(w.slice(0, Math.max(4, w.length - 1)))); }).slice(0, 5);
+    return {
+      text: `No hay ningún escandallo de «${asked}».${close.length ? ` Parecidos: ${close.map((r) => r.name).join(", ")}.` : " Se crea en Escandallos o se importa desde Importar."}`,
+      route,
+      rows: 0,
+    };
   }
 
   const platos = all.filter((r) => r.kind === "plato");
@@ -484,7 +498,7 @@ export const QUERY_PAY = /\b(de|por|sin|que|hay que|tengo que|tenemos que|quedan
 
 const TOPICS: Array<[InfoTool, RegExp]> = [
   // Ventas del TPV. «Facturación» y «facturamos» son ventas, no facturas de proveedor.
-  ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost (de |del |de la |de las )?(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/],
+  ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost\b.*\b(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b|\bvende (mas|menos)\b|\b(pasta|dinero|pelas)\b.*\b(hicimos|hemos hecho|sacamos|hemos sacado|se hizo)\b|\bcaja (de |del )?(ayer|hoy|anoche|anteayer|\d{1,2}|lunes|martes|miercoles|jueves|viernes|sabado|domingo|esta semana|la semana)\b/],
   ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b/],
   ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
