@@ -117,3 +117,20 @@ describe("por el chat", () => {
     expect(find(events, "done")!.text).toContain("has comprado");
   });
 });
+
+describe("pedir sugerencias aunque la segunda lectura dude", () => {
+  it("«Qué reponer» (sugerencias 0,98; la segunda formulación lo lee como «cambiar») contesta, no pregunta", async () => {
+    const jev = new FakeJev([{ intent: "pedir_sugerencias", intent_alt: "cambiar" }]);
+    const { agent } = makeAgent(jev);
+    const events = await run(agent, chat("Qué reponer"));
+    expect(find(events, "clarify")).toBeUndefined();
+    expect(find(events, "table")).toBeDefined();
+  });
+
+  it("una consulta con la segunda lectura en contra sigue preguntando (podría ser un cambio)", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "cambiar" }]);
+    const { agent } = makeAgent(jev);
+    const events = await run(agent, chat("pon el mínimo de agua a 25"));
+    expect(find(events, "clarify")).toBeDefined();
+  });
+});

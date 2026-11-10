@@ -314,7 +314,9 @@ export class Interpreter {
     if (alt && this.overrides.intent === undefined) {
       const probabilities = alt.probabilities as Record<string, number>;
       const agreement = INTENT_ALT_EXPECTED[intentValue].reduce((sum, key) => sum + (probabilities[key] ?? 0), 0);
-      if (agreement < t.consistencia.act) intentOutcome = worst(intentOutcome, "confirmar");
+      // «Qué reponer»: pedir sugerencias 0,98, pero la segunda formulación lo lee como «cambiar» (reponer
+      // suena a hacer). Pedir sugerencias solo lee y nunca prepara nada: la discrepancia no frena la respuesta.
+      if (agreement < t.consistencia.act && intentValue !== "pedir_sugerencias") intentOutcome = worst(intentOutcome, "confirmar");
     }
 
     // «Ha llegado el traspaso del Parador»: proponer_accion 0,66 (dudoso) pero recibir_traspaso 0,99.
