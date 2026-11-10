@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_HELP, ROLE_LABEL, seesAllLocations, type Role } from "@/lib/team";
 import { warehouseError } from "@/lib/warehouse";
@@ -106,11 +105,6 @@ export default function AccountPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Tu cuenta</span>
-        <span />
-      </header>
       <div className="catalog-content account-content">
         <div className="catalog-heading">
           <div>

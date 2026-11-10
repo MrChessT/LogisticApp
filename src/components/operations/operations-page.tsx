@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import {
-  ArrowLeft,
   ChevronDown,
   CirclePlus,
   ClipboardList,
@@ -684,11 +682,6 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
 
   return (
     <main className="operations-page">
-      <header className="operations-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="operations-brand"><span>LogisticApp</span> · {titles[kind]}</span>
-        <span />
-      </header>
       <div className="operations-content">
         <div className="operations-heading">
           <div>

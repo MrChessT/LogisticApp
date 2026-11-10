@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Building2, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, MessagesSquare } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import type { AnalyticsResponse, AnalyticsView } from "@/copiloto/contract";
 import "../productos/productos.css";
@@ -83,13 +82,6 @@ export default function InformesPage() {
 
   return (
     <main className="informes-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link">
-          <ArrowLeft size={16} /> Resumen
-        </Link>
-        <span className="catalog-title">Informes</span>
-        <span />
-      </header>
 
       <div className="informes-content">
         <div className="informes-heading">
@@ -98,7 +90,7 @@ export default function InformesPage() {
             <h1>{current.label}</h1>
           </div>
           <button type="button" className="secondary-button" onClick={() => askAssistant(current.question)}>
-            <Sparkles size={15} /> Preguntar al asistente
+            <MessagesSquare size={15} /> Preguntar al asistente
           </button>
         </div>
 

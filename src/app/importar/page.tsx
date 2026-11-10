@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileSpreadsheet, Loader2, RotateCcw, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, RotateCcw, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { parseWorkbook, SHEET_LABEL, templateSheets, type ParsedImport, type RowIssue, type SheetKey } from "@/lib/catalog-import";
 import { readXlsx, writeXlsx } from "@/lib/xlsx";
@@ -132,11 +132,6 @@ export default function ImportarPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Importar catálogo</span>
-        <span />
-      </header>
       <div className="catalog-content import-content">
         <div className="catalog-heading">
           <div>

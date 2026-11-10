@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Archive, ArchiveRestore, ArrowLeft, CirclePlus, Search, Trash2, Truck, X } from "lucide-react";
+import { Archive, ArchiveRestore, CirclePlus, Search, Trash2, Truck, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { describeTerms, nextDelivery, formatDayLong, shortDays, WEEKDAYS } from "@/lib/supplier-terms";
@@ -159,11 +159,6 @@ export default function SuppliersPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Proveedores</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>

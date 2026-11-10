@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Decimal from "decimal.js";
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/permissions";
@@ -235,13 +235,6 @@ export default function StockPage() {
 
   return (
     <main className="stock-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link">
-          <ArrowLeft size={16} /> Resumen
-        </Link>
-        <span className="catalog-title">Stock</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>

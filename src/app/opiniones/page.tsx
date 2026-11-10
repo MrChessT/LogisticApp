@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Check, ChevronDown, ChevronUp, ClipboardCopy, Download, FlaskConical, MessageSquareWarning, RotateCcw, Search, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ClipboardCopy, Download, FlaskConical, MessageSquareWarning, RotateCcw, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeText } from "@/lib/format";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUS, feedbackMarkdown, type FeedbackRow, type FeedbackStatus } from "@/lib/copilot-feedback";
@@ -123,11 +122,6 @@ export default function OpinionesPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Opiniones del asistente</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>

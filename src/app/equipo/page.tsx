@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, KeyRound, Mail, MessageCircle, Plus, Search, ShieldCheck, Tablet, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Copy, KeyRound, Mail, MessageCircle, Plus, Search, ShieldCheck, Tablet, Trash2, UserPlus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { daysAgo, normalizeText } from "@/lib/format";
 import { assignableRoles, managesScreens, managesTeam, ROLE_HELP, ROLE_LABEL, seesAllLocations, teamErrorMessage, type Role } from "@/lib/team";
@@ -144,11 +144,6 @@ export default function TeamPage() {
   if (actor !== undefined && !managesTeam(actor)) {
     return (
       <main className="catalog-page">
-        <header className="catalog-topbar">
-          <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-          <span className="catalog-title">Equipo</span>
-          <span />
-        </header>
         <div className="catalog-content">
           <div className="catalog-empty team-locked">
             <ShieldCheck size={28} />
@@ -162,11 +157,6 @@ export default function TeamPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Equipo</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
