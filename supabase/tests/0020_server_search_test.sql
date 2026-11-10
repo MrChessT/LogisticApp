@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, email, email_confirmed_at) values
   ('d1000000-0000-4000-8000-000000000001', 'search-staff@example.com', now()),
@@ -73,6 +73,9 @@ select is((stock_search(p_status => 'critical')->>'total')::int, 0, 'nothing is 
 select is((stock_search(p_status => 'low')->'items'->0->>'product_name'), 'Tónica Búsqueda', 'below minimum is low');
 select is((stock_search(p_search => 'tonica')->>'total')::int, 1, 'stock search ignores accents');
 select is((stock_search(p_limit => 1)->'summary'->>'rows')::int, 2, 'the summary counts every row, not just the page');
+-- 0038: «attention» = bajo mínimo + sin stock (lo que cuenta el Resumen), y el total de productos a cero.
+select is((stock_search(p_status => 'attention')->>'total')::int, 1, 'attention lists low and critical together');
+select is((stock_search(p_status => 'attention')->'summary'->>'critical')::int, 0, 'the summary counts products at zero');
 
 -- Otra organización no ve nada
 select set_config('request.jwt.claims', '{"sub":"d1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
