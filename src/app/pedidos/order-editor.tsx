@@ -10,6 +10,7 @@ import { ProductPicker } from "@/components/product-picker/product-picker";
 import { canManage, orderText, orderTotal, saveDraft, STATUS_LABEL, type Order, type OrderLine, type Reference } from "./orders-data";
 import { describeTerms, formatDayLong, minOrderShortfall, nextDelivery } from "@/lib/supplier-terms";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, priceCheck, type Incident } from "@/lib/receipt-checks";
+import { FilePick } from "@/components/ui/file-pick";
 
 // Ficha de un pedido. Borrador: se edita y se envía (encargado). Enviado o parcial: se recibe
 // (cualquiera con acceso al local) o se cancela (encargado). Recibido o cancelado: solo lectura.
@@ -344,9 +345,9 @@ export function OrderEditor({
             {mode === "receive" && (
               <div className="editor-grid receive-extra">
                 <label>Nº de albarán<input value={docNumber} onChange={(event) => setDocNumber(event.target.value)} placeholder="Opcional" /></label>
-                <label>Foto del albarán
-                  <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} />
-                </label>
+                <div className="receive-photo"><span className="receive-photo-title">Foto del albarán</span>
+                  <FilePick file={photo} onChange={setPhoto} accept="image/*,application/pdf" capture="environment" label="Hacer foto o adjuntar" />
+                </div>
                 <label className="check-option">
                   <input type="checkbox" checked={closeOrder} onChange={(event) => setCloseOrder(event.target.checked)} /> Cerrar el pedido aunque falte algo
                 </label>

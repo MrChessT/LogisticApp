@@ -1,0 +1,10 @@
+.file-pick { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.file-pick-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-pick-button { display: inline-flex !important; align-items: center; gap: 7px; height: 36px; margin: 0 !important; padding: 0 12px; color: var(--text) !important; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); font-size: var(--fs-md) !important; font-weight: 600; cursor: pointer; }
+.file-pick-button:hover { background: var(--surface-2); }
+.file-pick-input:focus-visible + .file-pick-name, .file-pick:focus-within .file-pick-button { outline: 2px solid var(--brand); outline-offset: 2px; }
+.file-pick-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--text); font-size: var(--fs-md); }
+.file-pick-name span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.file-pick-name button { display: grid; place-items: center; width: 26px; height: 26px; color: var(--text-3); background: transparent; border-radius: var(--r-sm); }
+.file-pick-name button:hover { color: var(--ink); background: var(--hover); }
+.file-pick-empty { color: var(--text-3); font-size: var(--fs-md); }

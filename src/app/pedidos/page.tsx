@@ -11,6 +11,7 @@ import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "../proveedores/proveedores.css";
 import "./pedidos.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Pedidos a proveedor: borradores, enviados (pendientes de recibir), recibidos y cancelados.
 
@@ -116,7 +117,7 @@ export default function OrdersPage() {
           </div>
           <div className="orders-head"><span>Proveedor</span><span>Local</span><span>Líneas</span><span>Total</span><span>Estado</span></div>
           {error && <div className="catalog-empty"><strong>{error}</strong></div>}
-          {!error && !orders && <div className="catalog-empty"><strong>Cargando pedidos...</strong></div>}
+          {!error && !orders && <LoadingRows label="Cargando pedidos" />}
           {!error &&
             orders?.map((o) => (
               <div

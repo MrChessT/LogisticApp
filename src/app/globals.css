@@ -54,3 +54,22 @@ button, input, select { font: inherit; } button { cursor: pointer; border: 0; } 
 .product-name > span { min-width: 0; overflow: hidden; }
 .metric-footer { flex-wrap: wrap; row-gap: 2px; }
 @media (max-width: 700px) { .metric-footer { display: block; } .metric-footer > span { display: block; } }
+
+/* Controles de cabecera y barras de herramientas: misma altura, radio y letra en todas las pantallas
+   (antes 30, 35, 38, 39 y 42 px según la pantalla). Las filas, los editores y el almacén tienen los suyos. */
+.catalog-heading .catalog-primary, .catalog-heading .ghost-button, .catalog-heading .secondary-button, .catalog-heading .filter-button,
+.operations-heading .operation-primary, .page-heading .primary-button, .page-heading .secondary-button, .page-heading .location-select,
+.orders-actions > button, .catalog-toolbar .catalog-search, .catalog-toolbar .filter-button, .catalog-toolbar .sort-select,
+.operations-toolbar .operations-search, .operations-toolbar .operations-filter {
+  height: 38px; border-radius: var(--r-md); font-size: var(--fs-md);
+}
+.catalog-heading .ghost-button, .orders-actions > .ghost-button, .page-heading .secondary-button {
+  display: inline-flex; align-items: center; gap: 7px; padding: 0 14px; color: var(--text); background: var(--panel); border: 1px solid var(--line-strong); font-weight: 600;
+}
+.catalog-heading .ghost-button:hover, .orders-actions > .ghost-button:hover, .page-heading .secondary-button:hover { background: var(--surface-2); border-color: var(--text-3); }
+.catalog-primary, .primary-button, .operation-primary { transition: background-color .12s ease; }
+:is(.catalog-primary, .primary-button, .operation-primary, .ghost-button, .secondary-button, .filter-button):focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.table-result-count { margin-left: auto; color: var(--text-3); font-size: var(--fs-xs); }
+
+
+select { background-color: var(--panel); }

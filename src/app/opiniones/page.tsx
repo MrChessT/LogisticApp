@@ -8,6 +8,7 @@ import { FEEDBACK_CATEGORIES, FEEDBACK_STATUS, feedbackMarkdown, type FeedbackRo
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./opiniones.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Opiniones sobre el asistente (migración 0025). Quien prueba el asistente reporta desde el propio chat;
 // aquí la administración los revisa (aceptar, descartar, hecha) y exporta los aceptados en Markdown para
@@ -173,7 +174,7 @@ export default function OpinionesPage() {
           </div>
 
           <div className="fb-list">
-            {!rows && !error && <div className="catalog-empty"><strong>Cargando…</strong></div>}
+            {!rows && !error && <LoadingRows label="Cargando" />}
             {error && <div className="catalog-empty"><strong>{error}</strong></div>}
             {rows && visible.length === 0 && !error && (
               <div className="catalog-empty">

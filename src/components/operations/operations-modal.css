@@ -115,3 +115,8 @@
 .count-reason label { display: flex; flex-direction: column; gap: 6px; color: var(--text-2); font-size: var(--fs-sm); font-weight: 700; }
 .count-reason select, .count-reason input { height: 40px; margin-top: 0; }
 .count-reason small { color: var(--warn); font-size: var(--fs-sm); }
+/* Campos de las ventanas: todos blancos (los desplegables salían grises, como desactivados). */
+.op-modal input, .op-modal select, .op-modal textarea { background-color: var(--panel); }
+.op-modal select:disabled, .op-modal input:disabled { background-color: var(--surface-2); color: var(--text-3); }
+.op-photo-title, .receive-photo-title { display: block; color: var(--text); font-size: var(--fs-sm); font-weight: 600; }
+.op-photo small { display: block; margin-top: 6px; color: var(--text-3); font-size: var(--fs-sm); }

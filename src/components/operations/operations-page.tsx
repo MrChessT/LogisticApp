@@ -28,6 +28,7 @@ import { EXIT_KIND_LABEL, EXIT_KIND_REASONS, EXIT_KINDS, isExitKind, isLoss, typ
 import "./operations.css";
 import "./operations-modal.css";
 import { CountModal } from "./count-modal";
+import { FilePick } from "@/components/ui/file-pick";
 
 type OperationKind = "recepciones" | "traspasos" | "inventarios" | "mermas";
 type StatusColor = "green" | "orange" | "purple" | "red";
@@ -929,10 +930,10 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                   ))}
                 </div>
                 <button className="op-modal-add-line" onClick={() => setRLines([...rLines, { product: null, packId: "", qty: "", price: "", incident: "" }])}><Plus size={14} /> Añadir línea</button>
-                <label className="op-photo">Foto del albarán
-                  <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setRPhoto(e.target.files?.[0] ?? null)} />
+                <div className="op-photo"><span className="op-photo-title">Foto del albarán</span>
+                  <FilePick file={rPhoto} onChange={setRPhoto} accept="image/*,application/pdf" capture="environment" label="Hacer foto o adjuntar" />
                   <small>{rPhoto ? "Se guardará con la recepción como justificante." : "Opcional: queda guardada como justificante."}</small>
-                </label>
+                </div>
                 <button className="op-modal-submit" onClick={handleCreateReceipt} disabled={saving}>{saving ? "Registrando..." : "Registrar recepción"}</button>
               </>
             )}

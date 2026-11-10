@@ -12,6 +12,7 @@ import { formatStock, type UnitDimension } from "@/lib/units";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./zonas.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Zonas de cada local: dónde se guarda el género (almacén) y dónde se usa (servicio: barra, cocina…).
 //   · Pulsar una zona abre lo que hay dentro, con cantidades y (si se ven costes) su valor, y los
@@ -154,7 +155,7 @@ export default function ZonesPage() {
           )}
         </div>
         {error && <p className="editor-message error zones-message">{error}</p>}
-        {!zones && !error && <div className="catalog-empty"><strong>Cargando zonas...</strong></div>}
+        {!zones && !error && <LoadingRows label="Cargando zonas" />}
 
         <div className="zones-grid">
           {locations.map(([locationId, locationName]) => {
