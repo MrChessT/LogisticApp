@@ -35,10 +35,11 @@ export function topicReply(message: string): TopicReply | null {
     return { text: "Los fichajes, horarios y turnos todavía no están en la app. Desde aquí llevo el inventario: stock, mermas, traspasos, recepciones, recuentos y pedidos." };
   }
 
-  // Ventas, ganancias, márgenes: no hay ventas registradas.
-  if (/\b(ganar|ganamos|ganancias?|beneficios?|margen|margenes|facturacion|facturamos|ventas|vendemos|ingresos)\b/.test(text)) {
+  // Previsiones («¿cuánto se espera ganar?», «¿cuánto vamos a vender?»): no se inventan.
+  if (/\b(se espera|esperamos|espero|prevision(es)?|previsto|prevemos|vamos a|ganaremos|venderemos|facturaremos|proximo mes|que viene)\b/.test(text) && /\b(ganar|ganaremos|ganancias?|beneficios?|vender|venderemos|ventas?|facturar|facturaremos|facturacion)\b/.test(text)) {
     return {
-      text: "No tengo las ventas, así que no puedo calcular ganancias ni márgenes. Sí puedo darte el valor del stock, lo comprado a cada proveedor o las mermas (por ejemplo «¿cuánto vale el stock del Vivero?»).",
+      text: "No hago previsiones de ventas ni de ganancias. Sí te digo lo vendido de verdad, con su coste teórico, food cost y margen bruto: pregúntame «¿cuánto vendimos este mes?» o «¿qué plato vende más?».",
+      route: "/ventas",
     };
   }
   return null;
@@ -76,6 +77,7 @@ const SCREENS: Array<{ re: RegExp; route: AppRoute; path: string; tip?: string }
   { re: /\bproductos?\b|\bcatalogo\b|\bfichas?\b/, route: "/productos", path: "Gestión › Productos" },
   { re: /\bproveedor(es)?\b/, route: "/proveedores", path: "Gestión › Proveedores" },
   { re: /\bescandallos?\b|\brecetas?\b|\bplatos?\b/, route: "/escandallos", path: "Gestión › Escandallos" },
+  { re: /\bventas?\b|\btpv\b/, route: "/ventas", path: "Gestión › Ventas", tip: "o pregúntame («¿cuánto vendimos ayer?»)" },
   { re: /\bfacturas?\b/, route: "/facturas", path: "Gestión › Facturas" },
   { re: /\binformes?\b|\bgraficas?\b|\banalisis\b|\bestadisticas\b/, route: "/informes", path: "Gestión › Informes" },
   { re: /\bequipo\b|\busuarios?\b/, route: "/equipo", path: "Gestión › Equipo" },

@@ -48,6 +48,7 @@ const ROUTE_LABELS: Record<AppRoute, string> = {
   "/almacen": "Almacén",
   "/proveedores": "Proveedores",
   "/escandallos": "Escandallos",
+  "/ventas": "Ventas",
   "/facturas": "Facturas",
   "/equipo": "Equipo",
   "/zonas": "Zonas",

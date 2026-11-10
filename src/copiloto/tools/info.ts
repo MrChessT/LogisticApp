@@ -11,6 +11,7 @@ import { formatDecimal, formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
 import { overview, priceRanking, type FiguresSource } from "./info-figures";
+import { sales, type SalesSource } from "./info-sales";
 
 // Datos crudos (cifras como texto) ---------------------------------------------------------
 
@@ -58,7 +59,7 @@ export interface SupplierRaw {
 }
 
 /** Lecturas que necesita cada consulta (Supabase en producción, datos de prueba en los tests). */
-export interface InfoSource extends FiguresSource {
+export interface InfoSource extends FiguresSource, SalesSource {
   invoices(orgId: string): Promise<InvoiceRaw[]>;
   unbilled(orgId: string): Promise<UnbilledRaw[]>;
   team(): Promise<TeamRaw[]>;
@@ -452,6 +453,8 @@ async function suppliers(source: InfoSource, ctx: SessionContext, p: InfoParams)
 
 export async function runInfo(source: InfoSource, ctx: SessionContext, p: InfoParams): Promise<InfoResult> {
   switch (p.tool) {
+    case "query_sales":
+      return { ...(await sales(source, ctx, p)), route: "/ventas" };
     case "query_invoices":
       return invoices(source, ctx, p);
     case "query_team":
@@ -480,7 +483,9 @@ const ACTION_WORDS = /\b(crea|crear|creame|registra|registrar|anade|anadir|agreg
 export const QUERY_PAY = /\b(de|por|sin|que|hay que|tengo que|tenemos que|quedan? por) pagar\b/g;
 
 const TOPICS: Array<[InfoTool, RegExp]> = [
-  ["query_invoices", /\bfactur\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b/],
+  // Ventas del TPV. «Facturación» y «facturamos» son ventas, no facturas de proveedor.
+  ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost (de |del |de la |de las )?(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/],
+  ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b/],
   ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
   ["query_areas", /\b(zonas?|secciones|seccion|almacenes)\b/],
@@ -503,5 +508,9 @@ export function infoTopicOf(message: string): InfoTool | null {
   // «¿qué hay en cada zona del Vivero?» es stock por zonas (otra consulta), no la lista de zonas.
   if (hits.includes("query_areas") && /\b(que hay|cuanto hay|stock|productos? hay|en cada)\b/.test(text)) return null;
   // «¿qué platos llevan gluten?»: escandallos aunque diga «carta» o «equipo».
+  // «precio de venta», «PVP», «a cuánto se vende»: precio de un plato o producto, no las ventas.
+  if (hits.includes("query_sales") && /\b(precio de venta|pvp|a cuanto se vende|a que precio)\b/.test(text)) return hits.includes("query_recipes") ? "query_recipes" : null;
+  // «food cost de las ventas de octubre»: ventas, aunque diga «food cost».
+  if (hits.includes("query_sales") && hits.every((h) => h === "query_sales" || h === "query_recipes" || h === "query_overview")) return "query_sales";
   return hits.length === 1 ? hits[0]! : hits.includes("query_recipes") && /alergen|gluten|lactos|food ?cost|escandallo/.test(text) ? "query_recipes" : null;
 }

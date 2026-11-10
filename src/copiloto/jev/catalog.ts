@@ -5,12 +5,12 @@
 // español (contrato interno); el mensaje del usuario va en el state sin traducir.
 import { choice, noul, score, type ChoiceCriteria, type JsonValue, type Questions } from "@typesafe-ai/sdk";
 
-export const CATALOG_VERSION = "2026-11-10.1";
+export const CATALOG_VERSION = "2026-11-10.2";
 
 // Opciones fijas --------------------------------------------------------------
 
 export const INTENTS = {
-  consultar: "Get figures or facts from the business data: stock levels and value, movements, consumption and what was broken or written off, prices, suppliers and their terms, formats and minimum levels of a product, purchases and spending, purchase orders, pending transfers, stock counts and their differences, supplier invoices and what is pending to pay, the team (staff), recipes and dishes (cost, food cost, allergens), storage areas or zones. Usually a question (\"¿se ha roto algo hoy?\", \"¿cuál es el mínimo…?\", \"¿quién nos trae…?\", \"¿qué facturas hay pendientes?\").",
+  consultar: "Get figures or facts from the business data: stock levels and value, movements, consumption and what was broken or written off, prices, suppliers and their terms, formats and minimum levels of a product, purchases and spending, purchase orders, pending transfers, stock counts and their differences, supplier invoices and what is pending to pay, the team (staff), recipes and dishes (cost, food cost, allergens), sales registered at the till (how much was sold, best sellers, food cost of what was sold), storage areas or zones. Usually a question (\"¿se ha roto algo hoy?\", \"¿cuál es el mínimo…?\", \"¿quién nos trae…?\", \"¿qué facturas hay pendientes?\").",
   proponer_accion:
     "An instruction to record or prepare an operation, or a statement of what just happened to the goods, that changes stock, documents or the product catalog: waste or breakage, transfer between venues, receiving or cancelling a transfer, goods receipt, starting a stock count, recording counted quantities, closing a stock count, adding a new product, changing a purchase price, changing a minimum or target stock level, archiving or removing a product, preparing, sending, receiving or cancelling a purchase order.",
   pedir_sugerencias: "Ask what needs attention, what is missing or what to order (a shopping list), without naming a concrete operation.",
@@ -34,13 +34,14 @@ export const HERRAMIENTAS = {
   query_reorder: "What is missing or needs ordering, compared with minimum levels and usual consumption, and how many days the stock will last (\"¿cuántos días me dura…?\", \"¿tengo suficiente para el sábado?\").",
   query_orders: "Purchase orders already placed with suppliers: drafts not sent, orders pending delivery, late deliveries.",
   query_spend: "How much money was spent on purchases (goods received) per supplier over a period.",
-  query_top_usage: "Ranking of the products that are used or sold the most over a period (\"what do we go through the most?\", \"top products this month\"), with quantity, value and share of the total.",
+  query_top_usage: "Ranking of the stock products that are used up the most over a period (stock outflows: \"what do we go through the most?\", \"qué producto gastamos más\"), with quantity, value and share of the total. Not till sales.",
   query_invoices: "Supplier invoices (facturas): which are pending or overdue to pay and when they fall due, how much is owed, invoices that do not match their delivery notes, delivery notes not yet invoiced.",
   query_team: "The people on the team (staff, personal, empleados, camareros, encargados): who they are, their role and their venues.",
   query_recipes: "Recipes and dishes (escandallos, platos, recetas, elaboraciones): cost per portion, food cost, margin, sale price and allergens (\"¿qué platos llevan gluten?\", \"¿cuál es el food cost?\").",
   query_areas: "Storage areas or zones of a venue (zonas, secciones, almacenes, barras, cámaras, neveras): which ones there are and what they hold.",
   query_counts: "Physical stock counts (inventarios): which are open or in progress and when each venue was last counted.",
   query_suppliers: "The suppliers we buy from and their terms: order days, cut-off time, delivery lead time, minimum order, payment terms and contact.",
+  query_sales: "Sales registered at the till (TPV) over a period: how much was sold (\"¿cuánto vendimos ayer?\", \"ventas de octubre\", \"facturación del mes\"), best-selling dishes or drinks, food cost and gross margin of what was sold, how many of one dish were sold, items not yet linked to a recipe.",
   query_price_ranking: "Ranking of products by purchase price, without naming one product: the most expensive or the cheapest things we buy (\"¿cuál es el producto más caro?\", \"lo más barato que tiene Pickles\", \"el vino más caro\").",
   query_overview: "How the business is going this month or this week overall: purchases, consumption and waste compared with the previous period, plus stock value and products below minimum (\"¿cómo voy este mes?\", \"¿cómo vamos esta semana?\", \"resumen del mes\").",
   query_product: "Details of a specific product: its formats (bottle, box), category, who supplies it and last purchase price, and its stock and minimum in each venue (\"what does the Beefeater cost us?\", \"who brings us the Tanqueray?\", \"ficha del Barceló\", \"stats del Larios\").",
@@ -49,7 +50,7 @@ export const HERRAMIENTAS = {
 export type Herramienta = keyof typeof HERRAMIENTAS;
 
 /** Consultas de información de gestión (facturas, equipo, escandallos…): las resuelve tools/info.ts. */
-export const INFO_TOOLS = ["query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview"] as const;
+export const INFO_TOOLS = ["query_sales", "query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview"] as const;
 export type InfoTool = (typeof INFO_TOOLS)[number];
 export function isInfoTool(tool: string): tool is InfoTool {
   return (INFO_TOOLS as readonly string[]).includes(tool);
@@ -143,6 +144,7 @@ export const LABELS: Record<string, string> = {
   "/almacen": "Almacén",
   "/proveedores": "Proveedores",
   "/escandallos": "Escandallos",
+  "/ventas": "Ventas",
   "/facturas": "Facturas",
   "/equipo": "Equipo",
   "/zonas": "Zonas",
@@ -157,6 +159,7 @@ export const LABELS: Record<string, string> = {
   query_spend: "Gasto en compras",
   query_top_usage: "Lo que más se gasta",
   query_product: "Ficha de producto",
+  query_sales: "Ventas",
   query_invoices: "Facturas",
   query_team: "Equipo",
   query_recipes: "Escandallos",
