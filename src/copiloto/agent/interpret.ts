@@ -33,6 +33,7 @@ import { familyOf, type Family } from "../entities/family";
 import { formatDecimal } from "../entities/units";
 import { isUnitWord } from "../entities/quantity-parser";
 import { normalize, tokenize } from "../entities/normalize";
+import { operationOf } from "./free-text";
 
 export interface ClarifyPlan {
   type: "clarify";
@@ -603,7 +604,9 @@ export class Interpreter {
     } else if ((!g || g.outcome !== "actuar") && this.meta.message && wantsAreaBreakdown(this.meta.message)) {
       // «¿qué hay en cada sección del Vivero?»: stock por secciones (Jev dudaba: 0,63–0,72).
       tool = "query_stock";
-    } else if (!g || tool === "ninguna" || g.outcome !== "actuar") {
+    } else if (!g || tool === "ninguna" || g.outcome === "preguntar") {
+      // Entre «preguntar» y «actuar» se contesta con la más probable: es solo leer, y preguntar «¿Qué
+      // quieres consultar?» con «precio cocacola» era la pregunta de más más repetida en producción.
       // «¿y en el Vivero?»: sin consulta clara, la misma que antes.
       if (!focusTool || !this.followsUp()) return this.clarify("herramienta", "¿Qué quieres consultar?", g?.ranked ?? [], ["ninguna"]);
       tool = focusTool;
@@ -802,6 +805,13 @@ export class Interpreter {
     const spec = accionAnswer?.choice === "cierre_inventario" ? this.thresholds.cierre_inventario : this.thresholds.tipo_accion;
     const g = this.gate("tipo_accion", "Operación", spec);
     let chosen = g && g.outcome === "actuar" && g.choice !== "ninguna" ? g.choice : null;
+    // La frase nombra la operación y Jev la pone primera («prepárame el pedido para el parador»: pedido 0,55):
+    // es esa. Solo prepara un borrador, que hay que confirmar. Nunca para cerrar inventario.
+    const named = this.meta.message ? operationOf(this.meta.message) : null;
+    if (g && !chosen && named && g.ranked[0]?.option === named && g.probability >= 0.45) {
+      chosen = named;
+      this.markActed("tipo_accion");
+    }
     if (g && !chosen) {
       chosen = this.wasteOrTransfer(g.ranked);
       // Lo que se enseña en «Entendido» debe ser lo que se decidió.

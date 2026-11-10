@@ -23,15 +23,11 @@ describe("aclaraciones: no se repite la primera orden", () => {
     const clarify = find(await run(agent, chat("pasa Barceló del Parador al Vivero")), "clarify")!;
     expect(clarify).toMatchObject({ field: "cantidad", question: `¿Qué cantidad de ${BARCELO.name}?` });
 
-    // Sin unidad: pregunta el formato (botellas o cajas) en lugar de suponerlo.
-    const format = find(await run(agent, chat("5", { clarification: { clarifyId: clarify.clarifyId, optionId: "otra", freeText: "5" } })), "clarify")!;
-    expect(format.field).toBe("cantidad");
-    expect(format.options.map((o) => o.label)).toEqual(["Botella 70 cl", "Caja 6 botellas"]);
-
-    const events = await run(agent, chat("cajas", { clarification: { clarifyId: format.clarifyId, optionId: "otra", freeText: "cajas" } }));
+    // Sin unidad son botellas (la unidad con la que se cuenta): sin preguntar el formato; el borrador lo avisa.
+    const events = await run(agent, chat("5", { clarification: { clarifyId: clarify.clarifyId, optionId: "otra", freeText: "5" } }));
     const draft = find(events, "draft") as TransferDraft;
     expect(draft).toMatchObject({ fromLocationId: PARADOR!.id, toLocationId: VIVERO!.id });
-    expect(draft.lines.map((l) => [l.productName, l.qtyBase, l.input.unit])).toEqual([[BARCELO.name, "21000", "Caja 6 botellas"]]);
+    expect(draft.lines.map((l) => [l.productName, l.qtyBase, l.input.unit])).toEqual([[BARCELO.name, "3500", "Botella 70 cl"]]);
     // Una sola llamada nº 1 (la del mensaje original) y la de coherencia.
     expect(jev.calls.filter((c) => "intent" in c.questions)).toHaveLength(1);
   });

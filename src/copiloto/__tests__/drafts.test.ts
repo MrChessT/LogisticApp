@@ -135,14 +135,14 @@ describe("borradores desde el chat", () => {
     expect(draft.lines[0]).toMatchObject({ qtyBase: "5600", baseUnit: "ml" });
   });
 
-  it("cantidad sin unidad («6 cocas») → pregunta el formato en vez de suponerlo", async () => {
+  it("cantidad sin unidad («6 cocas») → son unidades, sin preguntar el formato (el borrador lo avisa)", async () => {
     const script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Vivero", producto_0: { winner: "Coca-Cola 20 cl", p: 0.99 }, cantidad_ok_0: 0.95 };
     const { agent } = makeAgent(new FakeJev([script, { coherencia: 0.9 }]));
-    const clarify = find(await run(agent, chat("pasa 6 cocas de Parador al Vivero")), "clarify")!;
-    expect(clarify).toMatchObject({ field: "cantidad", question: "¿En qué formato son las 6 de Coca-Cola 20 cl?" });
-    expect(clarify.options.map((o) => o.label)).toEqual(["Unidades sueltas", "Caja 24 ud"]);
-    const events = await run(agent, chat("Unidades sueltas", { clarification: { clarifyId: clarify.clarifyId, optionId: "pack:base" } }));
-    expect((find(events, "draft") as TransferDraft).lines[0]).toMatchObject({ qtyBase: "6", baseUnit: "ud" });
+    const events = await run(agent, chat("pasa 6 cocas de Parador al Vivero"));
+    expect(find(events, "clarify")).toBeUndefined();
+    const draft = find(events, "draft") as TransferDraft;
+    expect(draft.lines[0]).toMatchObject({ qtyBase: "6", baseUnit: "ud" });
+    expect(draft.warnings.join(" ")).toContain("si eran cajas, cámbialo aquí");
   });
 
   it("origen y destino iguales con «a Parador» → Parador es el destino y se pregunta el origen", async () => {

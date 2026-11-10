@@ -80,6 +80,21 @@ describe("consultas de gestión (sin Jev si el tema está claro)", () => {
   });
 });
 
+describe("tablas limpias", () => {
+  it("sin columnas vacías: proveedores sin condiciones apuntadas no enseñan columnas de «—»", async () => {
+    const { runInfo } = await import("../tools/info");
+    const { fixtureContext } = await import("../dev/fixture");
+    const source = {
+      suppliers: async () => [
+        { name: "A", contact: null, phone: null, email: null, orderDays: [], cutoff: null, leadHours: null, minOrder: null, paymentTerms: null, locationIds: [] },
+        { name: "B", contact: null, phone: null, email: null, orderDays: [], cutoff: null, leadHours: null, minOrder: null, paymentTerms: "Contado", locationIds: [] },
+      ],
+    } as unknown as Parameters<typeof runInfo>[0];
+    const result = await runInfo(source, fixtureContext(), { tool: "query_suppliers", message: "qué proveedores tenemos", locationIds: [], locationsChosen: false, productNames: [], now: new Date() });
+    expect(result.table!.columns.map((c) => c.label)).toEqual(["Proveedor", "Pago"]);
+  });
+});
+
 describe("sin navegar solo", () => {
   it("dice dónde está cada pantalla y deja el enlace", () => {
     expect(screenHelp("llévame a mermas")).toMatchObject({ route: "/mermas" });
@@ -116,5 +131,18 @@ describe("preguntas: lo escrito contesta la pregunta, sin bucles", () => {
     const events = await run(agent, chat("déjalo", { clarification: { clarifyId: ask.clarifyId, optionId: "otra", freeText: "déjalo" } }));
     expect(find(events, "done")!.text).toBe("Vale, lo dejo. Dime si necesitas otra cosa.");
     expect(find(events, "clarify")).toBeUndefined();
+  });
+
+  it("la frase nombra la operación y Jev la pone primera: se prepara sin preguntar «¿Qué operación?»", async () => {
+    const jev = new FakeJev([{ ...route("preparar_pedido"), tipo_accion: { dist: { preparar_pedido: 0.55, recepcion: 0.35 } }, local: "Parador" }, { coherencia: 0.9 }]);
+    const events = await run(makeAgent(jev).agent, chat("prepárame el pedido para el parador"));
+    expect(find(events, "clarify")?.question ?? "").not.toBe("¿Qué operación quieres registrar?");
+  });
+
+  it("una consulta que Jev ve probable (sin llegar a «actuar») se contesta en vez de preguntar «¿Qué quieres consultar?»", async () => {
+    const jev = new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: { dist: { query_prices: 0.55, query_product: 0.4 } }, producto_0: "Coca-Cola 20 cl" }]);
+    const events = await run(makeAgent(jev).agent, chat("precio cocacola"));
+    expect(find(events, "clarify")).toBeUndefined();
+    expect(find(events, "done")!.text).toMatch(/Coca-Cola/);
   });
 });
