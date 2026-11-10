@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, KeyRound, Mail, MessageCircle, Plus, Search, ShieldCheck, Tablet, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Copy, KeyRound, Mail, MessageCircle, Plus, Search, ShieldCheck, Tablet, Trash2, UserPlus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { daysAgo, normalizeText } from "@/lib/format";
 import { assignableRoles, managesScreens, managesTeam, ROLE_HELP, ROLE_LABEL, seesAllLocations, teamErrorMessage, type Role } from "@/lib/team";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./equipo.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Equipo: quién entra en LogisticApp, con qué rol y en qué locales.
 // Las reglas viven en la base de datos (migración 0021): aquí solo se ofrece lo que cada rol puede hacer.
@@ -144,11 +145,6 @@ export default function TeamPage() {
   if (actor !== undefined && !managesTeam(actor)) {
     return (
       <main className="catalog-page">
-        <header className="catalog-topbar">
-          <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-          <span className="catalog-title">Equipo</span>
-          <span />
-        </header>
         <div className="catalog-content">
           <div className="catalog-empty team-locked">
             <ShieldCheck size={28} />
@@ -162,11 +158,6 @@ export default function TeamPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Equipo</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -200,7 +191,7 @@ export default function TeamPage() {
           </div>
           <div className="team-table">
             <div className="team-head"><span>Persona</span><span>Rol</span><span>Locales</span><span>Último acceso</span></div>
-            {!members && !error && <div className="catalog-empty"><strong>Cargando equipo...</strong></div>}
+            {!members && !error && <LoadingRows label="Cargando equipo" />}
             {error && (
               <div className="catalog-empty">
                 <strong>{error}</strong>

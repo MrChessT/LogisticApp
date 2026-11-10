@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
-import { Copiloto } from "@/components/copiloto/copiloto";
+import { CopilotoLoader } from "@/components/copiloto/copiloto-loader";
+import { AppShell } from "@/components/shell/app-shell";
 import "./globals.css";
 
 // Fuentes servidas desde la propia app (sin peticiones a Google en cada visita ni saltos de texto).
@@ -25,8 +26,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="es" className={`${sans.variable} ${display.variable}`}>
       <body>
-        {children}
-        <Copiloto />
+        <AppShell>{children}</AppShell>
+        <CopilotoLoader />
       </body>
     </html>
   );

@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Decimal from "decimal.js";
 import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/permissions";
 import { euros, localDay, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { readLocation, saveLocation } from "@/lib/location-preference";
-import { ROLE_LABEL, type Role } from "@/lib/team";
+import { loadIdentity, type Identity } from "@/lib/identity";
 import "./dashboard-charts.css";
-import { ArrowUpRight, Boxes, ChefHat, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSpreadsheet, FileText, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareWarning, Package, Search, ShoppingCart, SlidersHorizontal, Sparkles, Truck, Users, Warehouse, X, XCircle } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ChevronRight, ClipboardList, Package, ShoppingCart, MessagesSquare, Truck, Warehouse, X } from "lucide-react";
 
 // Resumen de inicio: todo lo que se ve sale de la base de datos (con RLS) y se puede filtrar por local.
 
@@ -29,8 +28,6 @@ type HomeStockRow = {
   purchase_pack_qty?: number | null;
 };
 
-type Location = { id: string; name: string };
-type Identity = { name: string; initials: string; role: string; roleKey: string; org: string; locations: Location[] };
 
 type DashboardStockRow = {
   name: string;
@@ -108,36 +105,12 @@ function greeting(hour: number) {
   return hour < 6 ? "Buenas noches" : hour < 14 ? "Buenos días" : hour < 21 ? "Buenas tardes" : "Buenas noches";
 }
 
-function initialsOf(name: string) {
-  const parts = name.split(/[\s@._-]+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
 
 /** Abre el asistente (y, si se indica, le envía un mensaje). */
 function askAssistant(message?: string) {
   window.dispatchEvent(new CustomEvent("copiloto:ask", { detail: message ? { message } : {} }));
 }
 
-async function loadIdentity(supabase: BrowserClient): Promise<Identity | null> {
-  const { data: session } = await supabase.auth.getSession();
-  const user = session.session?.user;
-  const [profile, membership, locations] = await Promise.all([
-    user ? supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null }),
-    user ? supabase.from("memberships").select("role, organizations(name)").eq("user_id", user.id).limit(1).maybeSingle() : Promise.resolve({ data: null }),
-    supabase.from("locations").select("id, name").eq("active", true).order("name"),
-  ]);
-  const name = profile.data?.full_name?.trim() || user?.email?.split("@")[0] || "Usuario";
-  const member = membership.data as { role: Role; organizations: { name: string } | null } | null;
-  if (user && !member) return null;
-  return {
-    name,
-    initials: initialsOf(name),
-    role: member ? ROLE_LABEL[member.role] : "",
-    roleKey: member?.role ?? "",
-    org: member?.organizations?.name ?? "Tu organización",
-    locations: (locations.data ?? []) as Location[],
-  };
-}
 
 /** Consumo por día de negocio (misma definición que Informes): una fila por día. */
 async function loadUsage(supabase: BrowserClient, since: string, locationId: string): Promise<Array<{ business_day: string; value: number | null }> | null> {
@@ -268,24 +241,20 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const requestId = useRef(0);
-  const router = useRouter();
 
   // Identidad y locales una sola vez; el local elegido se recuerda en este navegador.
   useEffect(() => {
     async function start() {
       await Promise.resolve();
       setNow(new Date());
-      const supabase = createClient();
-      if (!supabase) {
+      if (!createClient()) {
         setError("Configura las variables de Supabase para cargar el resumen.");
         setLoading(false);
         return;
       }
-      const loaded = await loadIdentity(supabase);
+      const loaded = await loadIdentity();
       if (!loaded) {
         setError("Tu usuario aún no tiene acceso a ninguna organización. Pide a un administrador que te dé acceso.");
         setLoading(false);
@@ -315,33 +284,12 @@ export default function Dashboard() {
     void run();
   }, [identity, location]);
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setSearchOpen(false);
-        setMenuOpen(false);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   function changeLocation(id: string) {
     saveLocation(id);
     setLocation(id);
   }
 
-  function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const q = new FormData(event.currentTarget).get("q")?.toString().trim();
-    router.push(q ? `/productos?q=${encodeURIComponent(q)}&estado=all` : "/productos");
-  }
-
-  async function signOut() {
-    await createClient()?.auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  }
 
   const locationName = identity?.locations.find((l) => l.id === location)?.name;
   const localQuery = location ? `local=${location}` : "";
@@ -350,95 +298,15 @@ export default function Dashboard() {
   const firstName = identity?.name.split(" ")[0] ?? "";
   const today = now ? now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "";
 
-  const navigation: Array<{ label: string; href: string; icon: typeof LayoutDashboard; badge?: number }> = [
-    { label: "Resumen", href: "/", icon: LayoutDashboard },
-    { label: "Stock", href: withLocal("/stock"), icon: Boxes, badge: data?.attention },
-    { label: "Pedidos", href: "/pedidos", icon: ShoppingCart },
-    { label: "Recepciones", href: "/recepciones", icon: Package },
-    { label: "Traspasos", href: "/traspasos", icon: Truck, badge: data?.pendingTransfers },
-    { label: "Almacén", href: withLocal("/almacen"), icon: Warehouse, badge: data?.pendingMoves },
-    { label: "Inventarios", href: "/inventarios", icon: ClipboardList },
-    { label: "Mermas", href: "/mermas", icon: XCircle },
-  ];
 
   return (
-    <main className="app-shell">
-      <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
-        <div className="brand-row">
-          <div className="brand-mark"><Sparkles size={18} strokeWidth={2.5} /></div>
-          <span className="brand-name">Logistic<span>App</span></span>
-          <button className="icon-button sidebar-close" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)}><X size={18} /></button>
-        </div>
-
-        <div className="workspace-switcher">
-          <div className="venue-avatar">{identity?.org[0]?.toUpperCase() ?? "·"}</div>
-          <div className="workspace-copy">
-            <strong>{identity?.org ?? "…"}</strong>
-            <span>{identity ? `${identity.locations.length} ${identity.locations.length === 1 ? "local activo" : "locales activos"}` : ""}</span>
-          </div>
-        </div>
-
-        <div className="nav-heading">Operativa</div>
-        <nav className="main-nav" aria-label="Navegación principal">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const active = item.href === "/";
-            return (
-              <Link key={item.label} href={item.href} className={`nav-item ${active ? "active" : ""}`} onClick={() => setMenuOpen(false)}>
-                <Icon size={18} strokeWidth={active ? 2.4 : 1.8} />
-                <span>{item.label}</span>
-                {item.badge ? <span className="nav-badge">{item.badge}</span> : null}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="nav-heading secondary-heading">Gestión</div>
-        <nav className="main-nav">
-          <Link className="nav-item" href="/productos"><Package size={18} /><span>Productos</span></Link>
-          <Link className="nav-item" href="/proveedores"><Truck size={18} /><span>Proveedores</span></Link>
-          <Link className="nav-item" href="/escandallos"><ChefHat size={18} /><span>Escandallos</span></Link>
-          {perms?.seesCosts && identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
-            <Link className="nav-item" href="/facturas"><FileText size={18} /><span>Facturas</span></Link>
-          )}
-          {perms?.seesCosts && <Link className="nav-item" href={withLocal("/informes")}><SlidersHorizontal size={18} /><span>Informes</span></Link>}
-          {identity && ["owner", "admin", "manager"].includes(identity.roleKey) && (
-            <Link className="nav-item" href="/equipo"><Users size={18} /><span>Equipo</span></Link>
-          )}
-          {identity && ["owner", "admin"].includes(identity.roleKey) && (
-            <Link className="nav-item" href="/opiniones"><MessageSquareWarning size={18} /><span>Opiniones del asistente</span></Link>
-          )}
-          <Link className="nav-item" href="/zonas"><MapPin size={18} /><span>Zonas</span></Link>
-          {identity && ["owner", "admin"].includes(identity.roleKey) && (
-            <Link className="nav-item" href="/importar"><FileSpreadsheet size={18} /><span>Importar catálogo</span></Link>
-          )}
-        </nav>
-
-        <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => { setMenuOpen(false); askAssistant("¿Qué puedes hacer?"); }}><CircleHelp size={18} /><span>Ayuda</span></button>
-          <div className="user-card">
-            <div className="user-avatar">{identity?.initials ?? "·"}</div>
-            <Link className="workspace-copy user-link" href="/cuenta" title="Tu cuenta"><strong>{identity?.name ?? "…"}</strong><span>{identity?.role}</span></Link>
-            <button className="icon-button" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={() => void signOut()}><LogOut size={16} /></button>
-          </div>
-        </div>
-      </aside>
-
+    <main className="dashboard">
       <section className="main-area">
-        <header className="topbar">
-          <button className="icon-button mobile-menu" aria-label="Abrir menú" onClick={() => setMenuOpen(true)}><Menu size={20} /></button>
-          <div className="breadcrumb"><span>{identity?.org ?? ""}</span><ChevronRight size={14} /><strong>Resumen</strong></div>
-          <div className="top-actions">
-            <button className="search-trigger" onClick={() => setSearchOpen(true)}><Search size={17} /><span>Buscar producto</span></button>
-            <div className="top-avatar" title={identity?.name}>{identity?.initials ?? "·"}</div>
-          </div>
-        </header>
-
         <div className="content">
           <div className="page-heading">
             <div>
               <p className="eyebrow">{today.charAt(0).toUpperCase() + today.slice(1)}</p>
-              <h1>{now && firstName ? `${greeting(now.getHours())}, ${firstName}` : "Hola"} <span>↗</span></h1>
+              <h1>{now && firstName ? `${greeting(now.getHours())}, ${firstName}` : "Hola"}</h1>
               <p className="subtitle">Esto es lo que está pasando con tu inventario{locationName ? ` en ${locationName}` : ""}.</p>
             </div>
             <div className="heading-actions">
@@ -450,7 +318,7 @@ export default function Dashboard() {
                 </select>
                 <ChevronDown size={15} />
               </div>
-              <button className="primary-button" onClick={() => askAssistant()}><Sparkles size={17} /> Pedir al asistente</button>
+              <button className="secondary-button" onClick={() => askAssistant()}><MessagesSquare size={16} /> Preguntar al asistente</button>
             </div>
           </div>
 
@@ -553,18 +421,6 @@ export default function Dashboard() {
           )}
         </div>
       </section>
-
-      {searchOpen && (
-        <div className="search-overlay" onClick={() => setSearchOpen(false)}>
-          <form className="search-dialog" onClick={(event) => event.stopPropagation()} onSubmit={search}>
-            <Search size={19} />
-            <input name="q" autoFocus placeholder="Buscar productos por nombre, categoría, SKU o código de barras" />
-            <kbd>ESC</kbd>
-            <div className="search-hint">Pulsa Intro para buscar en el catálogo</div>
-          </form>
-        </div>
-      )}
-      {menuOpen && <button className="mobile-backdrop" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú" />}
     </main>
   );
 }

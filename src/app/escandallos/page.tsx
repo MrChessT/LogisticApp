@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { AlertTriangle, ArrowLeft, ChefHat, CirclePlus, Search } from "lucide-react";
+import { AlertTriangle, ChefHat, CirclePlus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { usePermissions } from "@/lib/permissions";
@@ -11,6 +10,7 @@ import { RecipeEditor, type RecipeSummary } from "./recipe-editor";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./escandallos.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Escandallos: platos y elaboraciones con su coste, food cost, margen y alérgenos. El coste sale del
 // último precio de compra (la base de datos lo calcula: recipe_costs). Los importes, solo con «ve costes».
@@ -111,11 +111,6 @@ export default function RecipesPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Escandallos</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -152,7 +147,7 @@ export default function RecipesPage() {
               <span>Receta</span><span>Coste</span><span>{kind === "plato" ? "PVP" : "Rinde"}</span><span>{kind === "plato" ? "Food cost" : ""}</span><span>{kind === "plato" ? "Margen" : ""}</span><span>Alérgenos</span>
             </div>
             {error && <div className="catalog-empty"><strong>{error}</strong></div>}
-            {!rows && !error && <div className="catalog-empty"><strong>Cargando escandallos...</strong></div>}
+            {!rows && !error && <LoadingRows label="Cargando escandallos" />}
             {rows && visible.map((r) => {
               const tone = foodCostTone(r.foodCostPct, r.target);
               return (

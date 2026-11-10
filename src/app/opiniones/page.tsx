@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Check, ChevronDown, ChevronUp, ClipboardCopy, Download, FlaskConical, MessageSquareWarning, RotateCcw, Search, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ClipboardCopy, Download, FlaskConical, MessageSquareWarning, RotateCcw, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeText } from "@/lib/format";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUS, feedbackMarkdown, type FeedbackRow, type FeedbackStatus } from "@/lib/copilot-feedback";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./opiniones.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Opiniones sobre el asistente (migración 0025). Quien prueba el asistente reporta desde el propio chat;
 // aquí la administración los revisa (aceptar, descartar, hecha) y exporta los aceptados en Markdown para
@@ -123,11 +123,6 @@ export default function OpinionesPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Opiniones del asistente</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -179,7 +174,7 @@ export default function OpinionesPage() {
           </div>
 
           <div className="fb-list">
-            {!rows && !error && <div className="catalog-empty"><strong>Cargando…</strong></div>}
+            {!rows && !error && <LoadingRows label="Cargando" />}
             {error && <div className="catalog-empty"><strong>{error}</strong></div>}
             {rows && visible.length === 0 && !error && (
               <div className="catalog-empty">

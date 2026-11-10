@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, CirclePlus, ShoppingCart, Sparkles } from "lucide-react";
+import { CirclePlus, ShoppingCart, ListChecks } from "lucide-react";
 import { euros } from "@/lib/format";
 import { readLocation } from "@/lib/location-preference";
 import { loadOrders, loadReference, orderTotal, STATUS_LABEL, type Order, type OrderStatus, type Reference } from "./orders-data";
@@ -12,6 +11,7 @@ import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "../proveedores/proveedores.css";
 import "./pedidos.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Pedidos a proveedor: borradores, enviados (pendientes de recibir), recibidos y cancelados.
 
@@ -81,11 +81,6 @@ export default function OrdersPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Pedidos</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -96,7 +91,7 @@ export default function OrdersPage() {
           {reference && (
             <div className="orders-actions">
               <button className="ghost-button" onClick={() => setEditing("new")}><CirclePlus size={15} /> Nuevo pedido</button>
-              <button className="catalog-primary" onClick={() => setSuggesting(true)}><Sparkles size={16} /> Sugerir pedido</button>
+              <button className="catalog-primary" onClick={() => setSuggesting(true)}><ListChecks size={16} /> Sugerir pedido</button>
             </div>
           )}
         </div>
@@ -122,7 +117,7 @@ export default function OrdersPage() {
           </div>
           <div className="orders-head"><span>Proveedor</span><span>Local</span><span>Líneas</span><span>Total</span><span>Estado</span></div>
           {error && <div className="catalog-empty"><strong>{error}</strong></div>}
-          {!error && !orders && <div className="catalog-empty"><strong>Cargando pedidos...</strong></div>}
+          {!error && !orders && <LoadingRows label="Cargando pedidos" />}
           {!error &&
             orders?.map((o) => (
               <div

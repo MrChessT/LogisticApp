@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Decimal from "decimal.js";
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/permissions";
@@ -11,6 +11,7 @@ import { readLocation, saveLocation } from "@/lib/location-preference";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
 import "../productos/productos.css";
 import "./stock.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Existencias por local: filtro por local, estado y texto; exportación CSV; último inventario cerrado.
 // Filtros, orden y páginas se resuelven en el servidor (stock_search, migración 0020): la pantalla
@@ -235,13 +236,6 @@ export default function StockPage() {
 
   return (
     <main className="stock-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link">
-          <ArrowLeft size={16} /> Resumen
-        </Link>
-        <span className="catalog-title">Stock</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -341,7 +335,7 @@ export default function StockPage() {
                 {loadingMore ? "Cargando..." : `Ver ${Math.min(PAGE, total - rows.length)} más (${rows.length} de ${total})`}
               </button>
             )}
-            {loading && <div className="catalog-empty"><strong>Cargando stock...</strong></div>}
+            {loading && <LoadingRows label="Cargando stock" />}
             {!loading && error && (
               <div className="catalog-empty">
                 <strong>{error}</strong>

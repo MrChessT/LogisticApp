@@ -21,6 +21,11 @@ export function usePermissions(): Permissions | null {
     void (async () => {
       const supabase = createClient();
       const userId = (await supabase?.auth.getSession())?.data.session?.user.id ?? "";
+      // Sin sesión (pantalla de entrada): nada que consultar.
+      if (!userId) {
+        if (!cancelled) setValue({ role: "", seesCosts: false });
+        return;
+      }
       if (cache && cache.userId === userId) {
         if (!cancelled) setValue(cache.value);
         return;

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -12,11 +11,11 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeText } from "@/lib/format";
 import { formatStock, type Pack, type UnitDimension } from "@/lib/units";
 import { ProductEditor } from "./product-editor";
+import { useIdentity } from "@/lib/identity";
 import "./productos.css";
 
 // El filtrado, orden y paginado se hacen en Postgres (catalog_search, migración 0007):
@@ -194,6 +193,7 @@ function FacetList({
 }
 
 export default function ProductsPage() {
+  const identity = useIdentity();
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -347,17 +347,10 @@ export default function ProductsPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link">
-          <ArrowLeft size={16} /> Resumen
-        </Link>
-        <span className="catalog-title">Catálogo</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
-            <p className="eyebrow">Parador Eventos · Catálogo común</p>
+            <p className="eyebrow">{identity?.org ?? ""}{identity?.org ? " · " : ""}Catálogo común</p>
             <h1>Productos</h1>
             <p className="catalog-subtitle">Un solo catálogo para todos tus locales y proveedores.</p>
           </div>

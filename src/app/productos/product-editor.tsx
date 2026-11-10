@@ -9,6 +9,7 @@ import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units
 import { EntityHistory } from "./product-history";
 import { ProductAllergens } from "./product-allergens";
 import "./product-editor.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Ficha de producto: datos generales, formatos, precios por proveedor y mínimos por local.
 // Se edita todo en borrador y "Guardar cambios" aplica solo lo que ha cambiado. Los permisos los
@@ -542,7 +543,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
               <button className="filter-button" onClick={() => void reload()}>Reintentar</button>
             </div>
           )}
-          {!d && !loadError && <div className="catalog-empty"><strong>Cargando ficha...</strong></div>}
+          {!d && !loadError && <LoadingRows label="Cargando ficha" />}
 
           {d && data && tab === "general" && (
             <div className="editor-grid">

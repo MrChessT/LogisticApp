@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
-import { Sparkles, X } from "lucide-react";
+import { FilePlus2, X } from "lucide-react";
 import { euros, inputText, parseDecimal as parse, quantity } from "@/lib/format";
 import { saveDraft, type Reference } from "./orders-data";
 import { formatDayLong, minOrderShortfall, nextDelivery } from "@/lib/supplier-terms";
@@ -224,7 +224,7 @@ export function SuggestModal({
         <footer className="editor-footer">
           <span className="section-hint">{selected.length} productos · {bySupplier.size} {bySupplier.size === 1 ? "proveedor" : "proveedores"}</span>
           <button className="catalog-primary" disabled={saving || loading || selected.length === 0} onClick={() => void create()}>
-            <Sparkles size={15} /> {saving ? "Creando..." : `Crear ${bySupplier.size || ""} ${bySupplier.size === 1 ? "borrador" : "borradores"}`}
+            <FilePlus2 size={15} /> {saving ? "Creando..." : `Crear ${bySupplier.size || ""} ${bySupplier.size === 1 ? "borrador" : "borradores"}`}
           </button>
         </footer>
       </section>

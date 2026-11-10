@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, MapPin, Pencil, Plus, Search, Star, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, ChevronRight, MapPin, Pencil, Plus, Search, Star, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { countingPacks, type PackRow } from "@/lib/packs";
@@ -12,6 +12,7 @@ import { formatStock, type UnitDimension } from "@/lib/units";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./zonas.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Zonas de cada local: dónde se guarda el género (almacén) y dónde se usa (servicio: barra, cocina…).
 //   · Pulsar una zona abre lo que hay dentro, con cantidades y (si se ven costes) su valor, y los
@@ -140,11 +141,6 @@ export default function ZonesPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Zonas</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -159,7 +155,7 @@ export default function ZonesPage() {
           )}
         </div>
         {error && <p className="editor-message error zones-message">{error}</p>}
-        {!zones && !error && <div className="catalog-empty"><strong>Cargando zonas...</strong></div>}
+        {!zones && !error && <LoadingRows label="Cargando zonas" />}
 
         <div className="zones-grid">
           {locations.map(([locationId, locationName]) => {

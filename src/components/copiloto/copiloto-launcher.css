@@ -1,0 +1,12 @@
+/* Botón del asistente: se carga con la app; el panel, solo al abrirlo. */
+.copiloto-launcher { position: fixed; right: 22px; bottom: 22px; z-index: 20; height: 42px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 21px; color: var(--accent-ink); background: var(--lime); box-shadow: 0 10px 30px rgba(32, 60, 43, .18); font-size: var(--fs-md); font-weight: 700; }
+.copiloto-launcher:hover { background: var(--primary-hover); }
+.copiloto-launcher kbd { font-size: var(--fs-xs); padding: 2px 5px; color: var(--brand-strong); border: 1px solid #b9d05a; border-radius: var(--r-sm); }
+.copiloto-launcher { color: #fff; background: var(--brand-700); box-shadow: 0 6px 20px rgba(23, 37, 31, .2); font-weight: 600; }
+.copiloto-launcher:hover { background: #174a39; }
+.copiloto-launcher kbd { color: rgba(255, 255, 255, .78); border-color: rgba(255, 255, 255, .28); }
+.copiloto-launcher:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+@media (max-width: 700px) {
+  .copiloto-launcher { right: 14px; bottom: 14px; width: 46px; height: 46px; padding: 0; justify-content: center; }
+  .copiloto-launcher span, .copiloto-launcher kbd { display: none; }
+}

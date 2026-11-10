@@ -8,6 +8,7 @@ import { euros } from "@/lib/format";
 import type { LookupProduct } from "@/lib/product-lookup";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import type { UnitDimension } from "@/lib/units";
+import { LoadingRows } from "@/components/ui/loading-rows";
 import {
   ALLERGEN_LABEL, bestUnit, economics, foodCostTone, lineCost, lineQtyBase, productUnits, subRecipeUnits, wastePct, YIELD_UNITS,
   type LineUnit, type YieldUnit,
@@ -285,7 +286,7 @@ export function RecipeEditor({ recipeId, orgId, recipes, seesCosts, canEdit, onC
 
         <div className="editor-body recipe-body">
           {loading ? (
-            <div className="catalog-empty"><strong>Cargando receta...</strong></div>
+            <LoadingRows label="Cargando receta" />
           ) : (
             <>
               <div className="editor-grid recipe-fields">

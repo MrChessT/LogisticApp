@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, CirclePlus, FileText, Paperclip, Search } from "lucide-react";
+import { CirclePlus, FileText, Paperclip, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { usePermissions } from "@/lib/permissions";
@@ -12,6 +11,7 @@ import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "../escandallos/escandallos.css";
 import "./facturas.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Facturas de proveedor: qué hay que pagar y cuándo, y si cada factura cuadra con lo que se recibió
 // (sus albaranes). También los albaranes cerrados que aún no tienen factura. Solo dirección con «ve costes».
@@ -101,11 +101,6 @@ export default function InvoicesPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Facturas</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -121,8 +116,8 @@ export default function InvoicesPage() {
         ) : (
           <>
             <div className="recipe-kpis">
-              <div><span>Pendiente de pago</span><strong>{euros(toPay)}</strong><small>{pending.length} facturas</small></div>
-              <div className={overdue.length ? "warn" : ""}><span>Vencidas</span><strong>{euros(overdue.reduce((s, i) => s + i.total, 0))}</strong><small>{overdue.length} facturas{dueSoon.length ? ` · ${dueSoon.length} vencen esta semana` : ""}</small></div>
+              <div><span>Pendiente de pago</span><strong>{euros(toPay)}</strong><small>{pending.length} {pending.length === 1 ? "factura" : "facturas"}</small></div>
+              <div className={overdue.length ? "warn" : ""}><span>Vencidas</span><strong>{euros(overdue.reduce((s, i) => s + i.total, 0))}</strong><small>{overdue.length} {overdue.length === 1 ? "factura" : "facturas"}{dueSoon.length ? ` · ${dueSoon.length} ${dueSoon.length === 1 ? "vence" : "vencen"} esta semana` : ""}</small></div>
               <div className={withDiff.length ? "warn" : ""}><span>No cuadran con albaranes</span><strong>{withDiff.length}</strong><small>{withDiff.length ? `${euros(withDiff.reduce((s, i) => s + Math.max(i.difference, 0), 0))} cobrados de más` : "todas cuadran"}</small></div>
               <div className={unbilled.length ? "warn" : ""}><span>Albaranes sin factura</span><strong>{unbilled.length}</strong><small>{euros(unbilled.reduce((s, r) => s + r.total, 0))} recibidos</small></div>
             </div>
@@ -142,7 +137,7 @@ export default function InvoicesPage() {
               <div className="invoice-table">
                 <div className="invoice-row invoice-head"><span>Factura</span><span>Fecha</span><span>Vencimiento</span><span>Total</span><span>Cuadre</span></div>
                 {error && <div className="catalog-empty"><strong>{error}</strong></div>}
-                {!invoices && !error && <div className="catalog-empty"><strong>Cargando facturas...</strong></div>}
+                {!invoices && !error && <LoadingRows label="Cargando facturas" />}
                 {invoices && visible.map((i) => {
                   const m = invoiceMatch(i.subtotal, i.receiptsTotal, i.receipts, euros);
                   return (

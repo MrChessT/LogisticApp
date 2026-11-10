@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Historial de un producto (o proveedor): lo escribe la base de datos con cada cambio (0034) y nadie lo
 // edita. Los cambios de precio solo los ve quien tiene el permiso «ve costes».
@@ -64,7 +65,7 @@ export function EntityHistory({ entityId, emptyText = "Todavía no hay cambios r
   }, [entityId]);
 
   if (error) return <div className="catalog-empty"><strong>{error}</strong></div>;
-  if (!changes) return <div className="catalog-empty"><strong>Cargando historial...</strong></div>;
+  if (!changes) return <LoadingRows label="Cargando historial" />;
   if (changes.length === 0) return <div className="catalog-empty"><strong>{emptyText}</strong></div>;
   return (
     <ol className="history-list">

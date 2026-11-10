@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, MessagesSquare, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import Decimal from "decimal.js";
 import { decimalText, euros, parseDecimal } from "@/lib/format";
@@ -138,7 +138,8 @@ function toEntry(item: Item, flagged: boolean): TranscriptEntry {
   return { role: "assistant", text: item.text, ...(detail ? { detail } : {}), ...(flagged ? { flagged } : {}) };
 }
 
-export function Copiloto() {
+/** `initial`: se acaba de cargar porque se pidió abrir (botón, Ctrl+K o una pregunta desde otra pantalla). */
+export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
@@ -310,13 +311,28 @@ export function Copiloto() {
     return () => window.removeEventListener("copiloto:ask", onAsk);
   }, [loadTestMode]);
 
+  // Cargado al pedir abrirlo: se abre ya (y envía la pregunta, si la había).
+  const started = useRef(false);
+  useEffect(() => {
+    if (!initial || started.current) return;
+    const id = window.setTimeout(() => {
+      // La marca va aquí: en desarrollo React monta dos veces y la primera cancela este temporizador.
+      started.current = true;
+      setOpen(true);
+      void loadSuggestions();
+      void loadTestMode();
+      if (initial.message) void sendRef.current(initial.message);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [initial, loadSuggestions, loadTestMode]);
+
   // Acceso y pantalla del almacén: sin asistente (la pantalla de un almacén no puede usarlo).
   if (pathname?.startsWith("/login") || pathname?.startsWith("/almacen")) return null;
 
   return (
     <>
       <button type="button" className="copiloto-launcher" onClick={toggle} aria-label="Abrir asistente (Ctrl+K)">
-        <Sparkles size={18} />
+        <MessagesSquare size={18} />
         <span>Asistente</span>
         <kbd>Ctrl K</kbd>
       </button>
@@ -326,7 +342,7 @@ export function Copiloto() {
           <aside className="copiloto-panel" role="dialog" aria-label="Asistente de inventario" onClick={(event) => event.stopPropagation()}>
             <header className="copiloto-header">
               <div className="copiloto-title">
-                <span className="copiloto-mark"><Sparkles size={15} /></span>
+                <span className="copiloto-mark"><MessagesSquare size={15} /></span>
                 <div>
                   <strong>Asistente</strong>
                   <small>Consulta tus datos y prepara operaciones</small>

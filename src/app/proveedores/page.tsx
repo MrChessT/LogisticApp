@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Archive, ArchiveRestore, ArrowLeft, CirclePlus, Search, Trash2, Truck, X } from "lucide-react";
+import { Archive, ArchiveRestore, CirclePlus, Search, Trash2, Truck, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { describeTerms, nextDelivery, formatDayLong, shortDays, WEEKDAYS } from "@/lib/supplier-terms";
@@ -11,6 +11,7 @@ import "../productos/productos.css";
 import "../productos/product-editor.css";
 import { EntityHistory } from "../productos/product-history";
 import "./proveedores.css";
+import { LoadingRows } from "@/components/ui/loading-rows";
 
 // Proveedores: alta, edición, archivar y eliminar, con los últimos precios que tiene cada uno.
 // Los permisos los decide RLS (encargado o superior para escribir).
@@ -159,11 +160,6 @@ export default function SuppliersPage() {
 
   return (
     <main className="catalog-page">
-      <header className="catalog-topbar">
-        <Link href="/" className="back-link"><ArrowLeft size={16} /> Resumen</Link>
-        <span className="catalog-title">Proveedores</span>
-        <span />
-      </header>
       <div className="catalog-content">
         <div className="catalog-heading">
           <div>
@@ -186,7 +182,7 @@ export default function SuppliersPage() {
           </div>
           <div className="suppliers-table">
             <div className="suppliers-head"><span>Proveedor</span><span>Contacto</span><span>Pedidos</span><span>Productos con precio</span><span>Último precio</span></div>
-            {!suppliers && !loadError && <div className="catalog-empty"><strong>Cargando proveedores...</strong></div>}
+            {!suppliers && !loadError && <LoadingRows label="Cargando proveedores" />}
             {loadError && (
               <div className="catalog-empty">
                 <strong>{loadError}</strong>

@@ -1,36 +1,36 @@
 /* Equipo: misma estructura que Proveedores (tabla con cabecera gris, filas que abren la ficha). */
 .team-head, .team-row { display: grid; grid-template-columns: minmax(220px, 1.5fr) 130px minmax(180px, 1.4fr) 120px; align-items: center; gap: 12px; padding: 0 18px; }
-.team-head { min-height: 39px; color: #a1aca4; background: #fbfcfb; border-bottom: 1px solid #edf1ed; font-size: 10px; }
-.team-row { min-height: 62px; border-bottom: 1px solid #edf1ed; color: #55665b; font-size: 11px; }
+.team-head { min-height: 39px; color: var(--text-3); background: var(--panel); border-bottom: 1px solid var(--line-soft); font-size: var(--fs-xs); }
+.team-row { min-height: 62px; border-bottom: 1px solid var(--line-soft); color: var(--text-2); font-size: var(--fs-sm); }
 .team-row:last-child { border-bottom: 0; }
 .team-row.editable { cursor: pointer; transition: background .12s; }
-.team-row.editable:hover { background: #f7faf7; }
-.team-row:focus-visible { outline: 2px solid #2e8064; outline-offset: -2px; }
+.team-row.editable:hover { background: var(--surface-2); }
+.team-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 
 .team-person { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .team-person > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.team-person strong { overflow: hidden; color: #24372d; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.team-person small { overflow: hidden; color: #8a978f; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.team-avatar { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 700; color: #2e8064; background: #e3f0e6; }
-.team-avatar.role-owner, .team-avatar.role-admin { color: #26372d; background: #d8f06d; }
-.team-avatar.role-manager { color: #6a4fb0; background: #efeafb; }
-.team-you { margin-left: 6px; padding: 2px 6px; border-radius: 5px; color: #2e8064; background: #e3f0e6; font-size: 9px; font-style: normal; font-weight: 700; vertical-align: 1px; }
+.team-person strong { overflow: hidden; color: var(--ink); font-size: var(--fs-md); text-overflow: ellipsis; white-space: nowrap; }
+.team-person small { overflow: hidden; color: var(--text-3); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+.team-avatar { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: var(--fs-sm); font-weight: 700; color: var(--brand); background: var(--brand-soft); }
+.team-avatar.role-owner, .team-avatar.role-admin { color: var(--on-primary); background: var(--primary); }
+.team-avatar.role-manager { color: var(--violet); background: var(--violet-soft); }
+.team-you { margin-left: 6px; padding: 2px 6px; border-radius: var(--r-sm); color: var(--brand); background: var(--brand-soft); font-size: var(--fs-xs); font-style: normal; font-weight: 700; vertical-align: 1px; }
 
-.team-role { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
-.team-role.role-owner, .team-role.role-admin { color: #3c4f12; background: #eef8c9; }
-.team-role.role-manager { color: #6a4fb0; background: #f2effb; }
-.team-role.role-staff { color: #2e8064; background: #ebf5ee; }
+.team-role { display: inline-block; padding: 4px 8px; border-radius: var(--r-sm); font-size: var(--fs-xs); font-weight: 700; }
+.team-role.role-owner, .team-role.role-admin { color: var(--brand-strong); background: var(--brand-soft); }
+.team-role.role-manager { color: var(--violet); background: var(--violet-soft); }
+.team-role.role-staff { color: var(--brand); background: var(--brand-soft); }
 
 .team-locations { display: flex; flex-wrap: wrap; gap: 5px; }
-.team-chip { padding: 3px 8px; border: 1px solid #dfe7e1; border-radius: 20px; color: #45574c; background: #fff; font-size: 10px; font-weight: 600; white-space: nowrap; }
-.team-chip.all { color: #3c4f12; border-color: #dbe9a6; background: #f7fbe6; }
-.team-pending { padding: 3px 8px; border-radius: 6px; color: #9a5a17; background: #fdf1e3; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.team-chip { padding: 3px 8px; border: 1px solid var(--line); border-radius: 20px; color: var(--text-2); background: var(--panel); font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
+.team-chip.all { color: var(--brand-strong); border-color: var(--brand-line); background: var(--brand-softer); }
+.team-pending { padding: 3px 8px; border-radius: var(--r-sm); color: var(--warn); background: var(--warn-soft); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
 
 .team-notice { margin: 18px 0 0; }
-.team-footnote { margin: 14px 2px 0; color: #8a978f; font-size: 11px; line-height: 1.5; }
-.team-locked { margin-top: 40px; gap: 10px; color: #2e8064; }
+.team-footnote { margin: 14px 2px 0; color: var(--text-3); font-size: var(--fs-sm); line-height: 1.5; }
+.team-locked { margin-top: 40px; gap: 10px; color: var(--brand); }
 .team-locked span { max-width: 460px; text-align: center; line-height: 1.5; }
-.team-locked a { color: #2e8064; font-weight: 600; }
+.team-locked a { color: var(--brand); font-weight: 600; }
 
 /* Ficha */
 .team-editor { max-width: 620px; }
@@ -38,19 +38,19 @@
 .team-editor { max-height: 100dvh; }
 .team-editor .editor-body { min-height: 0; }
 .team-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.team-role-option { display: flex; flex-direction: column; gap: 4px; padding: 11px 12px; text-align: left; color: #34473b; background: #fff; border: 1px solid #dfe7e1; border-radius: 9px; cursor: pointer; }
-.team-role-option b { color: #24372d; font-size: 12px; }
-.team-role-option small { color: #7c8983; font-size: 10px; line-height: 1.4; }
-.team-role-option.active { border-color: #2e8064; background: #f1f8f3; box-shadow: inset 0 0 0 1px #2e8064; }
-.team-role-option:focus-visible { outline: 2px solid #2e8064; outline-offset: 1px; }
-.team-editor .check-option { display: inline-flex; align-items: center; gap: 7px; margin: 8px 0 4px; padding: 8px 11px; border: 1px solid #dfe7e1; border-radius: 8px; color: #34473b; font-size: 11px; font-weight: 600; }
+.team-role-option { display: flex; flex-direction: column; gap: 4px; padding: 11px 12px; text-align: left; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; }
+.team-role-option b { color: var(--ink); font-size: var(--fs-md); }
+.team-role-option small { color: var(--text-3); font-size: var(--fs-xs); line-height: 1.4; }
+.team-role-option.active { border-color: var(--brand); background: var(--canvas); box-shadow: inset 0 0 0 1px #2e8064; }
+.team-role-option:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.team-editor .check-option { display: inline-flex; align-items: center; gap: 7px; margin: 8px 0 4px; padding: 8px 11px; border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); font-size: var(--fs-sm); font-weight: 600; }
 .team-location-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
-.team-location { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #dfe7e1; border-radius: 9px; color: #34473b; font-size: 12px; font-weight: 600; cursor: pointer; }
-.team-location.active { border-color: #2e8064; background: #f1f8f3; }
-.team-location input, .team-editor .check-option input { accent-color: #2e8064; }
-.team-pending-hint { margin-top: 14px; color: #9a5a17; }
+.team-location { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); font-size: var(--fs-md); font-weight: 600; cursor: pointer; }
+.team-location.active { border-color: var(--brand); background: var(--canvas); }
+.team-location input, .team-editor .check-option input { accent-color: var(--brand); }
+.team-pending-hint { margin-top: 14px; color: var(--warn); }
 .team-link { display: flex; gap: 8px; margin-top: 14px; }
-.team-link input { flex: 1; min-width: 0; height: 38px; padding: 0 10px; color: #34473b; background: #f7f9f7; border: 1px solid #dfe7e1; border-radius: 8px; font-size: 11px; }
+.team-link input { flex: 1; min-width: 0; height: 38px; padding: 0 10px; color: var(--text); background: var(--canvas); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-sm); }
 .team-share { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .team-share a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 
@@ -63,23 +63,25 @@
 /* Pantallas de almacén */
 .team-screens { margin-top: 18px; padding: 18px; }
 .team-screens-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.team-screens-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; color: #24372d; font-size: 15px; }
-.team-screens-head p { max-width: 560px; margin: 6px 0 0; color: #7c8983; font-size: 11px; line-height: 1.5; }
+.team-screens-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink); font-size: 15px; }
+.team-screens-head p { max-width: 560px; margin: 6px 0 0; color: var(--text-3); font-size: var(--fs-sm); line-height: 1.5; }
 .team-screens-head .ghost-button { flex: none; display: inline-flex; align-items: center; gap: 6px; }
-.team-screens-empty { margin: 14px 0 0; color: #8a978f; font-size: 11px; }
+.team-screens-empty { margin: 14px 0 0; color: var(--text-3); font-size: var(--fs-sm); }
 .team-screen-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 14px; }
-.team-screen { display: flex; align-items: center; gap: 11px; padding: 12px; text-align: left; color: inherit; background: #fff; border: 1px solid #dfe7e1; border-radius: 10px; cursor: pointer; font: inherit; }
-.team-screen:hover:not(:disabled) { border-color: #2e8064; background: #f7faf7; }
+.team-screen { display: flex; align-items: center; gap: 11px; padding: 12px; text-align: left; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); cursor: pointer; font: inherit; }
+.team-screen:hover:not(:disabled) { border-color: var(--brand); background: var(--surface-2); }
 .team-screen:disabled { cursor: default; }
-.team-screen:focus-visible { outline: 2px solid #2e8064; outline-offset: 1px; }
-.team-screen-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; color: #1f3b30; background: #d8f06d; }
+.team-screen:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.team-screen-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r-md); color: var(--ink); background: var(--accent); }
 .team-screen-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.team-screen-copy strong { overflow: hidden; color: #24372d; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.team-screen-copy small, .team-screen-seen { color: #8a978f; font-size: 10px; }
-.team-avatar.role-kiosk { color: #1f3b30; background: #d8f06d; }
-.team-role.role-kiosk { color: #1f3b30; background: #eef8c9; }
+.team-screen-copy strong { overflow: hidden; color: var(--ink); font-size: var(--fs-md); text-overflow: ellipsis; white-space: nowrap; }
+.team-screen-copy small, .team-screen-seen { color: var(--text-3); font-size: var(--fs-xs); }
+.team-avatar.role-kiosk { color: var(--ink); background: var(--accent); }
+.team-role.role-kiosk { color: var(--ink); background: var(--brand-soft); }
 
 @media (max-width: 700px) {
   .team-screens-head { flex-direction: column; }
 }
-.team-tester { margin-left: 6px; padding: 2px 6px; border-radius: 5px; color: #6b4a12; background: #fdf3df; font-size: 9px; font-style: normal; font-weight: 700; vertical-align: 1px; }
+.team-tester { margin-left: 6px; padding: 2px 6px; border-radius: var(--r-sm); color: var(--warn); background: var(--warn-soft); font-size: var(--fs-xs); font-style: normal; font-weight: 700; vertical-align: 1px; }
+
+@media (max-width: 700px) { .team-head span:nth-child(2), .team-row > span:nth-child(2) { justify-self: end; text-align: right; } }
