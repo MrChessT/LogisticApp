@@ -17,6 +17,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  MessagesSquare,
   MessageSquareText,
   Package,
   PackageCheck,
@@ -243,6 +244,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
           <span className="topbar-section">{section}</span>
           <div className="top-actions">
+            <button className="assistant-trigger" onClick={() => askAssistant()} aria-label="Abrir asistente" title="Asistente (Ctrl+K)">
+              <MessagesSquare size={16} aria-hidden="true" /><span>Asistente</span>
+            </button>
             <button className="search-trigger" onClick={() => setSearchOpen(true)} aria-label="Buscar producto">
               <Search size={16} aria-hidden="true" /><span>Buscar producto</span><kbd>/</kbd>
             </button>

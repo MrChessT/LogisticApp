@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import Decimal from "decimal.js";
-import { ChevronDown, ChevronRight, Download, Filter, Search, Warehouse } from "lucide-react";
+import { ChevronRight, Download, Search } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/permissions";
 import { daysAgo, euros, quantity } from "@/lib/format";
 import { readLocation, saveLocation } from "@/lib/location-preference";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
-import "../productos/productos.css";
 import "./stock.css";
 import { LoadingRows } from "@/components/ui/loading-rows";
+import { LocationTabs } from "@/components/ui/location-tabs";
+import { LevelBar } from "@/components/ui/level-bar";
+import "@/components/ui/kpi-strip.css";
 
 // Existencias por local: filtro por local, estado y texto; exportación CSV; último inventario cerrado.
 // Filtros, orden y páginas se resuelven en el servidor (stock_search, migración 0020): la pantalla
@@ -30,8 +32,18 @@ type StockRow = {
   value: string;
   valueNumber: string;
   minimum: string;
+  qty: number;
+  min: number | null;
   status: Status;
 };
+/** Filtro de estado: «attention» es bajo mínimo + sin stock (migración 0038). */
+type StatusFilter = "" | "attention" | "critical" | "ok";
+const STATUS_TABS: Array<{ id: StatusFilter; label: string }> = [
+  { id: "", label: "Todos" },
+  { id: "attention", label: "Bajo mínimo" },
+  { id: "critical", label: "Sin stock" },
+  { id: "ok", label: "Correcto" },
+];
 type Location = { id: string; name: string };
 
 type ValuationRow = {
@@ -52,7 +64,7 @@ type ValuationRow = {
   purchase_pack_qty: string | null;
   status: Status;
 };
-type Summary = { rows: number; value: string; attention: number };
+type Summary = { rows: number; value: string; attention: number; critical?: number };
 type SearchResult = { total: number; summary: Summary; items: ValuationRow[] };
 
 function toRow(row: ValuationRow): StockRow {
@@ -67,6 +79,8 @@ function toRow(row: ValuationRow): StockRow {
     value: euros(row.stock_value ?? "0"),
     valueNumber: new Decimal(row.stock_value ?? "0").toFixed(2),
     minimum: row.min_qty && new Decimal(row.min_qty).gt(0) ? (row.dimension ? formatStock(row.min_qty, packs) : quantity(row.min_qty, row.base_unit)) : "—",
+    qty: Number(row.qty),
+    min: row.min_qty === null ? null : Number(row.min_qty),
     status: row.status,
   };
 }
@@ -93,7 +107,7 @@ function countingPacks(row: ValuationRow): CountingPacks {
   };
 }
 
-const STATUS_LABEL: Record<Status, string> = { ok: "Correcto", low: "Bajo mínimo", critical: "Urgente" };
+const STATUS_LABEL: Record<Status, string> = { ok: "Correcto", low: "Bajo mínimo", critical: "Sin stock" };
 
 function exportCsv(rows: StockRow[], label: string) {
   const header = ["Producto", "Categoría", "Local", "Existencias", "Valor (€)", "Mínimo", "Estado"];
@@ -121,7 +135,7 @@ export default function StockPage() {
   const [lastCount, setLastCount] = useState<{ at: string; location: string } | null>(null);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"" | Status>("");
+  const [status, setStatus] = useState<StatusFilter>("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -133,8 +147,12 @@ export default function StockPage() {
   useEffect(() => {
     async function start() {
       await Promise.resolve();
-      const fromUrl = new URLSearchParams(window.location.search).get("local");
-      setLocation(fromUrl ?? readLocation());
+      const params = new URLSearchParams(window.location.search);
+      // ?estado=atencion: desde el Resumen y el menú («bajo mínimo»).
+      const estado = params.get("estado");
+      if (estado === "atencion" || estado === "low") setStatus("attention");
+      else if (estado === "critical" || estado === "ok") setStatus(estado);
+      setLocation(params.get("local") ?? readLocation());
       const supabase = createClient();
       const { data } = (await supabase?.from("locations").select("id, name").eq("active", true).order("name")) ?? { data: null };
       setLocations((data ?? []) as Location[]);
@@ -227,119 +245,128 @@ export default function StockPage() {
 
   function changeLocation(id: string) {
     saveLocation(id);
-    window.history.replaceState(null, "", id ? `/stock?local=${id}` : "/stock");
     setLocation(id);
+    syncUrl(id, status);
+  }
+
+  function changeStatus(next: StatusFilter) {
+    setStatus(next);
+    syncUrl(location ?? "", next);
+  }
+
+  /** La dirección refleja local y estado: se puede compartir o volver a ella. */
+  function syncUrl(local: string, estado: StatusFilter) {
+    const params = new URLSearchParams();
+    if (local) params.set("local", local);
+    if (estado) params.set("estado", estado === "attention" ? "atencion" : estado);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/stock?${qs}` : "/stock");
   }
 
   const locationLabel = locations.find((l) => l.id === location)?.name ?? (locations.length === 1 ? locations[0]!.name : "todos los locales");
   const allLocations = !location;
 
+  const seesCosts = !perms || perms.seesCosts;
+  const multi = locations.length > 1;
+  const showLocation = allLocations && multi;
+
   return (
     <main className="stock-page">
-      <div className="catalog-content">
-        <div className="catalog-heading">
+      <div className="stock-wrap">
+        <header className="stock-head">
           <div>
-            <p className="eyebrow">Existencias · {allLocations && locations.length !== 1 ? "Todos los locales" : locationLabel}</p>
             <h1>Stock</h1>
-            <p className="catalog-subtitle">Lo que tienes, lo que vale y lo que está por debajo del mínimo.</p>
+            <p className="stock-meta">Existencias, valor y nivel frente al mínimo · {allLocations && multi ? "todos los locales" : locationLabel}</p>
           </div>
-          <div className="stock-heading-actions">
-            <div className="stock-location">
-              <Warehouse size={16} />
-              <select value={location ?? ""} onChange={(event) => changeLocation(event.target.value)} aria-label="Local">
-                {/* Con un único local, «todos» es ese local: no se repite. */}
-                <option value="">{locations.length === 1 ? locations[0]!.name : "Todos los locales"}</option>
-                {locations.length > 1 && locations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} />
-            </div>
-            <button className="export-button" disabled={total === 0 || exporting} onClick={() => void exportAll()}>
-              <Download size={15} /> {exporting ? "Exportando..." : "Exportar"}
-            </button>
+          <button className="stock-export" disabled={total === 0 || exporting} onClick={() => void exportAll()}>
+            <Download size={15} aria-hidden="true" /> {exporting ? "Exportando…" : "Exportar CSV"}
+          </button>
+        </header>
+
+        {multi && <div className="stock-locations"><LocationTabs locations={locations} value={location ?? ""} onChange={changeLocation} /></div>}
+
+        <section className="kpi-strip stock-kpis" aria-label="Totales">
+          <div className="kpi">
+            <span className="kpi-label">Valor total</span>
+            <strong className="kpi-value">{!seesCosts ? "Sin permiso" : summary ? euros(summary.value) : "—"}</strong>
+            <span className="kpi-note">a coste medio</span>
           </div>
-        </div>
-        <div className="stock-summary">
-          <div>
-            <span>Valor total</span>
-            <strong>{perms && !perms.seesCosts ? "Sin permiso" : summary ? euros(summary.value) : "..."}</strong>
-            <small>a coste medio</small>
+          <div className="kpi">
+            <span className="kpi-label">Productos con stock</span>
+            <strong className="kpi-value">{summary ? summary.rows : "—"}</strong>
+            <span className="kpi-note">{allLocations && multi ? "sumando todos los locales" : `en ${locationLabel}`}</span>
           </div>
-          <div>
-            <span>Productos con stock</span>
-            <strong>{summary ? summary.rows : "..."}</strong>
-            <small>en {locationLabel}</small>
+          <button type="button" className="kpi" onClick={() => changeStatus("attention")}>
+            <span className="kpi-label">Bajo mínimo</span>
+            <strong className={`kpi-value${summary && summary.attention > 0 ? " alert" : ""}`}>{summary ? summary.attention : "—"}</strong>
+            <span className="kpi-note">{summary?.critical ? <span className="warn">{summary.critical} sin stock</span> : "ver la lista"}</span>
+          </button>
+          <div className="kpi">
+            <span className="kpi-label">Último inventario</span>
+            <strong className="kpi-value">{lastCount ? new Date(lastCount.at).toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "") : "Ninguno"}</strong>
+            <span className="kpi-note">{lastCount ? `${daysAgo(lastCount.at)}${allLocations && lastCount.location ? ` · ${lastCount.location}` : ""}` : <Link href="/inventarios">Empezar un conteo</Link>}</span>
           </div>
-          <div>
-            <span>Bajo mínimo</span>
-            <strong className="red-text">{summary ? summary.attention : "..."}</strong>
-            <small>requieren revisión</small>
-          </div>
-          <div>
-            <span>Último inventario</span>
-            <strong>{lastCount ? new Date(lastCount.at).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "Ninguno"}</strong>
-            <small>{lastCount ? `${daysAgo(lastCount.at)}${allLocations && lastCount.location ? ` · ${lastCount.location}` : ""}` : <Link href="/inventarios">Empezar un conteo</Link>}</small>
-          </div>
-        </div>
-        <section className="catalog-panel stock-table-panel">
-          <div className="catalog-toolbar">
-            <div className="catalog-search">
-              <Search size={16} />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar producto o categoría" />
-            </div>
-            <label className="filter-button">
-              <Filter size={14} />
-              <select className="stock-status-filter" value={status} onChange={(event) => setStatus(event.target.value as "" | Status)} aria-label="Estado">
-                <option value="">Todos los estados</option>
-                <option value="low">Bajo mínimo</option>
-                <option value="critical">Urgente (sin stock)</option>
-                <option value="ok">Correcto</option>
-              </select>
+        </section>
+
+        <section className="stock-panel">
+          <div className="stock-toolbar">
+            <label className="stock-search">
+              <Search size={16} aria-hidden="true" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar producto o categoría" aria-label="Buscar producto o categoría" />
             </label>
-            <span className="table-result-count">{loading ? "..." : `${total} productos`}</span>
+            <div className="stock-filter" role="tablist" aria-label="Estado">
+              {STATUS_TABS.map((t) => (
+                <button key={t.id || "all"} type="button" role="tab" aria-selected={status === t.id} className={status === t.id ? "on" : undefined} onClick={() => changeStatus(t.id)}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <span className="stock-count">{loading ? "…" : `${total} ${total === 1 ? "producto" : "productos"}`}</span>
           </div>
-          <div className="stock-table">
-            <div className="stock-head">
+
+          <div className={`stock-grid${showLocation ? " with-location" : ""}`}>
+            <div className="stock-line stock-line-head">
               <span>Producto</span>
-              <span>Existencias</span>
-              <span>Valor</span>
-              <span>Mínimo</span>
-              <span>Estado</span>
+              {showLocation && <span>Local</span>}
+              <span className="num">Existencias</span>
+              <span className="num">Mínimo</span>
+              <span>Nivel</span>
+              <span className="num">Valor</span>
               <span />
             </div>
             {!loading && !error && rows.map((row) => (
-              <Link className="stock-data-row" key={`${row.id}-${row.locationId}`} href={`/productos?producto=${row.id}`} title="Abrir ficha del producto">
-                <div className="stock-product">
-                  <span className={`stock-thumb ${row.status}`} />
-                  <span>
-                    <strong>{row.name}</strong>
-                    <small>{row.category}{allLocations && row.locationName ? ` · ${row.locationName}` : ""}</small>
-                  </span>
-                </div>
-                <strong>{row.quantity}</strong>
-                <span>{perms?.seesCosts ? row.value : "—"}</span>
-                <span>{row.minimum}</span>
-                <span className={`stock-status ${row.status}`}>{STATUS_LABEL[row.status]}</span>
-                <span className="stock-open" aria-hidden="true"><ChevronRight size={17} /></span>
+              <Link className="stock-line" key={`${row.id}-${row.locationId}`} href={`/productos?producto=${row.id}`} title="Abrir ficha del producto">
+                <span className="stock-name">
+                  <b>{row.name}</b>
+                  <small>{row.category}{showLocation && row.locationName ? <span className="stock-name-loc"> · {row.locationName}</span> : null}</small>
+                </span>
+                {showLocation && <span className="stock-loc">{row.locationName}</span>}
+                <span className={`num strong${row.status === "critical" ? " zero" : ""}`}>{row.quantity}</span>
+                <span className="num muted">{row.minimum}</span>
+                <span className="stock-level">
+                  <LevelBar qty={row.qty} min={row.min} status={row.status} />
+                  {row.status !== "ok" && <small className={row.status}>{STATUS_LABEL[row.status]}</small>}
+                </span>
+                <span className="num muted">{seesCosts ? row.value : "—"}</span>
+                <span className="stock-open" aria-hidden="true"><ChevronRight size={16} /></span>
               </Link>
             ))}
             {!loading && !error && rows.length === 0 && (
-              <div className="catalog-empty">
-                <strong>No hay stock para mostrar</strong>
+              <div className="stock-empty">
+                <strong>{status || search ? "Nada coincide con el filtro" : "No hay stock para mostrar"}</strong>
                 <span>{summary && summary.rows > 0 ? "Prueba otro filtro o limpia la búsqueda." : "Registra una recepción o una apertura de stock para empezar."}</span>
               </div>
             )}
             {!loading && !error && rows.length < total && (
               <button className="stock-more" disabled={loadingMore} onClick={() => void loadMore()}>
-                {loadingMore ? "Cargando..." : `Ver ${Math.min(PAGE, total - rows.length)} más (${rows.length} de ${total})`}
+                {loadingMore ? "Cargando…" : `Ver ${Math.min(PAGE, total - rows.length)} más · ${rows.length} de ${total}`}
               </button>
             )}
             {loading && <LoadingRows label="Cargando stock" />}
             {!loading && error && (
-              <div className="catalog-empty">
+              <div className="stock-empty">
                 <strong>{error}</strong>
-                <button className="filter-button" onClick={() => setReloadKey((k) => k + 1)}>Reintentar</button>
+                <button className="stock-retry" onClick={() => setReloadKey((k) => k + 1)}>Reintentar</button>
               </div>
             )}
           </div>
