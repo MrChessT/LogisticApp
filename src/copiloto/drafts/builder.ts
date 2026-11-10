@@ -59,7 +59,8 @@ export function draftBase<K extends Draft["kind"]>(kind: K, title: string, ctx: 
   return {
     draftId: randomUUID(),
     kind,
-    title,
+    // Un traspaso o una recepción con muchas líneas no puede pasarse del tope del esquema.
+    title: title.length <= 300 ? title : `${title.slice(0, 299).trimEnd()}…`,
     requiredRole,
     canConfirm: hasRole(ctx.role, requiredRole),
     coherence: 0,

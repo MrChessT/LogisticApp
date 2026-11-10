@@ -37,6 +37,7 @@ import type { JevAnswer } from "../jev/client";
 import type { InventoryDataSource } from "../tools/types";
 import type { BuildResult } from "./builder";
 import { draftBase, resolveQuantity } from "./builder";
+import { MAX_CHECK_DETAIL, MAX_CHECKS, MAX_ORDER_LINES, MAX_ORDER_SUPPLIERS } from "./schemas";
 import { formatDayLong, minOrderShortfall, nextDelivery } from "../../lib/supplier-terms";
 
 /** Revisión de Jev que el agente añade a la llamada nº 2 del borrador. */
@@ -87,7 +88,24 @@ function productNav(productId: string): NavigateEvent {
 }
 
 function check(id: string, label: string, status: DraftCheck["status"], detail: string, p: number | null = null): DraftCheck {
-  return { id, label, status, detail, probability: p };
+  const fits = detail.length <= MAX_CHECK_DETAIL ? detail : `${detail.slice(0, MAX_CHECK_DETAIL - 1).trimEnd()}…`;
+  return { id, label, status, detail: fits, probability: p };
+}
+
+/**
+ * Lista de nombres para un aviso: los que quepan y «y N más». Un pedido de un local grande puede dejar
+ * fuera cientos de productos y el aviso tiene un tope de longitud.
+ */
+export function nameList(names: string[], budget = 240): string {
+  const shown: string[] = [];
+  let used = 0;
+  for (const name of names) {
+    if (shown.length > 0 && used + name.length + 2 > budget) break;
+    shown.push(name);
+    used += name.length + 2;
+  }
+  const rest = names.length - shown.length;
+  return rest > 0 ? `${shown.join(", ")} y ${rest} más` : shown.join(", ");
 }
 
 export class CatalogDraftBuilder {
@@ -654,7 +672,17 @@ export class CatalogDraftBuilder {
       });
       groups.set(supplier.id, group);
     }
-    const orders = [...groups.values()];
+    // Un pedido muy largo no cabe en la tarjeta del chat: por proveedor van las líneas más urgentes
+    // (computeReorder las da ordenadas por cobertura) y se avisa de cuántas quedan fuera.
+    let left = 0;
+    const orders = [...groups.values()].slice(0, MAX_ORDER_SUPPLIERS);
+    for (const g of [...groups.values()].slice(MAX_ORDER_SUPPLIERS)) left += g.lines.length;
+    for (const o of orders) {
+      if (o.lines.length > MAX_ORDER_LINES) {
+        left += o.lines.length - MAX_ORDER_LINES;
+        o.lines = o.lines.slice(0, MAX_ORDER_LINES);
+      }
+    }
     // Entrega prevista y pedido mínimo de cada proveedor (condiciones de su ficha).
     const tz = location.timezone;
     const termsChecks: DraftCheck[] = [];
@@ -686,10 +714,10 @@ export class CatalogDraftBuilder {
       if (noSupplier.length > 0) {
         return {
           kind: "error",
-          message: `No sé a qué proveedor pedir ${noSupplier.join(", ")}. Dime el proveedor (por ejemplo «… a Makro») o añade su precio en la ficha del producto.`,
+          message: `No sé a qué proveedor pedir ${nameList(noSupplier)}. Dime el proveedor (por ejemplo «… a Makro») o añade su precio en la ficha del producto.`,
         };
       }
-      if (noPack.length > 0) return { kind: "error", message: `${noPack.join(", ")} no ${noPack.length === 1 ? "tiene" : "tienen"} formato de compra: añádelo en su ficha.` };
+      if (noPack.length > 0) return { kind: "error", message: `${nameList(noPack)} no ${noPack.length === 1 ? "tiene" : "tienen"} formato de compra: añádelo en su ficha.` };
       // Sin mínimos puestos el cálculo no tiene con qué comparar: decirlo, no «no hace falta nada».
       const lps = await source.locationProducts({ locationIds: [locationId] });
       if (!lps.some((lp) => new Decimal(lp.minQty).gt(0) || new Decimal(lp.parQty).gt(0))) {
@@ -706,18 +734,34 @@ export class CatalogDraftBuilder {
       };
     }
 
+    const notes: DraftCheck[] = [];
+    if (left > 0) {
+      notes.push(
+        check(
+          "largo",
+          "Pedido largo",
+          "aviso",
+          `Van las ${MAX_ORDER_LINES} líneas más urgentes de cada proveedor; quedan fuera ${left}. Para verlo entero, usa «Sugerir pedido» en Pedidos.`,
+        ),
+      );
+    }
+    if (noConsumption.length > 0) {
+      notes.push(check("consumo", "Sin consumo", "aviso", `Sin consumo registrado: ${nameList(noConsumption)}. Se pide solo lo necesario para llegar al mínimo u objetivo.`));
+    }
+    if (noSupplier.length > 0) notes.push(check("proveedor", "Sin proveedor", "aviso", `No se incluyen (no sé a quién pedirlos): ${nameList(noSupplier)}.`));
+    if (noPack.length > 0) notes.push(check("formato", "Sin formato", "aviso", `No se incluyen (sin formato de compra): ${nameList(noPack)}.`));
+    if (noPrice.length > 0) notes.push(check("precio", "Sin precio", "aviso", `Sin precio con ese proveedor: ${nameList(noPrice)}. El total es aproximado.`));
+    // Con muchos proveedores las condiciones de entrega no caben todas: primero los avisos de entrega y
+    // mínimo, que piden hacer algo; la fecha prevista sigue en cada pedido.
+    const room = Math.max(0, MAX_CHECKS - 1 - notes.length);
+    const terms = termsChecks.length <= room ? termsChecks : termsChecks.filter((c) => c.status !== "ok").concat(termsChecks.filter((c) => c.status === "ok")).slice(0, room);
     const checks: DraftCheck[] = [
       explicit.length > 0
         ? check("origen", "Cantidades", "ok", "Las que has indicado, en formatos de compra.")
         : check("origen", "Cálculo", "ok", `Consumo real de las últimas semanas, mínimos y objetivo, descontando lo que ya está en camino, para ${h.label}.`),
+      ...terms,
+      ...notes,
     ];
-    checks.push(...termsChecks);
-    if (noConsumption.length > 0) {
-      checks.push(check("consumo", "Sin consumo", "aviso", `Sin consumo registrado: ${noConsumption.join(", ")}. Se pide solo lo necesario para llegar al mínimo u objetivo.`));
-    }
-    if (noSupplier.length > 0) checks.push(check("proveedor", "Sin proveedor", "aviso", `No se incluyen (no sé a quién pedirlos): ${noSupplier.join(", ")}.`));
-    if (noPack.length > 0) checks.push(check("formato", "Sin formato", "aviso", `No se incluyen (sin formato de compra): ${noPack.join(", ")}.`));
-    if (noPrice.length > 0) checks.push(check("precio", "Sin precio", "aviso", `Sin precio con ese proveedor: ${noPrice.join(", ")}. El total es aproximado.`));
     if (plan.locationOutcome === "confirmar") warnings.push("Revisa el local.");
 
     const total = orders
@@ -727,7 +771,7 @@ export class CatalogDraftBuilder {
     const described = orders.flatMap((o) => o.lines.map((l) => `${formatDecimal(l.packsQty, 2)} × ${l.packName} de ${l.productName} (${o.supplierName})`));
     const title = `Pedido para ${location.name} (${h.label}): ${count} ${count === 1 ? "producto" : "productos"} a ${orders.map((o) => o.supplierName).join(", ")}${total.gt(0) ? ` · ${formatMoney(total)}` : ""}`;
     const draft: OrderDraft = {
-      ...draftBase("pedido", title.slice(0, 300), ctx, warnings, now),
+      ...draftBase("pedido", title, ctx, warnings, now),
       kind: "pedido",
       locationId,
       locationName: location.name,
