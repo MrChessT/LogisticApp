@@ -28,12 +28,34 @@ let cache: { userId: string; value: Identity | null; at: number } | null = null;
 let inflight: Promise<Identity | null> | null = null;
 const TTL_MS = 5 * 60 * 1000;
 
+type Client = NonNullable<ReturnType<typeof createClient>>;
+
+/**
+ * El usuario de la sesión. Justo después de entrar, la sesión puede tardar un instante en estar en el
+ * navegador: antes de concluir «sin sesión» se espera al primer aviso de autenticación (como mucho 1,5 s).
+ */
+async function sessionUser(supabase: Client) {
+  const first = (await supabase.auth.getSession()).data.session?.user;
+  if (first) return first;
+  return new Promise<Awaited<ReturnType<Client["auth"]["getUser"]>>["data"]["user"] | undefined>((resolve) => {
+    const timer = setTimeout(() => {
+      sub.data.subscription.unsubscribe();
+      resolve(undefined);
+    }, 1500);
+    const sub = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) return;
+      clearTimeout(timer);
+      sub.data.subscription.unsubscribe();
+      resolve(session.user);
+    });
+  });
+}
+
 /** null: sin sesión o sin organización. */
 export async function loadIdentity(force = false): Promise<Identity | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const { data: session } = await supabase.auth.getSession();
-  const user = session.session?.user;
+  const user = await sessionUser(supabase);
   if (!user) {
     cache = null;
     return null;
