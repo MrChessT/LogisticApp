@@ -331,6 +331,12 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
 
   return (
     <>
+      <button type="button" className="copiloto-launcher" onClick={toggle} aria-label="Abrir asistente (Ctrl+K)">
+        <MessagesSquare size={18} />
+        <span>Asistente</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+
       {open && (
         <div className="copiloto-overlay" onClick={() => setOpen(false)}>
           <aside className="copiloto-panel" role="dialog" aria-label="Asistente de inventario" onClick={(event) => event.stopPropagation()}>

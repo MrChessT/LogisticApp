@@ -1,10 +1,12 @@
 "use client";
 
 // El asistente pesa (panel, borradores, gráficas): se descarga la primera vez que se abre, no en cada
-// pantalla. Se abre desde la barra superior («Asistente»), con Ctrl+K o con una pregunta desde otra pantalla.
+// pantalla. Hasta entonces solo está su botón, y Ctrl+K o una pregunta desde otra pantalla también lo cargan.
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
+import { MessagesSquare } from "lucide-react";
+import "./copiloto-launcher.css";
 
 const Copiloto = dynamic(() => import("./copiloto").then((m) => m.Copiloto), { ssr: false });
 
@@ -33,5 +35,12 @@ export function CopilotoLoader() {
   }, [start]);
 
   if (pathname?.startsWith("/login") || pathname?.startsWith("/almacen") || pathname?.startsWith("/auth/")) return null;
-  return start ? <Copiloto initial={start} /> : null;
+  if (start) return <Copiloto initial={start} />;
+  return (
+    <button type="button" className="copiloto-launcher" onClick={() => setStart({})} aria-label="Abrir asistente (Ctrl+K)">
+      <MessagesSquare size={18} />
+      <span>Asistente</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+  );
 }

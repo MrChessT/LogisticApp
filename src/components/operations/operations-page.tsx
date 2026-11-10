@@ -588,6 +588,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   async function handleCreateReceipt() {
     setFormError("");
     if (!rLocation) { setFormError("Elige un local."); return; }
+    // Sin precio no se guarda a 0 €: un 0 tapaba el precio bueno del proveedor y valoraba el stock a 0 €.
+    const unpriced = rLines.find((line) => line.packId && Number(line.qty) > 0 && line.price.trim() === "");
+    if (unpriced) { setFormError(`Falta el precio de ${unpriced.product?.name ?? "una línea"}: escríbelo como viene en el albarán.`); return; }
     const validLines = rLines.filter((line) => line.packId && Number(line.qty) > 0 && Number(line.price) >= 0);
     if (validLines.length === 0) { setFormError("Añade al menos una línea con cantidad y precio."); return; }
 
