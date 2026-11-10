@@ -147,6 +147,11 @@ export function parseEscandalloBook(rows: string[][], kind?: "plato" | "elaborac
           // base sale del coste de la línea. g ↔ ml se toman 1:1 (aceites pesados en g con precio por litro).
           // Lo mismo si el precio va por un envase («5,29 €/Paquete») y la línea por unidades sueltas.
           const sameKind = price && ((price.dimension === "count") === (metric.dimension === "count")) && METRIC[norm(price.unitLabel)];
+          // Pieza que se corta («Pan de Molde Brioche (Rebanada)»: bruto 0,4 barras, neto 2 rebanadas, 3,43 €
+          // la barra, coste 1,37 €): si el coste cuadra con bruto × precio y el neto es mayor que el bruto
+          // (imposible en la misma unidad), el bruto está en la unidad del precio y es lo que se gasta.
+          if (sameKind && metric.dimension === "count" && price && cost !== null && cost > 0 && gross && gross < net
+            && Math.abs(gross * metric.factor * price.price - cost) <= cost * 0.02) netBase = gross * metric.factor;
           if (!sameKind && cost !== null && cost > 0 && gross) unitPrice = cost / (gross * metric.factor);
           else if (!sameKind && !(price && (price.dimension === "count") === (metric.dimension === "count"))) unitPrice = null;
         } else if (cost !== null && cost > 0 && price && price.price > 0 && gross && net) {

@@ -96,6 +96,16 @@ describe("importar escandallos", () => {
     expect(p.recipes.find((r) => r.name === "Pan con aceite")!.lines[0]).toMatchObject({ dimension: "mass", qty: 200, unitPrice: 0.005 });
   });
 
+  it("pieza que se corta: si el coste cuadra con el bruto, se gasta el bruto en la unidad del precio", () => {
+    const extra: string[][] = [
+      HEAD, ["", "Sándwich", "", "", "Tapas", "", "", "1.0", "Pax", "", "", ""], ING,
+      // 0,4 barras = 2 rebanadas, a 3,43 € la barra: 1,372 €.
+      row("Pan de Molde Brioche (Rebanada)", "", "3,43 €/Uni", 0.4, 2, "Uni", 1.372),
+    ];
+    const p = parseEscandalloBook([...book, ...extra]);
+    expect(p.recipes.find((r) => r.name === "Sándwich")!.lines[0]).toMatchObject({ product: "Pan de Molde Brioche", dimension: "count", qty: 0.4, unitPrice: 3.43, waste: 0 });
+  });
+
   it("una botella del bar usada en cocina por volumen, sin precio para convertir, va aparte «(cocina)»", () => {
     const extra: string[][] = [
       HEAD, ["", "Salsa de brandy", "", "", "Salsas", "", "", "1.0", "Kg", "", "", ""], ING,
