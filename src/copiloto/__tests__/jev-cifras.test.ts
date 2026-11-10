@@ -134,3 +134,12 @@ describe("pedir sugerencias aunque la segunda lectura dude", () => {
     expect(find(events, "clarify")).toBeDefined();
   });
 });
+
+describe("errores del catálogo", () => {
+  it.each(["que errores hay", "Revisar catálogo", "¿qué no cuadra?"])("«%s» revisa el catálogo sin preguntar", async (message) => {
+    const { agent } = makeAgent(new FakeJev([]));
+    const events = await run(agent, chat(message));
+    expect(find(events, "clarify")).toBeUndefined();
+    expect(find(events, "done")!.text).toMatch(/^Hay 1 problema que da cifras falsas/);
+  });
+});
