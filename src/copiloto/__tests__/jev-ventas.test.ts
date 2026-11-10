@@ -171,5 +171,8 @@ describe("escandallos por nombre con muchas coincidencias sueltas (medido en pro
   it("si varias tienen todo lo pedido, se listan para elegir; si es una, su ficha", async () => {
     expect(await recipe("escandallo de las croquetas")).toMatch(/^Hay \d escandallos de «croquetas»: .*Dime cuál\.$/);
     expect(await recipe("coste de las croquetas de boletus")).toMatch(/^Croquetas de boletus \(Entrantes\)/);
+    // Medido en producción: el nombre a medias («…de Wagyu» falta) y «margen» daban el resumen general.
+    expect(await recipe("margen de la croqueta de cecina")).toMatch(/^Croqueta de cecina de Wagyu \(Entrantes\)/);
+    expect(await recipe("food cost de los platos")).not.toMatch(/^No hay/);
   });
 });
