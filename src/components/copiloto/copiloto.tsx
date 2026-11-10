@@ -36,7 +36,7 @@ type Item =
 type AssistantItem = Extract<Item, { role: "assistant" }>;
 
 const ROUTE_LABELS: Record<AppRoute, string> = {
-  "/": "Resumen",
+  "/": "Panel",
   "/productos": "Productos",
   "/stock": "Stock",
   "/pedidos": "Pedidos",

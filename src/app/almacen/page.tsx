@@ -315,7 +315,7 @@ export default function AlmacenPage() {
         {kiosk ? (
           <span className="wh-brand"><Warehouse size={20} /> Almacén · {location?.name ?? "…"}</span>
         ) : (
-          <Link href="/" className="wh-back"><ArrowLeft size={18} /> Resumen</Link>
+          <Link href="/" className="wh-back"><ArrowLeft size={18} /> Panel</Link>
         )}
         {!kiosk && (ctx?.locations.length ?? 0) > 1 && (
           <select className="wh-select" value={locationId ?? ""} onChange={(e) => void loadContext(e.target.value)} aria-label="Local">
