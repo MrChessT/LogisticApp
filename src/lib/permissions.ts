@@ -13,19 +13,17 @@ export function seesCostsFor(role: string, canSeeCosts: boolean): boolean {
   return role === "owner" || role === "admin" || role === "manager" || (role === "staff" && canSeeCosts);
 }
 
-/** null mientras carga. Sin sesión o sin pertenencia: sin costes. */
+/**
+ * null mientras carga. Sin pertenencia: sin costes. Justo después de entrar, la sesión a veces aún no
+ * está en el navegador: antes eso se tomaba por «sin sesión» y la pantalla se quedaba en «Sin permiso»
+ * aunque la cuenta viera costes. Ahora se espera a que llegue la sesión.
+ */
 export function usePermissions(): Permissions | null {
   const [value, setValue] = useState<Permissions | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      const supabase = createClient();
-      const userId = (await supabase?.auth.getSession())?.data.session?.user.id ?? "";
-      // Sin sesión (pantalla de entrada): nada que consultar.
-      if (!userId) {
-        if (!cancelled) setValue({ role: "", seesCosts: false });
-        return;
-      }
+    const supabase = createClient();
+    async function load(userId: string) {
       if (cache && cache.userId === userId) {
         if (!cancelled) setValue(cache.value);
         return;
@@ -35,9 +33,18 @@ export function usePermissions(): Permissions | null {
       const perms = { role: row?.role ?? "", seesCosts: row ? seesCostsFor(row.role, row.can_see_costs === true) : false };
       cache = { userId, value: perms };
       if (!cancelled) setValue(perms);
+    }
+    const sub = supabase?.auth.onAuthStateChange((_event, session) => {
+      const id = session?.user.id;
+      if (id) void load(id);
+    });
+    void (async () => {
+      const userId = (await supabase?.auth.getSession())?.data.session?.user.id ?? "";
+      if (userId) await load(userId);
     })();
     return () => {
       cancelled = true;
+      sub?.data.subscription.unsubscribe();
     };
   }, []);
   return value;
