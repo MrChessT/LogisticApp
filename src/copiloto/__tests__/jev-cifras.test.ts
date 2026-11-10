@@ -52,7 +52,7 @@ describe("lo más caro", () => {
     expect(r.table!.rows.map((x) => x.producto)).toEqual(["Ginebra Tanqueray 70 cl", "Ron Barceló Añejo 70 cl"]);
     const wines = { ...ctx, categories: [...ctx.categories, { id: "v", name: "Vinos" }, { id: "t", name: "Tinto" }], products: ctx.products.map((p, i) => (i === 2 ? { ...p, category: "Vinos › Tinto" } : p)) };
     const tinto = await priceRanking(new FixtureInfoSource(NOW), wines, { message: "el vino tinto más caro", locationIds: all, locationsChosen: false });
-    expect(tinto.text).toMatch(/^Lo más caro en (vinos › tinto|tinto › vinos) es Ginebra Tanqueray/);
+    expect(tinto.text).toMatch(/^Lo más caro en vinos › tinto es Ginebra Tanqueray/);
   });
 
   it("sin «ve costes» no enseña precios", async () => {
