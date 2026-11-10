@@ -59,13 +59,6 @@
 }
 .shell .search-trigger:hover { border-color: var(--line-strong); }
 .shell .search-trigger kbd { margin-left: auto; padding: 1px 6px; color: var(--text-3); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; font: 500 var(--fs-xs) var(--font-sans), sans-serif; }
-.shell .assistant-trigger {
-  height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 11px;
-  color: var(--text-2); background: transparent; border: 1px solid transparent; border-radius: var(--r-md); font-size: var(--fs-md); font-weight: 500;
-}
-.shell .assistant-trigger svg { color: var(--text-3); }
-.shell .assistant-trigger:hover { color: var(--ink); background: var(--hover); }
-.shell .assistant-trigger:focus-visible, .shell .search-trigger:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 .shell .mobile-menu { display: none; }
 .shell-content { flex: 1; min-width: 0; }
 
@@ -99,9 +92,7 @@
   .topbar-section { display: block; color: var(--ink); font: 600 15px var(--font-display), sans-serif; }
   .shell .search-trigger { width: 38px; min-width: 38px; justify-content: center; padding: 0; }
   .shell .search-trigger span, .shell .search-trigger kbd { display: none; }
-  .shell .assistant-trigger { width: 38px; justify-content: center; padding: 0; }
-  .shell .assistant-trigger span { display: none; }
-}
+    }
 
 /* Almacén dentro del marco (encargados en el ordenador): su barra oscura queda bajo la del marco y sin
    «← Resumen», que ya está en el menú. En la pantalla del almacén (kiosko) no hay marco y no cambia. */

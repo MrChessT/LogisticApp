@@ -41,3 +41,8 @@
   .shell-content .operation-metrics > div, .shell-content .recipe-kpis > div, .shell-content .informes-kpi { padding: 13px 14px; }
   .shell-content .operation-metrics strong, .shell-content .recipe-kpis strong, .shell-content .informes-kpi strong { font-size: 19px; }
 }
+
+/* El botón flotante del asistente no tapa la última fila en el móvil. */
+@media (max-width: 700px) {
+  .shell-content { padding-bottom: 64px; }
+}
