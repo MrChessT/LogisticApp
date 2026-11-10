@@ -6,30 +6,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Boxes,
-  ChefHat,
-  CircleHelp,
-  ClipboardList,
-  FileSpreadsheet,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  MapPin,
-  Menu,
-  MessageSquareText,
-  Package,
-  PackageCheck,
-  Search,
-  ShoppingCart,
-  SlidersHorizontal,
-  Truck,
-  Users,
-  Warehouse,
-  X,
-  XCircle,
-  type LucideIcon,
-} from "lucide-react";
+import { Boxes, ChefHat, CircleHelp, ClipboardList, FileSpreadsheet, FileText, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareText, Package, PackageCheck, Receipt, Search, ShoppingCart, SlidersHorizontal, Truck, Users, Warehouse, X, XCircle, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { forgetIdentity, useIdentity } from "@/lib/identity";
 import { readLocation } from "@/lib/location-preference";
@@ -54,6 +31,7 @@ const SECTION: Array<[RegExp, string]> = [
   [/^\/productos/, "Productos"],
   [/^\/proveedores/, "Proveedores"],
   [/^\/escandallos/, "Escandallos"],
+  [/^\/ventas/, "Ventas"],
   [/^\/facturas/, "Facturas"],
   [/^\/informes/, "Informes"],
   [/^\/equipo/, "Equipo"],
@@ -149,6 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { label: "Productos", href: "/productos", icon: Package },
     { label: "Proveedores", href: "/proveedores", icon: Truck },
     { label: "Escandallos", href: "/escandallos", icon: ChefHat },
+    { label: "Ventas", href: "/ventas", icon: Receipt, show: manager && !!perms?.seesCosts },
     { label: "Facturas", href: "/facturas", icon: FileText, show: manager && !!perms?.seesCosts },
     { label: "Informes", href: withLocal("/informes"), icon: SlidersHorizontal, show: !!perms?.seesCosts },
     { label: "Zonas", href: "/zonas", icon: MapPin },

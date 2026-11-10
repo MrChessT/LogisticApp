@@ -270,6 +270,24 @@ export type Database = {
         Update: { status?: "pendiente" | "pagada"; paid_at?: string | null; attachment_path?: string | null };
         Relationships: [];
       };
+      sales_items: {
+        Row: { id: string; org_id: string; source: string; code: string; name: string; recipe_id: string | null; product_id: string | null; qty_per_sale: number; ignored: boolean; updated_at: string };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      sales_days: {
+        Row: { id: string; org_id: string; location_id: string; sale_date: string; source: string; file_name: string | null; total_amount: number; created_by: string | null; created_at: string };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      sales_lines: {
+        Row: { id: string; day_id: string; item_id: string; qty: number; unit_label: string | null; amount: number };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       invoice_receipts: {
         Row: { invoice_id: string; receipt_id: string };
         Insert: Record<string, never>;
@@ -864,6 +882,18 @@ export type Database = {
       team_set_costs: { Args: { p_user: string; p_value: boolean; p_org?: string | null }; Returns: undefined };
       import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
       export_catalog: { Args: { p_org: string }; Returns: Json };
+      import_sales: {
+        Args: { p_org: string; p_location: string; p_date: string; p_lines: Json; p_source?: string; p_file?: string | null; p_apply?: boolean };
+        Returns: Json;
+      };
+      link_sales_item: { Args: { p_item: string; p_recipe: string | null; p_product: string | null; p_qty: number | null; p_ignored?: boolean }; Returns: undefined };
+      sales_report: {
+        Args: { p_org: string; p_from: string; p_to: string; p_location?: string | null };
+        Returns: Array<{
+          item_id: string; code: string; name: string; link: "receta" | "producto" | "ignorado" | "sin_enlazar"; link_name: string | null;
+          qty_per_sale: number; ignored: boolean; qty: number; amount: number; unit_cost: number | null; cost: number | null; food_cost_pct: number | null;
+        }>;
+      };
       import_recipes: { Args: { p_org: string; p_payload: Json; p_apply?: boolean; p_create_missing?: boolean }; Returns: Json };
       area_moves_decide: { Args: { p_decisions: Json; p_validator?: string | null; p_pin?: string | null }; Returns: Json };
       team_remove_member: { Args: { p_user: string; p_org?: string | null }; Returns: undefined };
