@@ -43,7 +43,7 @@ export function renderTemplate(report: DecisionReport): string {
       if (o.charla === "gracias") return "¡De nada!";
       if (o.charla === "adios") return "¡Hasta luego!";
       if (o.charla === "hola") return "¡Hola! ¿Qué necesitas?";
-      return "Te respondo sobre stock, consumo, mermas, precios, proveedores, pedidos, gasto, facturas, escandallos y alérgenos, zonas, inventarios y equipo. Y te preparo mermas, traspasos, recepciones, recuentos, pedidos y cambios de precio o de mínimos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «¿qué facturas vencen esta semana?», «¿qué platos llevan gluten?» o «pasa 2 cajas de tónica del Parador a Pickles».";
+      return "Te respondo sobre stock, consumo, mermas, precios (también qué es lo más caro), proveedores, pedidos, gasto, cómo va el mes, facturas, escandallos y alérgenos, zonas, inventarios y equipo. Y te preparo mermas, traspasos, recepciones, recuentos, pedidos y cambios de precio o de mínimos para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «¿qué facturas vencen esta semana?», «¿cómo voy este mes?», «¿qué platos llevan gluten?» o «pasa 2 cajas de tónica del Parador a Pickles».";
     case "borrador": {
       const review = o.draft.checks?.filter((c) => c.status === "revisar") ?? [];
       if (review.length > 0) {

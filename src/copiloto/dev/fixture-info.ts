@@ -1,6 +1,7 @@
 // Datos de prueba (ficticios) de facturas, equipo, escandallos, zonas, inventarios y proveedores.
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
-import { AREAS, LOCATIONS } from "./fixture";
+import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
+import { AREAS, LOCATIONS, PRODUCTS } from "./fixture";
 
 const [PARADOR, PICKELS, VIVERO] = LOCATIONS.map((l) => l.id) as [string, string, string, string];
 
@@ -61,5 +62,40 @@ export class FixtureInfoSource implements InfoSource {
       { name: "Makro", contact: "Pedro", phone: "+34 600 000 001", email: null, orderDays: [1, 4], cutoff: "12:00:00", leadHours: 24, minOrder: "150", paymentTerms: "Transferencia a 30 días", locationIds: [] },
       { name: "Distribuciones Canarias", contact: null, phone: null, email: "pedidos@example.com", orderDays: [2], cutoff: null, leadHours: 48, minOrder: "0", paymentTerms: "Contado", locationIds: [PARADOR] },
     ];
+  }
+
+  /** Barceló 92,40 € la caja de 6, Tanqueray 18 € la botella, Coca-Cola 13,20 € la caja de 24, limones 6 € el saco de 5 kg. */
+  async latestPrices(): Promise<LatestPriceRaw[]> {
+    const at = `${this.day(-3)}T10:00:00Z`;
+    const pack = (n: number, i: number) => PRODUCTS[n]!.packs[i]!.id;
+    return [
+      { packId: pack(0, 1), supplierName: "Distribuciones Canarias", price: "92.40", at },
+      { packId: pack(2, 0), supplierName: "Makro", price: "18.00", at },
+      { packId: pack(3, 0), supplierName: "Bebidas del Sur", price: "13.20", at },
+      { packId: pack(7, 0), supplierName: "Makro", price: "6.00", at },
+    ];
+  }
+
+  async stockedProducts(locationIds: string[]): Promise<string[]> {
+    // Vivero solo tiene Coca-Cola y limones.
+    return locationIds.includes(VIVERO) && locationIds.length === 1 ? [PRODUCTS[3]!.id, PRODUCTS[7]!.id] : PRODUCTS.map((p) => p.id);
+  }
+
+  /** Este mes: 300 € de compras, 120 € de consumo y 30 € de merma; el mismo tramo del anterior: 200 €, 100 € y 10 €. */
+  async figureMovements(): Promise<FigureMovementRaw[]> {
+    const thisMonth = new Date(this.now.getFullYear(), this.now.getMonth(), 1, 12).toISOString();
+    const lastMonth = new Date(this.now.getFullYear(), this.now.getMonth() - 1, 1, 12).toISOString();
+    return [
+      { type: "purchase", qty: "100", unitCost: "3", occurredAt: thisMonth },
+      { type: "consumption", qty: "-60", unitCost: "2", occurredAt: thisMonth },
+      { type: "waste", qty: "-10", unitCost: "3", occurredAt: thisMonth },
+      { type: "purchase", qty: "50", unitCost: "4", occurredAt: lastMonth },
+      { type: "consumption", qty: "-50", unitCost: "2", occurredAt: lastMonth },
+      { type: "waste", qty: "-5", unitCost: "2", occurredAt: lastMonth },
+    ];
+  }
+
+  async stockTotals(): Promise<StockTotalsRaw> {
+    return { value: "4520.50", belowMin: 3, critical: 1 };
   }
 }

@@ -10,6 +10,7 @@ import { normalize, tokenize } from "../entities/normalize";
 import { formatDecimal, formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
+import { overview, priceRanking, type FiguresSource } from "./info-figures";
 
 // Datos crudos (cifras como texto) ---------------------------------------------------------
 
@@ -57,7 +58,7 @@ export interface SupplierRaw {
 }
 
 /** Lecturas que necesita cada consulta (Supabase en producción, datos de prueba en los tests). */
-export interface InfoSource {
+export interface InfoSource extends FiguresSource {
   invoices(orgId: string): Promise<InvoiceRaw[]>;
   unbilled(orgId: string): Promise<UnbilledRaw[]>;
   team(): Promise<TeamRaw[]>;
@@ -463,6 +464,10 @@ export async function runInfo(source: InfoSource, ctx: SessionContext, p: InfoPa
       return counts(source, ctx, p);
     case "query_suppliers":
       return suppliers(source, ctx, p);
+    case "query_price_ranking":
+      return { ...(await priceRanking(source, ctx, p)), route: "/productos" };
+    case "query_overview":
+      return { ...(await overview(source, ctx, p)), route: "/informes" };
   }
 }
 
@@ -481,6 +486,9 @@ const TOPICS: Array<[InfoTool, RegExp]> = [
   ["query_areas", /\b(zonas?|secciones|seccion|almacenes)\b/],
   ["query_counts", /\binventarios? (abiertos?|pendientes?|en curso|sin cerrar)\b|\bcuando (fue el ultimo inventario|se conto|contamos|contaron|hicimos el (ultimo )?inventario)\b|\bque inventarios\b|\bhay (algun )?inventario abierto\b/],
   ["query_suppliers", /\b(proveedores|condiciones de pago|dias de pedido|hora limite|pedido minimo)\b/],
+  // «¿cuál es el producto más caro?», «lo más barato que tenemos». No «¿qué está más caro que antes?» (subidas).
+  ["query_price_ranking", /\b(mas|menos) (car[oa]s?|barat[oa]s?)\b(?!.*\bque (antes|el mes|la semana|el ano|hace)\b)/],
+  ["query_overview", /\bcomo (voy|vamos|va|van|estamos|estoy|ha ido|fue)\b.*\b(mes|semana|negocio|todo|cosas)\b|\bcomo (voy|vamos)$|\b(resumen|balance|que tal) (del|de este|este|el|la|de la) (mes|semana)\b/],
 ];
 
 /**

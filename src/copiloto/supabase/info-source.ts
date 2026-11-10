@@ -2,7 +2,8 @@
 // usuario (RLS activo): lo que no puede ver vuelve vacío.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
-import { DataError } from "./client";
+import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
+import { DataError, readAll } from "./client";
 
 type Row = Record<string, unknown>;
 
@@ -110,5 +111,55 @@ export class SupabaseInfoSource implements InfoSource {
       paymentTerms: textOrNull(r.payment_terms),
       locationIds: (r.location_ids as string[] | null) ?? [],
     }));
+  }
+
+  async latestPrices(): Promise<LatestPriceRaw[]> {
+    const data = await readAll<Row>("los precios de compra", (from, to) =>
+      this.db
+        .from("supplier_prices")
+        .select("supplier_id, pack_id, last_price:last_price::text, last_price_at, supplier:suppliers(name)")
+        .not("last_price", "is", null)
+        .order("supplier_id")
+        .order("pack_id")
+        .range(from, to),
+    );
+    return data.map((r) => ({
+      packId: String(r.pack_id),
+      supplierName: (r.supplier as { name?: string } | null)?.name ?? "proveedor",
+      price: text(r.last_price),
+      at: textOrNull(r.last_price_at),
+    }));
+  }
+
+  async stockedProducts(locationIds: string[]): Promise<string[]> {
+    if (locationIds.length === 0) return [];
+    const data = await readAll<Row>("el stock", (from, to) =>
+      this.db.from("stock_balances").select("location_id, product_id").in("location_id", locationIds).gt("qty", 0).order("location_id").order("product_id").range(from, to),
+    );
+    return [...new Set(data.map((r) => String(r.product_id)))];
+  }
+
+  async figureMovements(locationIds: string[], since: string): Promise<FigureMovementRaw[]> {
+    if (locationIds.length === 0) return [];
+    const data = await readAll<Row>("los movimientos", (from, to) =>
+      this.db
+        .from("stock_movements")
+        .select("id, type, qty:qty::text, unit_cost:unit_cost::text, occurred_at")
+        .in("location_id", locationIds)
+        .in("type", ["purchase", "consumption", "waste"])
+        .gte("occurred_at", since)
+        .order("id")
+        .range(from, to),
+    );
+    return data.map((r) => ({ type: r.type as FigureMovementRaw["type"], qty: text(r.qty), unitCost: textOrNull(r.unit_cost), occurredAt: String(r.occurred_at) }));
+  }
+
+  async stockTotals(locationIds: string[] | null): Promise<StockTotalsRaw> {
+    const one = async (id: string | null) => {
+      const r = rows("el resumen del stock", await this.db.rpc("stock_summary", { p_location: id }))[0];
+      return { value: text(r?.total_value), belowMin: Number(r?.below_min_count ?? 0), critical: Number(r?.critical_count ?? 0) };
+    };
+    const parts = await Promise.all((locationIds ?? [null]).map(one));
+    return parts.reduce((a, b) => ({ value: String(Number(a.value) + Number(b.value)), belowMin: a.belowMin + b.belowMin, critical: a.critical + b.critical }));
   }
 }
