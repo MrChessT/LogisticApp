@@ -152,3 +152,24 @@ describe("locales nombrados en la vía rápida", () => {
     expect(namedLocations(LOCATIONS, "ventas del parador").map((l) => l.name)).toEqual(["Parador"]);
   });
 });
+
+describe("escandallos por nombre con muchas coincidencias sueltas (medido en producción)", () => {
+  const base = { kind: "plato", category: "Entrantes", active: true, salePrice: null, target: "30", portionCost: "2.00", foodCostPct: null, margin: null, missingPrices: 0, allergens: [] };
+  const names = ["Tarta de queso", "Queso frito", "Tabla de quesos", "Croquetas de jamón", "Croquetas de boletus", "Croqueta de cecina de Wagyu", "Croquetas de queso azul"];
+  class Many extends FixtureInfoSource {
+    override async recipes() { return names.map((name) => ({ ...base, name })) as Awaited<ReturnType<FixtureInfoSource["recipes"]>>; }
+  }
+  const recipe = async (message: string) => {
+    const { runInfo } = await import("../tools/info");
+    return (await runInfo(new Many(NOW), fixtureContext(), { tool: "query_recipes", message, locationIds: all, locationsChosen: false, productNames: [], now: NOW })).text;
+  };
+
+  it("lo que no existe lo dice, aunque una palabra suelta encaje con varias", async () => {
+    expect(await recipe("necesito saber la receta de los macarrones con queso")).toMatch(/^No hay ningún escandallo de «macarrones con queso»\. Parecidos: /);
+  });
+
+  it("si varias tienen todo lo pedido, se listan para elegir; si es una, su ficha", async () => {
+    expect(await recipe("escandallo de las croquetas")).toMatch(/^Hay \d escandallos de «croquetas»: .*Dime cuál\.$/);
+    expect(await recipe("coste de las croquetas de boletus")).toMatch(/^Croquetas de boletus \(Entrantes\)/);
+  });
+});
