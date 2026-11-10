@@ -295,7 +295,13 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
   }
 
   // Un plato o elaboración concreta.
-  const named = all.filter((r) => names(p.message, r.name) || p.productNames.some((n) => normalize(n) === normalize(r.name)));
+  let named = all.filter((r) => names(p.message, r.name) || p.productNames.some((n) => normalize(n) === normalize(r.name)));
+  if (named.length > 3) {
+    // Muchas coincidencias sueltas: si una sola tiene todas las palabras pedidas, es esa.
+    const words = tokenize(p.message).filter((w) => w.length >= 4);
+    const exact = named.filter((r) => tokenize(r.name).filter((w) => w.length >= 4).every((w) => words.some((m) => m.startsWith(w.slice(0, Math.max(4, w.length - 1))))));
+    if (exact.length === 1) named = exact;
+  }
   if (named.length === 1 || (named.length > 1 && named.length <= 3)) {
     const lines = named.map((r) => {
       const bits = [`${r.name}${r.category ? ` (${r.category})` : ""}`];
@@ -314,14 +320,24 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
   // Se pide uno por su nombre y no existe («la receta de los macarrones con queso»): se dice, con los
   // parecidos si los hay, en vez de soltar el resumen de todos.
   const asked = /\b(?:receta|escandallo|ficha(?: tecnica)?|coste|alergenos?)\s+(?:de\s+(?:la|las|los)|del|de)\s+(.+?)\s*\??$/.exec(text)?.[1];
-  if (named.length === 0 && asked && !/\b(platos?|recetas?|escandallos?|todos?|todas?|cada|mes|semana|hoy|ayer)\b/.test(asked)) {
-    const words = asked.split(" ").filter((w) => w.length >= 4);
-    const close = all.filter((r) => { const n = normalize(r.name); return words.some((w) => n.includes(w.slice(0, Math.max(4, w.length - 1)))); }).slice(0, 5);
-    return {
-      text: `No hay ningún escandallo de «${asked}».${close.length ? ` Parecidos: ${close.map((r) => r.name).join(", ")}.` : " Se crea en Escandallos o se importa desde Importar."}`,
-      route,
-      rows: 0,
-    };
+  // Aquí named está vacío o tiene más de 3 (coincidencias sueltas).
+  if (asked) {
+    if (!/\b(platos?|recetas?|escandallos?|todos?|todas?|cada|mes|semana|hoy|ayer)\b/.test(asked)) {
+      const words = asked.split(" ").filter((w) => w.length >= 4);
+      const stem = (w: string) => w.slice(0, Math.max(4, w.length - 1));
+      // Con todas sus palabras («croquetas» → las 5 croquetas): se listan para elegir. Si ninguna las
+      // tiene todas («macarrones con queso» solo encaja por «queso»), no existe; se dan las parecidas.
+      const full = all.filter((r) => { const n = normalize(r.name); return words.length > 0 && words.every((w) => n.includes(stem(w))); });
+      if (full.length > 1) {
+        return { text: `Hay ${full.length} escandallos de «${asked}»: ${full.slice(0, 10).map((r) => r.name).join(", ")}${full.length > 10 ? "…" : ""}. Dime cuál.`, route, rows: full.length };
+      }
+      const close = (named.length > 0 ? named : all.filter((r) => { const n = normalize(r.name); return words.some((w) => n.includes(stem(w))); })).slice(0, 5);
+      return {
+        text: `No hay ningún escandallo de «${asked}».${close.length ? ` Parecidos: ${close.map((r) => r.name).join(", ")}.` : " Se crea en Escandallos o se importa desde Importar."}`,
+        route,
+        rows: 0,
+      };
+    }
   }
 
   const platos = all.filter((r) => r.kind === "plato");
