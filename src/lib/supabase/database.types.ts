@@ -894,6 +894,13 @@ export type Database = {
         Args: { p_org: string; p_location: string; p_date: string; p_lines: Json; p_source?: string; p_file?: string | null; p_apply?: boolean };
         Returns: Json;
       };
+      tpv_sale_prices: {
+        Args: { p_org: string };
+        Returns: Array<{
+          recipe_id: string; recipe_name: string; category: string | null; current_price: number | null; vat_rate: number;
+          suggested_price: number; net_per_portion: number; portions_sold: number; days: number; item_name: string;
+        }>;
+      };
       remember_supplier_codes: { Args: { p_supplier: string; p_items: Json }; Returns: number };
       link_sales_item: { Args: { p_item: string; p_recipe: string | null; p_product: string | null; p_qty: number | null; p_ignored?: boolean }; Returns: undefined };
       sales_report: {

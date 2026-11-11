@@ -176,3 +176,18 @@ describe("escandallos por nombre con muchas coincidencias sueltas (medido en pro
     expect(await recipe("food cost de los platos")).not.toMatch(/^No hay/);
   });
 });
+
+describe("ingeniería de menú", () => {
+  it("«qué platos quito de la carta»: clasifica los platos con coste", async () => {
+    // Lenguado: 4 raciones, 9,50 € de margen (puzle). Croquetas: 10 raciones, 4,78 € (caballo de batalla).
+    const r = await ask("qué platos debería quitar de la carta");
+    expect(r.text).toContain("Ingeniería de menú en septiembre (2 platos con coste");
+    expect(r.text).toContain("Caballos de batalla (se venden mucho pero dejan poco: revisa ración o precio): Croquetas de jamón.");
+    expect(r.text).toContain("Puzles (dejan margen pero se venden poco: dales visibilidad): Lenguado a la menier.");
+    expect(r.text).toContain("Con 1 día de ventas es orientativo.");
+    // La tabla, por lo que aporta cada plato en total: croquetas 47,80 €, lenguado 38,00 €.
+    expect(r.table!.rows[0]).toMatchObject({ plato: "Croquetas de jamón", tipo: "Caballo de batalla" });
+  });
+
+  it.each(["ingeniería de menú", "qué platos funcionan", "cuáles son los caballos de batalla"])("«%s» → ventas", (m) => expect(infoTopicOf(m)).toBe("query_sales"));
+});

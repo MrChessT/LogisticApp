@@ -11,6 +11,7 @@ import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./escandallos.css";
 import { LoadingRows } from "@/components/ui/loading-rows";
+import { TpvPricesBanner, TpvPricesDialog, useTpvPrices } from "./tpv-prices";
 
 // Escandallos: platos y elaboraciones con su coste, food cost, margen y alérgenos. El coste sale del
 // último precio de compra (la base de datos lo calcula: recipe_costs). Los importes, solo con «ve costes».
@@ -38,6 +39,8 @@ export default function RecipesPage() {
   const perms = usePermissions();
   const seesCosts = perms?.seesCosts ?? false;
   const canEdit = perms ? ["owner", "admin", "manager"].includes(perms.role) : false;
+  const tpv = useTpvPrices(orgId, seesCosts && canEdit);
+  const [tpvOpen, setTpvOpen] = useState(false);
 
   async function reload() {
     const supabase = createClient();
@@ -130,6 +133,8 @@ export default function RecipesPage() {
           </div>
         )}
 
+        {seesCosts && canEdit && <TpvPricesBanner prices={tpv.prices} onOpen={() => setTpvOpen(true)} />}
+
         <div className="catalog-tabs">
           <button className={kind === "plato" ? "active" : undefined} onClick={() => setKind("plato")}>Platos <b>{counts.plato}</b></button>
           <button className={kind === "elaboracion" ? "active" : undefined} onClick={() => setKind("elaboracion")}>Elaboraciones <b>{counts.elaboracion}</b></button>
@@ -185,6 +190,13 @@ export default function RecipesPage() {
           <p className="recipe-footnote"><AlertTriangle size={13} /> El PVP recomendado de cada plato (en su ficha) es el que deja su food cost en el objetivo.</p>
         )}
       </div>
+      {tpvOpen && (
+        <TpvPricesDialog
+          prices={tpv.prices}
+          onClose={() => setTpvOpen(false)}
+          onApplied={() => { setTpvOpen(false); tpv.refresh(); void reload(); }}
+        />
+      )}
       {open && (
         <RecipeEditor
           recipeId={open === "new" ? null : open}

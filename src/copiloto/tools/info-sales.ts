@@ -8,6 +8,7 @@ import { normalize, tokenize } from "../entities/normalize";
 import { tokenSimilarity } from "../entities/retriever";
 import { formatDecimal, formatMoney } from "../entities/units";
 import { addDays, extractDates } from "./periods";
+import { MENU_CLASS, menuEngineering, type MenuClass } from "../../lib/menu-engineering";
 
 export interface SalesItemRaw {
   name: string;
@@ -31,6 +32,8 @@ export interface SalesSource {
 export interface SalesResult { text: string; table?: TableEvent; rows: number }
 
 const MAX_ROWS = 10;
+/** «¿qué platos quito de la carta?», «ingeniería de menú», «qué platos funcionan». */
+export const MENU_RE = /\b(ingenieria de (menu|carta)|matriz de (la )?(carta|menu)|(quitar|quito|sacar|saco|quitaria) de la carta|que platos (quito|quitar|sobran|funcionan|no funcionan|deberia quitar)|platos? (que )?(no )?funcionan|caballos? de batalla|puzles?|platos? perro|rentabilidad de la carta|analisis de (la )?carta)\b/;
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const money = (v: Decimal.Value) => formatMoney(v);
 const pct = (v: Decimal.Value) => `${formatDecimal(v, 1)} %`;
@@ -155,6 +158,43 @@ export async function sales(source: SalesSource, ctx: SessionContext, p: { messa
       text: `${plural(unlinked.length, "artículo vendido no está enlazado", "artículos vendidos no están enlazados")} ${when} (${money(amount)} sin coste). Enlázalos una vez en Ventas: pulsa el artículo y elige su plato o producto.`,
       table: tableOf([...unlinked].sort((a, b) => dec(b.amount).cmp(dec(a.amount)))),
       rows: unlinked.length,
+    };
+  }
+
+  // Ingeniería de menú: qué platos mantener, revisar, promocionar o quitar.
+  if (MENU_RE.test(text)) {
+    const analysis = menuEngineering(items.filter((i) => i.link === "receta").map((i, n) => ({
+      id: String(n), name: i.linkName ?? i.name, qty: Number(i.qty), amount: Number(i.amount), cost: i.cost === null ? null : Number(i.cost),
+    })));
+    if (analysis.rows.length === 0) {
+      return { text: `Para ver qué platos funcionan hacen falta platos vendidos ${when} con coste: enlaza los artículos del TPV a sus escandallos (y que los ingredientes tengan precio).`, rows: 0 };
+    }
+    const names = (c: MenuClass) => analysis.rows.filter((r) => r.cls === c).map((r) => r.name);
+    const part = (c: MenuClass, hint: string) => {
+      const list = names(c);
+      return list.length ? `${MENU_CLASS[c].label} (${hint}): ${list.slice(0, 4).join(", ")}${list.length > 4 ? ` y ${list.length - 4} más` : ""}.` : "";
+    };
+    const text = [
+      `Ingeniería de menú ${when} (${plural(analysis.rows.length, "plato con coste", "platos con coste")}, margen medio ${money(analysis.avgMargin)} por ración).`,
+      part("estrella", "mantener"),
+      part("caballo", "se venden mucho pero dejan poco: revisa ración o precio"),
+      part("puzle", "dejan margen pero se venden poco: dales visibilidad"),
+      part("perro", "candidatos a salir de la carta"),
+      nDays < 7 ? `Con ${plural(nDays, "día", "días")} de ventas es orientativo.` : "",
+    ].filter(Boolean).join(" ");
+    return {
+      text,
+      table: {
+        columns: [
+          { key: "plato", label: "Plato" },
+          { key: "raciones", label: "Raciones", align: "right" },
+          { key: "margen", label: "Margen/ración", align: "right" },
+          { key: "tipo", label: "Tipo" },
+        ],
+        rows: analysis.rows.slice(0, MAX_ROWS).map((r) => ({ plato: r.name, raciones: qtyText(r.qty), margen: money(r.unitMargin), tipo: MENU_CLASS[r.cls].one })),
+        ...(analysis.rows.length > MAX_ROWS ? { more: analysis.rows.length - MAX_ROWS } : {}),
+      },
+      rows: analysis.rows.length,
     };
   }
 
