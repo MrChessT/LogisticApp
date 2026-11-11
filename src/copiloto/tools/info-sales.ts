@@ -80,6 +80,15 @@ export function salesPeriod(message: string, now: Date): SalesPeriod {
     const d = iso(n <= now.getDate() ? new Date(now.getFullYear(), now.getMonth(), n) : new Date(now.getFullYear(), now.getMonth() - 1, n));
     return { from: d, to: d, label: `el ${dayText(d)}`, explicit: true };
   }
+  // «el sábado», «el martes pasado»: el último de ese día de la semana (hoy si es hoy, salvo «pasado»).
+  const weekday = /\b(domingo|lunes|martes|miercoles|jueves|viernes|sabado)( pasado)?\b/.exec(text);
+  if (weekday) {
+    const target = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"].indexOf(weekday[1]!);
+    let back = (now.getDay() - target + 7) % 7;
+    if (back === 0 && weekday[2]) back = 7;
+    const d = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - back));
+    return { from: d, to: d, label: `el ${weekday[1] === "miercoles" ? "miércoles" : weekday[1] === "sabado" ? "sábado" : weekday[1]} ${dayText(d)}`, explicit: true };
+  }
   const named = MONTHS.findIndex((m) => new RegExp(`\\b${m}\\b`).test(text));
   if (named >= 0) {
     // «octubre» en noviembre es el de este año; «diciembre» en enero, el del año pasado.

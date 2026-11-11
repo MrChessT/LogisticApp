@@ -17,14 +17,16 @@ describe("¿depende de lo hablado?", () => {
     ["¿y cuánto se vendió de eso ayer?", "fuerte"],
     ["¿a cuánto la compramos?", "fuerte"],
     ["¿quién nos la trae?", "fuerte"],
-    ["lo mismo pero en ventas", "fuerte"],
+    ["lo mismo pero en ventas", "debil"],
+    ["¿cuánto le debemos?", "fuerte"],
+    ["¿qué alérgenos tiene?", "debil"],
     ["¿y el food cost de ese plato?", "fuerte"],
     ["¿y en Pickles?", "debil"],
     ["también en el Vivero", "debil"],
     ["¿cómo voy esta semana?", null],
     ["este mes cuánto he gastado", null],
     ["stock de ron en La Oliva", null],
-    ["¿cuánta tónica queda?", null],
+    ["¿cuánta tónica queda en el Parador hoy?", null],
   ])("«%s» → %s", (message, expected) => expect(contextReference(message)).toBe(expected));
 });
 
