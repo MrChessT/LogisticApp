@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import { AlertTriangle, ArrowRight, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, MessagesSquare, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { AlertTriangle, ArrowRight, Camera, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, MessagesSquare, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import Decimal from "decimal.js";
 import { decimalText, euros, parseDecimal } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import { setPendingPhoto } from "@/lib/pending-photo";
 import { cleanTranscript, FEEDBACK_CATEGORIES, transcriptSlice, type FeedbackCategory, type TranscriptEntry } from "@/lib/copilot-feedback";
 import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, Decision, DecisionEvent, DoneEvent, Draft, DraftCheck, ErrorEvent, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { ConfirmResponse } from "@/copiloto/drafts/confirm";
@@ -31,6 +32,8 @@ type Item =
       table?: TableEvent;
       actions?: ActionsEvent["actions"];
       error?: string;
+      /** Foto de un albarán leída en el chat: se revisa y registra en Nueva recepción. */
+      photo?: { file: File; read: boolean };
     };
 
 type AssistantItem = Extract<Item, { role: "assistant" }>;
@@ -146,6 +149,8 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const [items, setItems] = useState<Item[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const photoInput = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [pendingClarify, setPendingClarify] = useState<ClarifyEvent | null>(null);
   const [functionsOpen, setFunctionsOpen] = useState(false);
@@ -215,6 +220,67 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
 
   function update(id: string, patch: (item: AssistantItem) => Partial<AssistantItem>) {
     setItems((prev) => prev.map((item) => (item.id === id && item.role === "assistant" ? { ...item, ...patch(item) } : item)));
+  }
+
+  /**
+   * Foto desde el chat: se lee aquí (en el navegador, sin subirla) y se resume. Registrar la recepción se
+   * hace en Nueva recepción, con las mismas comprobaciones que a mano: nada se guarda sin revisar.
+   */
+  async function sendPhoto(file: File) {
+    if (busy) return;
+    const assistantId = newId();
+    setBusy(true);
+    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Foto: ${file.name || "albarán"}` }, { id: assistantId, role: "assistant", text: "", pending: true }]);
+    update(assistantId, () => ({ text: "Leyendo la foto… (la primera vez tarda un poco más)" }));
+    try {
+      const { guessSupplier, readAlbaranPhoto } = await import("@/lib/albaran-ocr");
+      const result = await readAlbaranPhoto(file);
+      if (result.lines.length === 0) {
+        update(assistantId, () => ({
+          pending: false,
+          text: "No he encontrado líneas de albarán (cantidad, precio e importe) en la foto. Si es un albarán, prueba con la hoja entera, recta y con luz; o regístralo a mano en Recepciones.",
+          photo: { file, read: false },
+        }));
+        return;
+      }
+      const supabase = createClient();
+      const { data } = supabase ? await supabase.from("suppliers").select("id, name").eq("active", true) : { data: null };
+      const supplier = guessSupplier(result.texts, (data ?? []) as Array<{ id: string; name: string }>);
+      const money = (v: number) => `${v.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+      const status =
+        result.status === "cuadra"
+          ? "las líneas cuadran con el total"
+          : result.status === "parcial"
+            ? "las líneas suman la base, pero no he visto el total"
+            : "algo no cuadra: revisa las líneas antes de registrar";
+      const date = result.date ? ` del ${result.date.split("-").reverse().join("/")}` : "";
+      // Pedido enviado a ese proveedor y aún sin recibir: se avisa (es lo que llega con este albarán).
+      let order = "";
+      if (supabase && supplier) {
+        const { data: orders } = await supabase.from("purchase_orders").select("code, expected_date, locations(name)").eq("supplier_id", supplier.id).in("status", ["sent", "partial"]).order("expected_date", { ascending: true }).limit(3);
+        const list = (orders ?? []) as unknown as Array<{ code: string | null; expected_date: string | null; locations: { name: string } | null }>;
+        if (list.length === 1) {
+          const o = list[0]!;
+          order = ` Tienes un pedido pendiente a ${supplier.name}${o.code ? ` (${o.code})` : ""}${o.locations?.name ? ` para ${o.locations.name}` : ""}: comprueba que lo recibido coincide.`;
+        } else if (list.length > 1) order = ` Tienes ${list.length} pedidos pendientes a ${supplier.name}: comprueba a cuál corresponde.`;
+      }
+      update(assistantId, () => ({
+        pending: false,
+        text: `Albarán${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${date}: ${result.lines.length} ${result.lines.length === 1 ? "línea" : "líneas"} por ${money(result.linesTotal)}${result.total !== null ? `, total con IVA ${money(result.total)}` : ""}; ${status}.${order} Ábrelo para emparejar los productos, revisar y registrar la recepción.`,
+        photo: { file, read: true },
+      }));
+    } catch (err) {
+      update(assistantId, () => ({ pending: false, error: err instanceof Error && err.message ? err.message : "No se pudo leer la foto.", photo: { file, read: false } }));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openPhotoInReceipts(file: File) {
+    // El panel se cierra para dejar a la vista Nueva recepción (la conversación sigue al volver a abrirlo).
+    setOpen(false);
+    setPendingPhoto(file);
+    if (currentRoute(pathname) !== "/recepciones") router.push("/recepciones");
   }
 
   /** `display`: lo que se enseña como mensaje del usuario (el menú de funciones manda un atajo). */
@@ -429,6 +495,13 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                         ))}
                       </div>
                     )}
+                    {item.photo && (
+                      <div className="copiloto-actions">
+                        <button type="button" onClick={() => item.photo && openPhotoInReceipts(item.photo.file)}>
+                          {item.photo.read ? "Revisar y registrar la recepción" : "Registrar en Recepciones"}
+                        </button>
+                      </div>
+                    )}
                     {item.navigate && (
                       <a className="copiloto-link" href={hrefFor(item.navigate)}>
                         Ver en {ROUTE_LABELS[item.navigate.route]} <ArrowRight size={13} />
@@ -471,6 +544,27 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
               >
                 <LayoutGrid size={16} />
               </button>
+              <button
+                type="button"
+                className="copiloto-functions-toggle"
+                onClick={() => photoInput.current?.click()}
+                disabled={busy}
+                aria-label="Enviar una foto"
+                title="Foto de un albarán"
+              >
+                <Camera size={16} />
+              </button>
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void sendPhoto(file);
+                }}
+              />
               <input
                 ref={inputRef}
                 value={input}

@@ -342,7 +342,7 @@ export class Agent {
         data: { messageId, intent: intentDecision, decisions: decisions.filter((d) => d.id !== "intent"), shortcut },
       });
 
-      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft, skipGeneral });
+      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft, skipGeneral, ...(understoodAs ? { understoodAs } : {}) });
       // Lo que se entendió va delante de la respuesta: el usuario ve cómo se ha leído su mensaje.
       if (understoodAs) {
         const said = `Entiendo: «${understoodAs}».`;
@@ -450,7 +450,8 @@ export class Agent {
     // La misma pregunta otra vez: lo que se escribió no la contestaba. Se dice claro qué falta, con un
     // ejemplo de respuesta, y se ofrece dejarlo (nunca se manda a otra pantalla).
     const repeated = askedRecently(env.session, plan.question);
-    const question = repeated ? `Me falta ese dato para seguir. ${plan.question}${ANSWER_HINT[plan.field] ? ` ${ANSWER_HINT[plan.field]}` : ""}` : plan.question;
+    const asked = repeated ? `Me falta ese dato para seguir. ${plan.question}${ANSWER_HINT[plan.field] ? ` ${ANSWER_HINT[plan.field]}` : ""}` : plan.question;
+    const question = env.understoodAs ? `Entiendo: «${env.understoodAs}». ${asked}` : asked;
     const options = repeated ? [...plan.options, { id: CANCEL_OPTION, label: "Déjalo", probability: null }] : plan.options;
     const clarify: ClarifyEvent = {
       clarifyId: randomUUID().slice(0, 12),
@@ -784,6 +785,8 @@ interface ExecEnv {
   message: string;
   /** La comprensión ya dijo que no es una pregunta general: no se vuelve a preguntar a la IA. */
   skipGeneral?: boolean;
+  /** Petición tal como la entendió la comprensión (se dice también al aclarar). */
+  understoodAs?: string;
   messageId: string;
   page: AppRoute;
   pageContext: ChatRequest["pageContext"];
