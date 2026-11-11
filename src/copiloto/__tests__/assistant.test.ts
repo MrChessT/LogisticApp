@@ -82,8 +82,27 @@ describe("ayudante: preguntas fuera de ámbito", () => {
 describe("ayudante: configuración", () => {
   it("se activa en Vercel (OIDC) o con clave del gateway, y se puede apagar", () => {
     expect(loadConfig({}).assist.enabled).toBe(false);
-    expect(loadConfig({ VERCEL: "1" }).assist).toMatchObject({ enabled: true, oidc: true, model: "anthropic/claude-haiku-5.5", url: "https://ai-gateway.vercel.sh" });
+    expect(loadConfig({ VERCEL: "1" }).assist).toMatchObject({ enabled: true, oidc: true, url: "https://ai-gateway.vercel.sh" });
     expect(loadConfig({ AI_GATEWAY_API_KEY: "vck" }).assist).toMatchObject({ enabled: true, oidc: false, apiKey: "vck" });
     expect(loadConfig({ VERCEL: "1", ASSIST_ENABLED: "false" }).assist.enabled).toBe(false);
+  });
+});
+
+describe("ayudante: modelos de respaldo", () => {
+  it("si el gateway no da acceso a un modelo (403), pasa al siguiente y se queda con él", async () => {
+    const denied = new FakeProvider([["x"]]);
+    denied.stream = async function* () {
+      throw new Error("LLM respondió 403: Free tier users do not have access to this model");
+    };
+    const second = new FakeProvider([["Usa primero lo que entró antes."], ["Otra vez."]]);
+    Object.defineProperty(second, "model", { value: "google/segundo" });
+    const assistant = new Assistant([denied, second], new Metrics("0"));
+    expect(await assistant.general("¿Qué es el FIFO en cocina?")).toContain("entró antes");
+    expect(assistant.model).toBe("google/segundo");
+    expect(await assistant.general("¿Y el FEFO en cocina?")).toBe("Otra vez.");
+  });
+
+  it("la lista de modelos se lee separada por comas", () => {
+    expect(loadConfig({ VERCEL: "1", ASSIST_MODEL: "a/x, b/y" }).assist.models).toEqual(["a/x", "b/y"]);
   });
 });

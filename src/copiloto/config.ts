@@ -36,7 +36,8 @@ const EnvSchema = z.object({
   // En Vercel se activa solo (token OIDC del despliegue); ASSIST_ENABLED=false lo apaga.
   ASSIST_ENABLED: bool.optional(),
   ASSIST_URL: z.string().url().default("https://ai-gateway.vercel.sh"),
-  ASSIST_MODEL: z.string().default("anthropic/claude-haiku-5.5"),
+  // Lista por orden de preferencia: si el plan del gateway no da acceso a uno (403), se pasa al siguiente.
+  ASSIST_MODEL: z.string().default("anthropic/claude-haiku-5.5,google/gemini-2.5-flash-lite,openai/gpt-5-nano,alibaba/qwen3.5-flash,google/gemma-4-31b-it"),
   ASSIST_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
 
   EMBED_PROVIDER: z.enum(["ollama", "openai", "none"]).default("ollama"),
@@ -57,7 +58,7 @@ export type Config = z.infer<typeof EnvSchema> & {
   writerUrl: string;
   embedUrl: string;
   jev: { apiKey: string | undefined; baseURL: string; model: string; via: "typesafe" | "ai-gateway"; oidc: boolean };
-  assist: { enabled: boolean; url: string; model: string; apiKey: string | undefined; oidc: boolean; timeoutMs: number };
+  assist: { enabled: boolean; url: string; models: string[]; apiKey: string | undefined; oidc: boolean; timeoutMs: number };
 };
 
 const GATEWAY_URL = "https://ai-gateway.vercel.sh/typesafe";
@@ -101,7 +102,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const assist = {
     enabled: (cfg.ASSIST_ENABLED ?? true) && (Boolean(assistKey) || onVercel),
     url: cfg.ASSIST_URL,
-    model: cfg.ASSIST_MODEL,
+    models: cfg.ASSIST_MODEL.split(",").map((m) => m.trim()).filter(Boolean),
     apiKey: assistKey,
     oidc: !assistKey && onVercel,
     timeoutMs: cfg.ASSIST_TIMEOUT_MS,
