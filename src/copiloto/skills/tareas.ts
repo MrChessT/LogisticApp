@@ -9,7 +9,7 @@
 import Decimal from "decimal.js";
 import type { NavigateEvent, TableEvent } from "../contract/index";
 import type { Pack, Product, SessionContext } from "../domain";
-import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/interpret";
+import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/plans";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
 import { isLoss } from "../../lib/exit-kinds";

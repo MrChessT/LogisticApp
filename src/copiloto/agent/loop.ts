@@ -15,7 +15,8 @@ import { DataError } from "../supabase/client";
 import type { Tools } from "../tools/tools";
 import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
-import { Interpreter, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan } from "./interpret";
+import { Interpreter } from "./interpret";
+import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, Plan } from "./plans";
 import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
@@ -34,7 +35,7 @@ import { tokenize } from "../entities/normalize";
 import { fastStockPlan } from "./fast-path";
 import { consumptionByHand, screenHelp, smallTalk, topicReply } from "./topics";
 import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
-import type { InfoPlan } from "./interpret";
+import type { InfoPlan } from "./plans";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 export type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;

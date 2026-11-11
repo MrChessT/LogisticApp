@@ -11,7 +11,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EntryType } from "@typesafe-ai/sdk";
-import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, Interpreter, type Plan } from "../agent/interpret";
+import { Interpreter } from "../agent/interpret";
+import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, type Plan } from "../agent/plans";
 import { buildRouting } from "../agent/routing";
 import { loadConfig } from "../config";
 import { fixtureContext } from "../dev/fixture";

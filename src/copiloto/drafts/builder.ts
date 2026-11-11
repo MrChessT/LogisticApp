@@ -5,7 +5,7 @@ import Decimal from "decimal.js";
 import type { CountCloseDraft, CountDraft, Draft, DraftCheck, ReceiptDraft, Role, TransferDraft, WasteDraft } from "../contract/index";
 import { hasRole, type Pack, type Product, type SessionContext } from "../domain";
 import { bareCountNeedsWeight, formatDecimal, formatMoney, formatStock, toBase, unitReadings } from "../entities/units";
-import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, ResolvedProduct } from "../agent/interpret";
+import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, ResolvedProduct } from "../agent/plans";
 import { DocumentDraftBuilder } from "./document-builder";
 import type { NavigateEvent } from "../contract/index";
 import { CatalogDraftBuilder, type Review } from "./catalog-builder";

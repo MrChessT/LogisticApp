@@ -3,7 +3,7 @@
 // varios pregunta cuál, y si no hay ninguno lo dice. El borrador solo ejecuta tras la confirmación.
 import Decimal from "decimal.js";
 import type { DocumentDraft, NavigateEvent } from "../contract/index";
-import type { DocumentPlan } from "../agent/interpret";
+import type { DocumentPlan } from "../agent/plans";
 import { hasRole, type SessionContext } from "../domain";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { formatDecimal, formatStock } from "../entities/units";

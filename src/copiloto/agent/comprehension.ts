@@ -14,7 +14,7 @@ import { tokenize } from "../entities/normalize";
 import type { StageTimer } from "../metrics/metrics";
 import { infoTopicOf } from "../tools/info";
 import type { Assistant } from "../writer/assistant";
-import type { Plan } from "./interpret";
+import type { Plan } from "./plans";
 import { contextReference, namedLocations } from "./routing";
 import type { Focus, Session } from "./session";
 import { tareaTopicOf } from "./shortcuts";

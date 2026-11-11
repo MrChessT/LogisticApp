@@ -1,7 +1,7 @@
 // Foco de la conversación: de qué se estaba hablando (productos, locales, periodo o un borrador
 // pendiente), para heredar en el siguiente mensaje lo que no diga.
 import type { Draft } from "../contract/index";
-import type { Plan } from "./interpret";
+import type { Plan } from "./plans";
 import type { ReportOutcome } from "./report";
 import type { Focus } from "./session";
 

@@ -5,7 +5,7 @@ import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
 import type { Retriever } from "../entities/retriever";
 import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, readFreeText, type FreeTextAnswer } from "./free-text";
-import type { Plan } from "./interpret";
+import type { Plan } from "./plans";
 import type { PendingClarify, Session } from "./session";
 import { resolveShortcut } from "./shortcuts";
 
