@@ -5,7 +5,7 @@
 // solo dice si allí estaba enlazado a un escandallo: aquí se importan todas las líneas, porque la venta
 // del día es la suma de todas (el «Importe» de la cabecera solo suma las enlazadas).
 
-export type SaleLine = { code: string; name: string; qty: number; unit: string; amount: number };
+type SaleLine = { code: string; name: string; qty: number; unit: string; amount: number };
 export type ParsedSales = {
   /** AAAA-MM-DD */
   date: string | null;

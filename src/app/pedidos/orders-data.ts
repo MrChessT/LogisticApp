@@ -7,8 +7,8 @@ import type { SupplierTerms } from "@/lib/supplier-terms";
 export type OrderStatus = "draft" | "sent" | "partial" | "received" | "cancelled";
 export type Role = "owner" | "admin" | "manager" | "staff";
 
-export type Location = { id: string; name: string };
-export type Supplier = { id: string; name: string; email: string | null; phone: string | null; terms: SupplierTerms };
+type Location = { id: string; name: string };
+type Supplier = { id: string; name: string; email: string | null; phone: string | null; terms: SupplierTerms };
 /** Línea de pedido. El nombre del producto y del formato vienen con la línea (no hace falta el catálogo). */
 export type OrderLine = { id?: string; packId: string; productName?: string; packName?: string; packsQty: string; packPrice: string; receivedPacks: string };
 export type Order = {

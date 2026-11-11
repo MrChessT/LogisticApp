@@ -10,19 +10,19 @@ import { photoUrl } from "@/lib/receipt-checks";
 import { EXIT_KIND_LABEL, isExitKind, isLoss, type ExitKind } from "@/lib/exit-kinds";
 
 export type OperationKind = "recepciones" | "traspasos" | "inventarios" | "mermas";
-export type StatusColor = "green" | "orange" | "purple" | "red";
+type StatusColor = "green" | "orange" | "purple" | "red";
 export type Location = { id: string; name: string };
-export type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
+type RowAction = { label: string; onClick: () => void; tone: "primary" | "secondary" | "danger" };
 
 /** Tarjeta de resumen de cada pantalla: qué se mide, la cifra y de qué periodo es. */
 export type Metric = { label: string; value: string; hint: string; tone?: "warn"; small?: boolean; money?: boolean };
 
 /** Las listas enseñan lo reciente (y lo pendiente, sea de cuando sea); las cifras, el último mes. */
-export const LIST_DAYS = 60;
-export const METRIC_DAYS = 30;
+const LIST_DAYS = 60;
+const METRIC_DAYS = 30;
 
 /** Lo que sale suele ser menos de un envase (una copa, un chupito): «150 ml» se lee mejor que «0,21 botellas». */
-export function wasteAmount(qty: number, packs: ReturnType<typeof countingPacks>) {
+function wasteAmount(qty: number, packs: ReturnType<typeof countingPacks>) {
   const pack = packs.countPack;
   if (packs.dimension !== "count" && pack && new Decimal(qty).lt(pack.qtyBase)) {
     return quantity(qty, packs.dimension === "mass" ? "g" : "ml");
@@ -30,7 +30,7 @@ export function wasteAmount(qty: number, packs: ReturnType<typeof countingPacks>
   return formatStock(qty, packs);
 }
 
-export function daysAgo(days: number) {
+function daysAgo(days: number) {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);

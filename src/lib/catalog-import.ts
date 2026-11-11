@@ -11,18 +11,18 @@
 export type Dimension = "count" | "volume" | "mass";
 export type SheetKey = "suppliers" | "products" | "assortment";
 
-export type SupplierRow = {
+type SupplierRow = {
   code?: string; name?: string; tax_id?: string; email?: string; phone?: string; contact_name?: string;
   order_days?: number[]; order_cutoff?: string; lead_time_hours?: number; min_order?: number; payment_terms?: string;
   locations?: string[];
 };
-export type ProductRow = {
+type ProductRow = {
   sku?: string; name?: string; family?: string; subfamily?: string; dimension?: Dimension; vat_rate?: number;
   count_pack?: { name: string; qty: number }; purchase_pack?: { name: string; qty: number };
   supplier?: string; price?: number; supplier_ref?: string; full_weight_g?: number; empty_weight_g?: number;
 };
-export type AssortmentRow = { location?: string; product?: string; min?: number; max?: number; zone?: string };
-export type ImportPayload = { suppliers: SupplierRow[]; products: ProductRow[]; assortment: AssortmentRow[] };
+type AssortmentRow = { location?: string; product?: string; min?: number; max?: number; zone?: string };
+type ImportPayload = { suppliers: SupplierRow[]; products: ProductRow[]; assortment: AssortmentRow[] };
 export type RowIssue = { sheet: SheetKey; row: number; label: string; message: string };
 
 export const SHEET_LABEL: Record<SheetKey, string> = { suppliers: "Proveedores", products: "Productos", assortment: "Surtido" };
@@ -105,7 +105,7 @@ const DIMENSIONS: Record<string, Dimension> = {
   peso: "mass", mass: "mass", kg: "mass", kilos: "mass", g: "mass", gramos: "mass",
 };
 
-export function parseDimension(raw: string): Dimension | null {
+function parseDimension(raw: string): Dimension | null {
   return DIMENSIONS[norm(raw)] ?? null;
 }
 

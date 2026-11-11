@@ -1,12 +1,14 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreExportsUsedInFile": true,
+  "ignoreExportsUsedInFile": false,
   "ignoreBinaries": [
     "supabase",
     "psql"
   ],
   "entry": [
-    "scripts/ocr/worker.mjs"
+    "scripts/ocr/worker.mjs",
+    "scripts/ops/*.mjs",
+    "scripts/*.mjs"
   ],
   "ignoreDependencies": [
     "@gutenye/ocr-models"

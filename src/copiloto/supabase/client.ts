@@ -15,9 +15,9 @@ export class DataError extends Error {
 }
 
 /** Filas por petición: PostgREST corta en `max_rows` (1000 en Supabase) sin avisar. */
-export const PAGE_SIZE = 1000;
+const PAGE_SIZE = 1000;
 /** Tope de filas de una lectura paginada. */
-export const MAX_ROWS = 20_000;
+const MAX_ROWS = 20_000;
 
 /**
  * Lee todas las filas de una consulta, de PAGE_SIZE en PAGE_SIZE. `page` debe ordenar por una clave

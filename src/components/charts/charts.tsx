@@ -9,7 +9,7 @@ import { Table2 } from "lucide-react";
 import type { ChartSpec } from "@/copiloto/contract";
 import "./charts.css";
 
-export const SERIES_COLORS = ["#0f8a5f", "#2a78d6", "#eb6834", "#4a3aa7"] as const;
+const SERIES_COLORS = ["#0f8a5f", "#2a78d6", "#eb6834", "#4a3aa7"] as const;
 const POSITIVE = "#2a78d6";
 const NEGATIVE = "#d03b3b";
 

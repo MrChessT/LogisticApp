@@ -38,7 +38,7 @@ import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
 import type { InfoPlan } from "./plans";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
-export type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
+type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
 
 export interface RequestScope {
   tools?: Tools;

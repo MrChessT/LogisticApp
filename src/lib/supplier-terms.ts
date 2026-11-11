@@ -43,7 +43,7 @@ function addDays(day: string, days: number): string {
 }
 
 /** 1 lunes … 7 domingo. */
-export function isoWeekday(day: string): number {
+function isoWeekday(day: string): number {
   const wd = new Date(`${day}T00:00:00Z`).getUTCDay();
   return wd === 0 ? 7 : wd;
 }

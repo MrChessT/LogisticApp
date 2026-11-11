@@ -77,7 +77,7 @@ export function makeAgent(jev: JevPort, provider: WriterProvider | null = null, 
   return { agent, metrics, audit, sessions, drafts, writer, confirmService };
 }
 
-export const SESSION_ID = "5b1a3f4e-9c2d-4e8f-a1b2-c3d4e5f6a7b8";
+const SESSION_ID = "5b1a3f4e-9c2d-4e8f-a1b2-c3d4e5f6a7b8";
 
 export function chat(message: string, extra: Partial<ChatRequest> = {}): ChatRequest {
   return { orgId: ORG_ID, sessionId: SESSION_ID, message, page: "/", ...extra };

@@ -102,7 +102,7 @@ export interface DocumentPlan {
 }
 
 /** Respuesta a un borrador pendiente desde el chat («sí, adelante», «cancélalo»). */
-export interface DraftAnswerPlan {
+interface DraftAnswerPlan {
   type: "borrador";
   action: "confirmar" | "cancelar";
   draftId: string;

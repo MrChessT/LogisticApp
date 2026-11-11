@@ -8,7 +8,7 @@
 
 export type OcrText = { text: string; box: number[][] };
 
-export type AlbaranLine = {
+type AlbaranLine = {
   /** Referencia del proveedor (su código de artículo), si la trae. */
   ref: string | null;
   description: string;

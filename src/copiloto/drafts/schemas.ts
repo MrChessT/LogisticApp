@@ -43,7 +43,7 @@ const base = z.object({
   acknowledged: z.boolean().optional(),
 });
 
-export const WasteDraftSchema = base.extend({
+const WasteDraftSchema = base.extend({
   kind: z.literal("merma"),
   locationId: id,
   locationName: z.string(),
@@ -58,7 +58,7 @@ export const WasteDraftSchema = base.extend({
   exitKind: z.enum(EXIT_KINDS),
 });
 
-export const TransferDraftSchema = base
+const TransferDraftSchema = base
   .extend({
     kind: z.literal("traspaso"),
     fromLocationId: id,
@@ -71,7 +71,7 @@ export const TransferDraftSchema = base
   })
   .refine((d) => d.fromLocationId !== d.toLocationId, "origen y destino deben ser distintos");
 
-export const ReceiptDraftSchema = base.extend({
+const ReceiptDraftSchema = base.extend({
   kind: z.literal("recepcion"),
   locationId: id,
   locationName: z.string(),
@@ -95,7 +95,7 @@ export const ReceiptDraftSchema = base.extend({
     .max(50),
 });
 
-export const CountCloseDraftSchema = base.extend({
+const CountCloseDraftSchema = base.extend({
   kind: z.literal("cierre_inventario"),
   countId: id,
   locationId: id,
@@ -122,7 +122,7 @@ export const CountCloseDraftSchema = base.extend({
   }),
 });
 
-export const PriceDraftSchema = base.extend({
+const PriceDraftSchema = base.extend({
   kind: z.literal("precio"),
   productId: id,
   productName: z.string(),
@@ -144,7 +144,7 @@ const productName = z
   .max(80, "el nombre es demasiado largo")
   .refine((v) => (v.match(/\p{L}/gu) ?? []).length >= 2, "el nombre debe tener letras");
 
-export const NewProductDraftSchema = base
+const NewProductDraftSchema = base
   .extend({
     kind: z.literal("producto_nuevo"),
     name: productName,
@@ -164,7 +164,7 @@ export const NewProductDraftSchema = base
   .refine((d) => d.price === null || d.packName !== null, "el precio necesita un formato")
   .refine((d) => d.price === null || d.supplierId !== null, "el precio necesita un proveedor");
 
-export const MinimumDraftSchema = base.extend({
+const MinimumDraftSchema = base.extend({
   kind: z.literal("minimo"),
   locationId: id,
   locationName: z.string(),
@@ -177,7 +177,7 @@ export const MinimumDraftSchema = base.extend({
   input: z.object({ amount: DecimalString, unit: z.string().min(1), packId: id.optional() }),
 });
 
-export const ArchiveDraftSchema = base.extend({
+const ArchiveDraftSchema = base.extend({
   kind: z.literal("archivar"),
   productId: id,
   productName: z.string(),
@@ -185,7 +185,7 @@ export const ArchiveDraftSchema = base.extend({
   baseUnit,
 });
 
-export const OrderDraftSchema = base.extend({
+const OrderDraftSchema = base.extend({
   kind: z.literal("pedido"),
   locationId: id,
   locationName: z.string(),
@@ -217,7 +217,7 @@ export const OrderDraftSchema = base.extend({
     .max(MAX_ORDER_SUPPLIERS),
 });
 
-export const DocumentDraftSchema = base.extend({
+const DocumentDraftSchema = base.extend({
   kind: z.literal("documento"),
   operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido"]),
   documentId: id,
@@ -227,7 +227,7 @@ export const DocumentDraftSchema = base.extend({
   receive: z.array(z.object({ packId: id, packsQty: positive, packPrice: DecimalString.nullable() })).max(40).optional(),
 });
 
-export const CountDraftSchema = base.extend({
+const CountDraftSchema = base.extend({
   kind: z.literal("conteo"),
   operation: z.enum(["abrir", "anotar"]),
   locationId: id,

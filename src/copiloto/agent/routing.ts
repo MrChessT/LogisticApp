@@ -9,7 +9,7 @@ import { tokenize } from "../entities/normalize";
 import { RESERVED_KEYS, routingQuestions, type RoutingState } from "../jev/catalog";
 import type { Turn } from "./session";
 
-export const CANDIDATES_PER_SEGMENT = 20;
+const CANDIDATES_PER_SEGMENT = 20;
 /** Como mucho estos candidatos por fragmento llegan a Jev (cada uno lleva categoría, notas y formatos). */
 const MAX_SHOWN = 12;
 
@@ -17,7 +17,7 @@ const MAX_SHOWN = 12;
  * Candidatos que merece la pena enseñar a Jev: los que se parecen al mejor (≥ 40 % de su puntuación).
  * Si uno destaca («beefeater»), va casi solo: menos tokens y menos opciones con las que dudar.
  */
-export function shortlist<C extends { score: number }>(found: C[]): C[] {
+function shortlist<C extends { score: number }>(found: C[]): C[] {
   const top = found[0]?.score ?? 0;
   return found.filter((c) => c.score >= top * 0.4).slice(0, MAX_SHOWN);
 }
@@ -28,7 +28,7 @@ const CONNECTORS = new Set(["a", "al", "de", "del", "desde", "en", "hacia", "par
  * El fragmento tal como lo ve Jev, sin nombres de local o espacio: con «6 cocas de Parador» Jev decía
  * que ningún producto encajaba (0,80); con «6 cocas», Coca-Cola.
  */
-export function withoutPlaces(text: string, placeWords: Set<string>): string {
+function withoutPlaces(text: string, placeWords: Set<string>): string {
   const words = text.split(/\s+/).filter((w) => {
     const tokens = tokenize(w);
     return tokens.length === 0 || !tokens.every((t) => placeWords.has(t));
@@ -38,7 +38,7 @@ export function withoutPlaces(text: string, placeWords: Set<string>): string {
   return kept.length > 0 ? kept : text;
 }
 
-export interface RoutingSegment {
+interface RoutingSegment {
   segment: Segment;
   /** Clave de opción Jev → producto. */
   candidates: Map<string, Product>;
@@ -73,12 +73,12 @@ const PERIOD_WORDS = new Set([
   "setiembre", "octubre", "noviembre", "diciembre", "desde", "hasta", "fecha", "fechas",
 ]);
 
-export function mentionsPeriod(message: string): boolean {
+function mentionsPeriod(message: string): boolean {
   return /\b\d{1,2}[/-]\d{1,2}\b/.test(message) || tokenize(message).some((w) => PERIOD_WORDS.has(w));
 }
 
 /** Por qué se da de baja algo: roturas, caducidad, derrames, invitaciones, errores de servicio. */
-export function mentionsReason(message: string): boolean {
+function mentionsReason(message: string): boolean {
   return /romp|\brot[oa]s?\b|caduc|derram|invit|error|equivoc|estrope|podri|venci|mal servid|se (?:ha|han) caido|cayo|tirad/.test(tokenize(message).join(" "));
 }
 

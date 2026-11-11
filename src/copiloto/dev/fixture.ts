@@ -22,7 +22,7 @@ import type {
 const id = (prefix: string, n: number) => `${prefix}-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 export const ORG_ID = id("00000000", 1);
-export const USER_ID = id("11111111", 1);
+const USER_ID = id("11111111", 1);
 
 export const LOCATIONS: Location[] = [
   { id: id("aaaaaaaa", 1), name: "Parador", timezone: "Europe/Madrid", dayCutoff: "06:00" },

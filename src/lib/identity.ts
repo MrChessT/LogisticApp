@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABEL, type Role } from "@/lib/team";
 
-export type IdentityLocation = { id: string; name: string };
+type IdentityLocation = { id: string; name: string };
 export type Identity = {
   userId: string;
   name: string;
@@ -19,7 +19,7 @@ export type Identity = {
   kiosk: boolean;
 };
 
-export function initialsOf(name: string): string {
+function initialsOf(name: string): string {
   const parts = name.split(/[\s@._-]+/).filter(Boolean);
   return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
 }

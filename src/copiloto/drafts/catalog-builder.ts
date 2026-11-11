@@ -52,7 +52,7 @@ export interface Review {
   apply(answers: Record<string, JevAnswer>, thresholds: Thresholds): ReviewResult;
 }
 
-export type ReviewResult = { kind: "ok" } | { kind: "clarify"; plan: ClarifyPlan } | { kind: "error"; message: string; navigate?: NavigateEvent };
+type ReviewResult = { kind: "ok" } | { kind: "clarify"; plan: ClarifyPlan } | { kind: "error"; message: string; navigate?: NavigateEvent };
 
 export interface CatalogBuildInput {
   plan: CatalogPlan;

@@ -45,7 +45,7 @@ export class JevError extends Error {
   }
 }
 
-export function toJevError(err: unknown): JevError {
+function toJevError(err: unknown): JevError {
   if (err instanceof JevError) return err;
   if (err instanceof AuthenticationError) return new JevError("auth", "API key de TypeSafe no válida", { cause: err });
   if (err instanceof UnprocessableEntityError) return new JevError("invalid_request", `Jev rechazó la petición: ${err.message}`, { cause: err });
@@ -56,7 +56,7 @@ export function toJevError(err: unknown): JevError {
 }
 
 /** JSON con claves ordenadas, para que la clave de caché no dependa del orden de construcción. */
-export function stableStringify(value: unknown): string {
+function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   const entries = Object.entries(value as Record<string, unknown>)
@@ -65,7 +65,7 @@ export function stableStringify(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
 }
 
-export function cacheKey(model: string, state: EntryType, questions: Questions): string {
+function cacheKey(model: string, state: EntryType, questions: Questions): string {
   return createHash("sha256")
     .update(stableStringify({ model, catalog: CATALOG_VERSION, state, questions }))
     .digest("hex");

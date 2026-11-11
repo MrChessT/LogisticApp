@@ -6,7 +6,7 @@ import { lookupProducts, purchasePack, type LookupProduct } from "@/lib/product-
 import type { Incident } from "@/lib/receipt-checks";
 
 /** Lo que decía el albarán en la foto (si la línea se leyó de una foto): se enseña y, al guardar, se recuerda. */
-export type ReadLine = { code: string | null; description: string; qty: number; unit: string | null; price: number; discountPct: number | null; amount: number; lot: string | null };
+type ReadLine = { code: string | null; description: string; qty: number; unit: string | null; price: number; discountPct: number | null; amount: number; lot: string | null };
 export type ReceiptLine = { product: LookupProduct | null; packId: string; qty: string; price: string; incident: Incident | ""; read?: ReadLine };
 
 /** Empareja cada línea leída: primero lo aprendido de este proveedor; si no, el catálogo, solo si está claro. */

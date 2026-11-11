@@ -827,7 +827,7 @@ export class Interpreter {
  * último precio (no la ficha entera), «¿cuántas botellas de Beefeater hay?» su stock, y el proveedor,
  * los formatos o el mínimo de un producto salen de su ficha. Sin productos, la consulta de Jev.
  */
-export function toolForDato(tool: Herramienta, dato: Dato, productCount: number): Herramienta {
+function toolForDato(tool: Herramienta, dato: Dato, productCount: number): Herramienta {
   if (productCount === 0) return tool;
   const lookup = tool === "query_stock" || tool === "query_product";
   if (dato === "precio" && (lookup || tool === "query_prices")) return "query_prices";

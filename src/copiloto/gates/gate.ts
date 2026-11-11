@@ -17,7 +17,7 @@ export interface ChoiceGate {
   ranked: RankedOption[];
 }
 
-export function rank(probabilities: Record<string, number>): RankedOption[] {
+function rank(probabilities: Record<string, number>): RankedOption[] {
   return Object.entries(probabilities)
     .map(([option, probability]) => ({ option, probability }))
     .sort((a, b) => b.probability - a.probability);
