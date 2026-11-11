@@ -275,3 +275,9 @@ export function wantsAreaBreakdown(message: string): boolean {
   const text = tokenize(message).join(" ");
   return /\b(cada|por|las|todas las|todos los|sus) (seccion|secciones|espacio|espacios|zona|zonas|barra|barras)\b/.test(text) || /\b(secciones|espacios|zonas)\b/.test(text);
 }
+
+/** Locales nombrados en el mensaje por sus palabras con sentido («la» de «La Oliva» no cuenta: «la caja de ayer»). */
+export function namedLocations<L extends { name: string }>(locations: readonly L[], message: string): L[] {
+  const words = new Set(tokenize(message));
+  return locations.filter((l) => tokenize(l.name).some((w) => w.length > 2 && words.has(w)));
+}

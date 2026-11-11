@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { smallTalk } from "../agent/loop";
+import { smallTalk } from "../agent/topics";
 import { chat, FakeJev, find, makeAgent, run } from "./helpers";
 
 describe("respuestas del asistente", () => {

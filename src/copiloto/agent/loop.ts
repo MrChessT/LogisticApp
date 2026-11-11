@@ -5,37 +5,34 @@ import type { AuditSink } from "../audit/audit";
 import type { AppRoute, ChatRequest, ClarifyEvent, Decision, Emit, ErrorEvent } from "../contract/index";
 import type { SessionContext } from "../domain";
 import type { Retriever } from "../entities/retriever";
-import { asNoul, asScore, gateNoulYes } from "../gates/gate";
+import { asNoul, gateNoulYes } from "../gates/gate";
 import type { Thresholds } from "../gates/thresholds";
-import { CATALOG_VERSION, evaluationQuestions, label, URGENCY_KEYS, type Intent } from "../jev/catalog";
+import { CATALOG_VERSION, evaluationQuestions, label, type Intent } from "../jev/catalog";
 import { JevError, type JevPort, type JevResult } from "../jev/client";
 import { runTarea, type TareaPlan } from "../skills/tareas";
 import { StageTimer, type Metrics } from "../metrics/metrics";
 import { DataError } from "../supabase/client";
-import { Analytics, VIEW_FOR_TOOL } from "../analytics/analytics";
-import { businessDay } from "../../lib/business-day";
-import { daysInclusive, horizon, pastPeriod } from "../tools/periods";
-import type { ToolName, Tools } from "../tools/tools";
-import { movementTypesIn, type EvalItem, type ToolParams } from "../tools/types";
+import type { Tools } from "../tools/tools";
 import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
-import { Interpreter, locationLabel, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan, type QueryPlan } from "./interpret";
+import { Interpreter, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan } from "./interpret";
 import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
-import type { DecisionReport, Evaluation, ReportOutcome } from "./report";
-import { buildRouting, contextReference, referencesPrevious, wantsAreaBreakdown, type RoutingMeta } from "./routing";
-import { activeFocus, type Focus, type PendingClarify, type Session, type SessionStore } from "./session";
+import type { DecisionReport, ReportOutcome } from "./report";
+import { buildRouting, namedLocations, type RoutingMeta } from "./routing";
+import { activeFocus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
-import type { Draft } from "../contract/index";
 import type { ConfirmResponse } from "../drafts/confirm";
 import { isShortcut, resolveShortcut, tareaTopicOf } from "./shortcuts";
-import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, operationOnly, readFreeText, type FreeTextAnswer } from "./free-text";
+import { CANCEL_OPTION, operationOnly } from "./free-text";
+import { resumeClarification } from "./clarify-answer";
+import { describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
+import { nextFocus } from "./focus";
+import { runQuery } from "./run-query";
 import { tokenize } from "../entities/normalize";
-import { reorderTable, tableFor } from "../writer/table";
-import { followUpsFor } from "./followups";
 import { fastStockPlan } from "./fast-path";
-import { consumptionByHand, screenHelp, topicReply } from "./topics";
+import { consumptionByHand, screenHelp, smallTalk, topicReply } from "./topics";
 import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
 import type { InfoPlan } from "./interpret";
 
@@ -80,28 +77,6 @@ export interface AgentDeps {
   fastPath?: boolean;
   now?: () => Date;
 }
-
-/** Máximo de ítems evaluados por Jev en la llamada nº 2. */
-const MAX_EVAL_ITEMS = 15;
-
-/** Pantalla a la que lleva cada consulta ("Ver en…"). Las que tienen gráfica van a /informes. */
-const TOOL_ROUTE: Record<ToolName, AppRoute> = {
-  query_stock: "/stock",
-  query_movements: "/informes",
-  query_prices: "/informes",
-  query_pending_transfers: "/traspasos",
-  query_count_variance: "/informes",
-  query_reorder: "/informes",
-  query_orders: "/pedidos",
-  query_spend: "/recepciones",
-  query_product: "/productos",
-  query_top_usage: "/informes",
-};
-
-/** Consultas cuya gráfica repite la tabla. */
-const CHART_REPEATS_TABLE = new Set<ToolName>(["query_stock", "query_spend"]);
-
-const DEFAULT_PERIOD: Partial<Record<ToolName, "semana" | "mes">> = { query_movements: "semana", query_spend: "mes", query_top_usage: "mes" };
 
 function errorEvent(err: unknown): ErrorEvent {
   if (err instanceof JevError) {
@@ -168,113 +143,17 @@ export class Agent {
         shortcut = true;
       }
 
-      // Respuesta a una aclaración: se reutiliza la llamada nº 1 con la decisión forzada.
-      const pending = req.clarification ? session.clarifies.get(req.clarification.clarifyId) : undefined;
-      if (pending && req.clarification) {
-        session.clarifies.delete(pending.clarifyId);
-        let option: string | null = req.clarification.optionId;
-        let typed: Extract<FreeTextAnswer, { kind: "quantity" }> | null = null;
-        let price: string | null = null;
-        let cancelled = option === CANCEL_OPTION;
-        const text = (req.clarification.freeText ?? req.message).trim();
-        if (!cancelled && (option === "otra" || !pending.optionIds.includes(option))) {
-          // Escrito a mano: primero como respuesta a esta pregunta (una opción, una cantidad o un precio).
-          const read = readFreeText(pending, text, ctx);
-          option = read.kind === "option" ? read.optionId : null;
-          if (read.kind === "quantity" && pending.routing) typed = read;
-          if (read.kind === "price") price = read.amount;
-          if (read.kind === "cancel") cancelled = true;
-          // «todos» a «¿qué traspaso ha llegado?»: se reciben de uno en uno, empezando por el primero.
-          if (option === null && pending.field === "documento" && /^(tod[oa]s|todo|ambos|ambas|los dos|las dos)\b/.test(tokenize(text).join(" ")) && pending.optionIds[0]) {
-            option = pending.optionIds[0];
-            overrides = { uno_a_uno: "1" };
-          }
-        }
-        const changes = changesOperation(text, pending);
-        if (cancelled) {
-          plan = { type: "aviso", text: "Vale, lo dejo. Dime si necesitas otra cosa." };
-          shortcut = true;
-          session.clarifies.clear();
-        }
-        const answered = (value: string) => [...(pending.answers ?? []), `${pending.field.replace(/_/g, " ")}: ${value}`].slice(-6);
-        if (cancelled) {
-          // Ya resuelto arriba.
-        } else if (price !== null && pending.routing) {
-          message = pending.message;
-          page = pending.page;
-          pageContext = pending.pageContext;
-          overrides = { ...pending.overrides, precio: price };
-          answers = answered(text);
-          reuse = pending.routing;
-        } else if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text)) {
-          // «¿Cómo se llama el producto nuevo?» → «Prueba Luis»: es el nombre, se sigue con la misma orden.
-          const { sentido: _sentido, ...rest } = pending.overrides;
-          void _sentido;
-          message = pending.message;
-          page = pending.page;
-          pageContext = pending.pageContext;
-          overrides = { ...rest, nombre: text };
-          answers = answered(text);
-          reuse = pending.routing;
-        } else if (option !== null && pending.fromShortcut) {
-          message = pending.message;
-          page = pending.page;
-          pageContext = pending.pageContext;
-          const product = ctx.products.find((p) => p.name === option);
-          plan = await resolveShortcut(pending.message, ctx, deps.retriever, pageContext?.locationId, product);
-          shortcut = true;
-        } else if ((option !== null || typed) && pending.routing) {
-          message = pending.message;
-          page = pending.page;
-          pageContext = pending.pageContext;
-          overrides = option !== null ? { ...pending.overrides, ...overrides, [overrideKey(pending, option)]: overrideValue(option) } : quantityOverrides(pending, typed!);
-          answers = answered(option !== null ? (pending.optionLabels?.[pending.optionIds.indexOf(option)] ?? text) : text);
-          reuse = pending.routing;
-        } else if (ENTITY_FIELDS.has(pending.field) && !pending.restart && !isNewQuestion(text) && !changes) {
-          // Falta un dato de la orden y no encaja con ninguna opción: se completa la orden original.
-          message = `${pending.message}. ${text}`.slice(0, 1000);
-          page = pending.page;
-          pageContext = pending.pageContext;
-          overrides = fieldOverrides(pending.overrides);
-          answers = pending.answers ?? [];
-        }
-        // Si no, lo escrito es un mensaje nuevo: la orden anterior no se arrastra.
-      } else if (req.clarification && !followUp) {
-        // La aclaración ya no está (sesión perdida o caducada). Si era el nombre de un producto nuevo, lo
-        // escrito sigue siendo ese nombre: se retoma el alta en vez de leerlo como un mensaje suelto.
-        const text = (req.clarification.freeText ?? req.message).trim();
-        console.warn("copiloto: aclaración no encontrada", { field: req.clarification.field ?? null });
-        if (req.clarification.field === "nombre" && operationOf(text) === null) {
-          message = `nuevo producto «${text.replace(/[«»"]/g, "")}»`;
-          overrides = { intent: "proponer_accion", tipo_accion: "nuevo_producto" };
-        }
+      // Respuesta a una aclaración: se retoma la orden original con lo contestado (ver clarify-answer.ts).
+      if (req.clarification && !followUp) {
+        ({ message, page, pageContext, overrides, answers, reuse, plan, shortcut } = await resumeClarification(req, session, ctx, deps.retriever, { message, page, pageContext, overrides, answers, reuse, plan, shortcut }));
       }
 
-      // Seguimiento que depende de lo hablado («¿y sus proveedores?», «¿cuánto se vendió de eso?»): antes de
-      // enrutar, la IA lo reescribe como petición completa con la conversación y el foco. Las referencias
-      // claras siempre; un «¿y…?» solo si lo cogería un atajo de palabras clave (Jev ya hereda el foco).
-      // Lo reescrito sigue el camino normal (atajos, vía rápida, Jev y umbrales); si falla, el mensaje tal cual.
+      // Seguimiento que depende de lo hablado («¿y sus proveedores?»): la IA lo completa antes de enrutar
+      // (ver comprehension.ts). Lo reescrito sigue el camino normal; si falla, el mensaje tal cual.
       let understoodAs: string | null = null;
-      const followFocus = activeFocus(session, this.now().getTime());
-      // Hace falta conversación reciente: el foco (consultas de inventario) o los últimos turnos (informes,
-      // facturas, escandallos, que no dejan foco).
-      const recent = followFocus ? !followFocus.draftId : session.turns.length > 0;
-      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !req.followUpId && recent) {
-        const reference = contextReference(message);
-        const keyword = () => Boolean(tareaTopicOf(message) ?? infoTopicOf(message) ?? topicReply(message) ?? screenHelp(message, ctx.locations.map((l) => l.name)) ?? consumptionByHand(message));
-        if (reference === "fuerte" || (reference === "debil" && keyword())) {
-          const focusText = followFocus ? describeFocus(followFocus, ctx) : "";
-          const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, ...(focusText ? { focus: focusText } : {}) }, "seguimiento"));
-          if (
-            understanding?.tipo === "datos" &&
-            tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") &&
-            groundedLocations(understanding.consulta, message, session, followFocus, ctx) &&
-            groundedProducts(understanding.consulta, [message, ...session.turns.map((t) => t.text), focusText].join(" "), ctx)
-          ) {
-            understoodAs = understanding.consulta;
-            message = understanding.consulta;
-          }
-        }
+      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !req.followUpId) {
+        understoodAs = await rewriteFollowUp(deps.assistant, message, session, activeFocus(session, this.now().getTime()), ctx, timer);
+        if (understoodAs) message = understoodAs;
       }
 
       // «merma», «registrar merma», «nuevo producto»: empieza esa operación (Jev solo pregunta lo que falte).
@@ -632,7 +511,7 @@ export class Agent {
       case "borrador":
         return this.answerDraft(plan, env);
       case "consultar":
-        return this.query(plan, env.message, ctx, emit, env.timer, env.tools, env.session);
+        return runQuery(this.deps, this.now(), plan, env.message, ctx, emit, env.timer, env.tools, env.session);
       case "tarea":
         return this.tarea(plan, env);
     }
@@ -669,147 +548,6 @@ export class Agent {
     return { kind: "tarea", tarea: result.tarea, text: result.text, rows: result.table?.rows.length ?? 0 };
   }
 
-  private async query(plan: QueryPlan, message: string, ctx: SessionContext, emit: Emit, timer: StageTimer, tools: Tools, session: Session): Promise<ReportOutcome> {
-    const now = this.now();
-    const tzLocation = ctx.locations.find((l) => l.id === plan.locationIds[0]);
-    const today = businessDay(now, tzLocation?.timezone ?? "Europe/Madrid", tzLocation?.dayCutoff ?? "06:00");
-    const fallback = DEFAULT_PERIOD[plan.tool];
-    const period = fallback || plan.periodo !== "no_indicado" ? pastPeriod(plan.periodo, today, message, fallback ?? "mes") : null;
-    const h = horizon(plan.periodo, today);
-    const params: ToolParams = {
-      locationIds: plan.locationIds,
-      areaId: plan.areaId,
-      productIds: plan.products.map((p) => p.product.id),
-      period,
-      horizonDays: h.days,
-      horizonLabel: h.label,
-      now,
-      ...(plan.tool === "query_stock" && wantsAreaBreakdown(message) ? { byArea: true } : {}),
-      ...(plan.tool === "query_movements" ? movementFilter(message, plan, session) : {}),
-    };
-
-    let result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));
-    // «¿qué hay en cada sección?» sin stock repartido por zonas: no es «no hay stock», es que no hay
-    // secciones con stock. Se dice y se enseña el total del local.
-    const noSections = params.byArea === true && result.count === 0;
-    if (noSections) result = await timer.time("herramientas", () => tools.run(plan.tool, { ...params, byArea: false }, ctx));
-    // «En tus 4 locales» ya lo dice el titular: sin avisos que lo repitan.
-    // Lo heredado («¿y en Parador?») ya se ve en el titular («Stock de Barceló en Parador»); solo
-    // «los mismos productos» (el titular dice «de 7 productos») necesita decirse.
-    const notices: string[] = [];
-    if (plan.inherited?.includes("los mismos productos")) notices.push("Sigo con los mismos productos.");
-    if (noSections) notices.push("Aún no hay stock repartido por secciones aquí (se reparte al contar por zonas); te enseño el total.");
-
-    // Lo que ya se sabe sale ya: la tabla no espera a la valoración de Jev (llamada nº 2), y la gráfica
-    // se calcula a la vez que esa valoración.
-    const evaluated = result.evalItems.length > 0;
-    const table = tableFor(result, evaluated, plan.dato);
-    if (table) await emit({ event: "table", data: table });
-
-    // «¿cuánto ron hay en el Parador?» y allí no queda: dónde sí hay, en vez de solo «no hay».
-    let elsewhere: string[] | undefined;
-    if (plan.tool === "query_stock" && result.count === 0 && plan.locationIds.length === 1 && plan.products.length > 0 && ctx.locations.length > 1) {
-      const all = await timer.time("herramientas", () => tools.run("query_stock", { ...params, locationIds: ctx.locations.map((l) => l.id), areaId: null, byArea: false }, ctx));
-      if (all.count > 0) {
-        const places = new Set(all.rows.flatMap((r) => String(r.desglose ?? r.local ?? "").split(" · ").map((part) => part.replace(/\s+\d.*$/, "").trim())).filter(Boolean));
-        elsewhere = ctx.locations.map((l) => l.name).filter((name) => places.has(name));
-        const other = tableFor(all, false, plan.dato);
-        if (other) await emit({ event: "table", data: other });
-        // Con un solo producto no hay tabla: el reparto va en el texto.
-        else elsewhere = [...elsewhere, ...all.rows.map((r) => `— ${r.producto}: ${r.desglose ?? r.cantidad}`)];
-      }
-    }
-
-    const scope = {
-      locales: plan.locationIds.map((id) => locationLabel(ctx, id)),
-      espacio: plan.areaId ? ctx.areas.find((a) => a.id === plan.areaId)?.name ?? null : null,
-      productos: plan.products.map((p) => p.product.name),
-      periodo: plan.tool === "query_reorder" ? h.label : period?.label ?? null,
-      ...(plan.familia ? { familia: plan.familia } : {}),
-    };
-
-    // Gráfica calculada por el código (decimal.js), solo si añade algo a la tabla: el stock y el gasto
-    // por proveedor serían las mismas cifras en barras (y así se ahorra su consulta).
-    const days = period ? daysInclusive(period.from, period.to) : 30;
-    const chartPromise =
-      table && CHART_REPEATS_TABLE.has(plan.tool)
-        ? Promise.resolve(null)
-        : timer
-            .time("herramientas", () =>
-              new Analytics(tools.source).chartForTool(
-                plan.tool,
-                { ctx, locationIds: plan.locationIds, productIds: plan.products.map((p) => p.product.id), days: Math.max(days, 7), now },
-                h.days,
-              ),
-            )
-            .catch(() => null);
-    const [evaluations, chart] = await Promise.all([timer.time("jev2", () => this.evaluate(result.evalItems, message, h.label)), chartPromise]);
-    if (evaluated && evaluations === null) notices.push("No he podido valorar la urgencia; te muestro los datos tal cual.");
-    // Reposición: en tabla, ya ordenada por la urgencia que ha valorado Jev.
-    const reorder = !table ? reorderTable(result, evaluations ?? []) : null;
-    if (reorder) await emit({ event: "table", data: reorder });
-    if (chart) await emit({ event: "chart", data: chart });
-
-    const route = TOOL_ROUTE[plan.tool];
-    await emit({
-      event: "navigate",
-      data: {
-        route,
-        filters: {
-          ...(route === "/informes" ? { view: params.movementTypes?.includes("waste") ? "mermas" : VIEW_FOR_TOOL[plan.tool], days: Math.max(days, 7) } : {}),
-          ...(plan.locationIds.length === 1 ? { locationId: plan.locationIds[0]! } : {}),
-          ...(plan.areaId ? { areaId: plan.areaId } : {}),
-          ...(plan.products.length === 1 ? { productId: plan.products[0]!.product.id } : {}),
-          ...(plan.tool === "query_pending_transfers" ? { status: "in_transit" } : {}),
-        },
-        auto: false,
-      },
-    });
-
-    // Botones para seguir («Precios», «Consumo del mes», «Ficha»…): se ejecutan sin Jev.
-    const followUps = followUpsFor(plan, result.rows.some((r) => r.bajo_minimo === true)).map((f) => ({ ...f, id: randomUUID().slice(0, 12) }));
-    if (followUps.length > 0 && result.count > 0) {
-      this.deps.sessions.setFollowUps(session, followUps);
-      await emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
-    }
-
-    return {
-      kind: "consulta",
-      tool: plan.tool,
-      scope,
-      result,
-      evaluations: evaluations ?? [],
-      notices,
-      ...(table || reorder ? { tabulated: true } : {}),
-      ...(plan.dato ? { dato: plan.dato } : {}),
-      ...(elsewhere?.length ? { elsewhere } : {}),
-    };
-  }
-
-  /** Llamada nº 2: Jev juzga las cifras calculadas. Devuelve null si Jev falla (se degrada sin valoración). */
-  private async evaluate(items: EvalItem[], request: string, horizonLabel: string): Promise<Evaluation[] | null> {
-    if (items.length === 0) return [];
-    const selected = items.slice(0, MAX_EVAL_ITEMS);
-    const state = { request, horizon: horizonLabel, items: selected.map((i) => i.data) };
-    try {
-      const { answers } = await this.deps.jev.evaluate(state, evaluationQuestions(selected.map((i) => i.kind), false));
-      return selected.map((item, i) => {
-        const relevance = asNoul(answers[`${item.kind}_${i}`])?.noul ?? 0;
-        const urgency = asScore(answers[`urgencia_${i}`]);
-        const level = Math.max(0, Math.min(3, Math.round(urgency?.score ?? 0)));
-        return {
-          kind: item.kind,
-          data: item.data,
-          relevance,
-          urgency: URGENCY_KEYS[level]!,
-          urgencyScore: urgency?.score ?? 0,
-          confidence: urgency?.confidence ?? 0,
-        };
-      });
-    } catch {
-      return null;
-    }
-  }
 }
 
 interface ExecEnv {
@@ -838,95 +576,6 @@ interface ExecEnv {
   confirmDraft?: ConfirmDraft;
 }
 
-function overrideKey(pending: PendingClarify, option: string): string {
-  const i = pending.segmentIndex ?? 0;
-  if (pending.field === "producto") return `producto_${i}`;
-  if (pending.field === "cantidad") return option.startsWith("pack:") ? `unidad_${i}` : `cantidad_ok_${i}`;
-  return pending.field;
-}
-
-function overrideValue(option: string): string {
-  return option.startsWith("pack:") ? option.slice(5) : option;
-}
-
-/** Cantidad escrita a mano: sustituye a la del mensaje (y a la confirmación o el formato anteriores). */
-function quantityOverrides(pending: PendingClarify, typed: { amount: string; unit: string | null }): Record<string, string> {
-  const i = pending.segmentIndex ?? 0;
-  const { [`cantidad_ok_${i}`]: _ok, [`unidad_${i}`]: _pack, [`unidad_texto_${i}`]: _unit, ...rest } = pending.overrides;
-  void _ok;
-  void _pack;
-  void _unit;
-  return { ...rest, [`cantidad_${i}`]: typed.amount, ...(typed.unit ? { [`unidad_texto_${i}`]: typed.unit } : {}) };
-}
-
-/** Saludo, agradecimiento o despedida corta («gracias!», «buenas», «hasta luego»). */
-export function smallTalk(message: string): "hola" | "gracias" | "adios" | undefined {
-  const words = tokenize(message);
-  if (words.length === 0 || words.length > 5) return undefined;
-  const text = words.join(" ");
-  if (/^(muchas |mil )?gracias\b|^(genial|perfecto|vale|ok|estupendo)( muchas)? gracias\b|^thanks?\b/.test(text)) return "gracias";
-  if (/^(adios|hasta luego|hasta manana|chao|nos vemos|bye)\b/.test(text)) return "adios";
-  if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|ey)\b/.test(text)) return "hola";
-  return undefined;
-}
-
-/**
- * Tipos de movimiento: los que nombra el mensaje o, si continúa el anterior («¿y en el Vivero?» tras
- * «¿cuántas mermas en La Oliva?»), los de ese mensaje.
- */
-function movementFilter(message: string, plan: QueryPlan, session: Session): { movementTypes?: ToolParams["movementTypes"] } {
-  const own = movementTypesIn(message);
-  if (own.length > 0) return { movementTypes: own };
-  if (!plan.inherited?.length && !referencesPrevious(message)) return {};
-  const previous = [...session.turns].reverse().find((t) => t.role === "user");
-  const types = previous ? movementTypesIn(previous.text) : [];
-  return types.length > 0 ? { movementTypes: types } : {};
-}
-
-/** Productos y locales que menciona un borrador (para heredarlos en el siguiente mensaje). */
-function draftRefs(draft: Draft): { locationIds: string[]; productIds: string[] } {
-  const d = draft as unknown as Record<string, unknown>;
-  const locationIds = [d.locationId, d.fromLocationId].filter((v): v is string => typeof v === "string");
-  const lines = (Array.isArray(d.lines) ? d.lines : Array.isArray(d.orders) ? (d.orders as Array<{ lines: unknown[] }>).flatMap((o) => o.lines) : []) as Array<{ productId?: string }>;
-  const productIds = [d.productId, ...lines.map((l) => l.productId)].filter((v): v is string => typeof v === "string");
-  return { locationIds, productIds: [...new Set(productIds)] };
-}
-
-/** Foco tras responder: lo consultado o propuesto. Aclaraciones y charla no lo cambian. */
-function nextFocus(plan: Plan, outcome: ReportOutcome, previous: Focus | undefined, now: number): Focus | undefined {
-  if (outcome.kind === "consulta" && plan.type === "consultar") {
-    return {
-      kind: "consulta",
-      tool: plan.tool,
-      locationIds: plan.locationsDefaulted ? [] : plan.locationIds,
-      productIds: plan.products.map((p) => p.product.id),
-      periodo: plan.periodo,
-      at: now,
-    };
-  }
-  if (outcome.kind === "resuelto") {
-    // El borrador ya no está pendiente; el tema sigue siendo lo que trataba.
-    if (!previous) return undefined;
-    const { draftId: _draftId, draftTitle: _draftTitle, ...rest } = previous;
-    void _draftId;
-    void _draftTitle;
-    return { ...rest, at: now };
-  }
-  if (outcome.kind === "borrador") {
-    return {
-      kind: "borrador",
-      accion: outcome.draft.kind,
-      ...draftRefs(outcome.draft),
-      periodo: "no_indicado",
-      draftId: outcome.draft.draftId,
-      draftTitle: outcome.draft.title,
-      at: now,
-    };
-  }
-  // Tras una aclaración, una navegación o una charla, lo anterior sigue siendo el tema.
-  return previous ? { ...previous, at: previous.at } : undefined;
-}
-
 /** ¿Se hizo esta misma pregunta en los últimos turnos del asistente? (bucle de aclaraciones) */
 function askedRecently(session: Session, question: string): boolean {
   const recent = session.turns.filter((t) => t.role === "assistant").slice(-3);
@@ -945,12 +594,6 @@ const ANSWER_HINT: Partial<Record<ClarifyPlan["field"], string>> = {
   documento: "Elige uno de la lista.",
 };
 
-/** Locales nombrados en el mensaje por sus palabras con sentido («la» de «La Oliva» no cuenta: «la caja de ayer»). */
-export function namedLocations<L extends { name: string }>(locations: readonly L[], message: string): L[] {
-  const words = new Set(tokenize(message));
-  return locations.filter((l) => tokenize(l.name).some((w) => w.length > 2 && words.has(w)));
-}
-
 /** Intención de un plan resuelto sin Jev (atajos, temas, vía rápida). */
 function shortcutIntent(plan: Plan): Intent {
   return plan.type === "conversar" || plan.type === "aviso"
@@ -960,58 +603,4 @@ function shortcutIntent(plan: Plan): Intent {
       : plan.type === "tarea"
         ? "pedir_sugerencias"
         : "consultar";
-}
-
-const HELP_RE = /\b(que (sabes|puedes) hacer|que haces|como funcionas|para que sirves|ayuda|ayudame|que te puedo preguntar)\b/;
-
-/** Jev no ha entendido el mensaje: dudaba de la intención o de la consulta, o lo dio por ajeno o por charla (sin ser saludo ni ayuda). */
-export function needsUnderstanding(plan: Plan, message: string): boolean {
-  if (plan.type === "clarify") return plan.field === "intent" || plan.field === "herramienta";
-  if (plan.type === "fuera_de_ambito") return true;
-  if (plan.type === "conversar") return !smallTalk(message) && !HELP_RE.test(tokenize(message).join(" "));
-  return false;
-}
-
-/** La petición reescrita se entiende ahora: ni duda la intención o la consulta, ni es charla o ajena. */
-function resolves(plan: Plan): boolean {
-  if (plan.type === "clarify") return plan.field !== "intent" && plan.field !== "herramienta";
-  return plan.type !== "conversar" && plan.type !== "fuera_de_ambito" && plan.type !== "bloqueado";
-}
-
-/** Lo último de la conversación en una línea, para la comprensión (nombres, no ids). */
-export function describeFocus(focus: Focus, ctx: SessionContext): string {
-  const all = focus.productIds.map((id) => ctx.products.find((p) => p.id === id)?.name).filter(Boolean);
-  // Pocos nombres: con una familia entera («el ron») la IA los enumeraba en vez de decir «el ron».
-  const products = all.length > 3 ? [...all.slice(0, 3), `y ${all.length - 3} más`] : all;
-  const locations = focus.locationIds.map((id) => ctx.locations.find((l) => l.id === id)?.name).filter(Boolean);
-  return [
-    focus.tool ? `consulta: ${focus.tool.replace(/^query_/, "").replace(/_/g, " ")}` : focus.accion ? `operación: ${focus.accion}` : null,
-    products.length ? `productos: ${products.join(", ")}` : null,
-    locations.length ? `locales: ${locations.join(", ")}` : null,
-    focus.periodo && focus.periodo !== "no_indicado" ? `periodo: ${focus.periodo.replace(/_/g, " ")}` : null,
-  ].filter(Boolean).join(" · ");
-}
-
-/** La reescritura no se inventa locales: los que nombra están en el mensaje, la conversación o el foco. */
-function groundedLocations(rewrite: string, message: string, session: Session, focus: Focus | undefined, ctx: SessionContext): boolean {
-  const named = namedLocations(ctx.locations, rewrite);
-  if (named.length === 0) return true;
-  const known = new Set([
-    ...namedLocations(ctx.locations, [message, ...session.turns.map((t) => t.text)].join(" ")).map((l) => l.id),
-    ...(focus?.locationIds ?? []),
-  ]);
-  return named.every((l) => known.has(l.id));
-}
-
-// Palabras de los nombres de producto que no identifican ninguno (formatos, envases, adjetivos comunes).
-const GENERIC_PRODUCT_WORDS = new Set(["caja", "cajas", "botella", "botellas", "litro", "litros", "kilo", "kilos", "unidad", "unidades", "pack", "bandeja", "garrafa", "barril", "lata", "latas", "especial", "clasica", "clasico", "original", "premium", "extra", "zero", "fresco", "fresca", "natural"]);
-
-/** La reescritura no se inventa productos: cada palabra de producto que usa está en el mensaje, la conversación o el foco. */
-export function groundedProducts(rewrite: string, source: string, ctx: SessionContext): boolean {
-  const productWords = new Set(ctx.products.flatMap((p) => tokenize(p.name)).filter((w) => w.length >= 4 && !/^\d/.test(w) && !GENERIC_PRODUCT_WORDS.has(w)));
-  const known = tokenize(source).filter((w) => w.length >= 4);
-  const stem = (w: string) => w.slice(0, 5);
-  return tokenize(rewrite)
-    .filter((w) => productWords.has(w))
-    .every((w) => known.some((k) => k === w || stem(k) === stem(w)));
 }
