@@ -21,6 +21,7 @@ export function auditRow(event: AuditEvent): Record<string, unknown> {
           jev_model: event.jevModel,
           catalog_version: event.catalogVersion,
           shortcut: event.shortcut,
+          ...(event.understoodAs ? { understood_as: event.understoodAs.slice(0, MAX_MESSAGE) } : {}),
         },
       };
     case "borrador":

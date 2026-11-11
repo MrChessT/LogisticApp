@@ -98,6 +98,27 @@ export function referencesPrevious(message: string): boolean {
   return words[0] === "y" || words.some((w) => /^(eso|esa|ese|esos|esas|ahi|alli|mismo|misma|mismos|mismas|tambien)$/.test(w));
 }
 
+const TIME_AFTER = /^(semana|mes|ano|lunes|martes|miercoles|jueves|viernes|sabado|domingo|noche|manana|tarde|finde|fin|temporada|trimestre)$/;
+
+/**
+ * ¿El mensaje depende de lo hablado antes?
+ *   fuerte: se refiere a algo anterior sin nombrarlo («¿y sus proveedores?», «¿cuánto se vendió de eso?»,
+ *           «¿a cuánto la compramos?», «lo mismo pero en ventas», «ese plato»).
+ *   debil:  continúa con «¿y…?» o «también» (lo normal es que cambie dónde o cuándo).
+ */
+export function contextReference(message: string): "fuerte" | "debil" | null {
+  const words = tokenize(message);
+  const text = words.join(" ");
+  const demonstrative = words.some((w, i) => /^(eso|esa|ese|esos|esas|esto|aquel|aquella|aquello)$/.test(w) || (/^(este|esta|estos|estas)$/.test(w) && !TIME_AFTER.test(words[i + 1] ?? "") && words[i + 1] !== undefined));
+  const strong =
+    demonstrative ||
+    words.some((w) => /^(sus?|mismo|misma|mismos|mismas|ahi|alli|alla)$/.test(w)) ||
+    /\b(me|nos|se|te) (la|lo|las|los)\b/.test(text) ||
+    /\b(la|lo|las|los|le|les) (compramos|compro|compran|pedimos|pido|piden|pagamos|pago|pagan|vendemos|vendo|venden|vendimos|tenemos|tengo|traen|trae|trajo|servimos|usamos|gastamos|gasto|pedi|compre|hemos|habeis)\b/.test(text);
+  if (strong) return "fuerte";
+  return words[0] === "y" || words.includes("tambien") ? "debil" : null;
+}
+
 /**
  * «¿y en el Parador?», «¿y el Brugal?», «y para el finde?»: cambia dónde o de qué, no qué se pregunta.
  * Si dice qué quiere saber («¿y cuánto hay?», «¿y el precio?»), ya es otra consulta.
