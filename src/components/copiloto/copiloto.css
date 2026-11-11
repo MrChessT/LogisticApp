@@ -193,3 +193,56 @@
   .copiloto-table.cards tr.flagged { background: var(--soft-orange); }
 }
 .copiloto-mark { color: var(--brand); background: var(--brand-soft); }
+
+/* Bienvenida: saludo, tres cosas para esta pantalla y lo que sabe hacer. */
+.copiloto-welcome { display: flex; flex-direction: column; gap: 10px; }
+.copiloto-welcome-head { display: flex; gap: 12px; align-items: flex-start; padding: 4px 0 6px; }
+.copiloto-welcome-head strong { display: block; font: 600 19px var(--font-display, inherit), sans-serif; letter-spacing: -.3px; color: var(--ink); }
+.copiloto-welcome-head p { margin: 3px 0 0; color: var(--muted); font-size: var(--fs-md); line-height: 1.45; }
+.copiloto-welcome-mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 12px; color: var(--green); background: var(--soft-green); }
+.copiloto-starters { display: flex; flex-direction: column; gap: 6px; }
+.copiloto-starters button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; text-align: left; font-size: var(--fs-md); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.copiloto-starters button::after { content: "→"; color: var(--green); }
+.copiloto-starters button:hover { border-color: var(--brand-line); background: var(--soft-green); }
+.copiloto-skills { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.copiloto-skills button { display: flex; gap: 9px; align-items: flex-start; padding: 11px 12px; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--green); }
+.copiloto-skills button:hover { border-color: var(--brand-line); }
+.copiloto-skills b { display: block; color: var(--ink); font-size: var(--fs-md); }
+.copiloto-skills small { display: block; margin-top: 2px; color: var(--muted); font-size: var(--fs-sm); line-height: 1.35; }
+.copiloto-skills svg { flex: none; margin-top: 2px; }
+.copiloto-welcome-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 4px; color: var(--muted); font-size: var(--fs-sm); }
+.copiloto-welcome-foot kbd, .copiloto-help code { padding: 1px 5px; font: 600 11px ui-monospace, monospace; color: var(--ink); background: var(--hover); border: 1px solid var(--line); border-radius: 5px; }
+.copiloto-alerts-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: var(--fs-sm); font-weight: 600; color: var(--orange); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 999px; }
+.copiloto-alerts-chip:hover { border-color: var(--orange); }
+.copiloto-alerts { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+
+/* Comandos «/» sobre el campo de texto. */
+.copiloto-input { position: relative; }
+.copiloto-palette { position: absolute; left: 18px; right: 18px; bottom: calc(100% + 6px); z-index: 3; max-height: min(360px, 55vh); overflow-y: auto; padding: 6px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: 0 12px 32px rgba(20, 40, 28, .16); }
+.copiloto-palette button { display: flex; width: 100%; gap: 10px; align-items: center; padding: 8px 10px; text-align: left; background: transparent; border-radius: var(--r-md); }
+.copiloto-palette button.active { background: var(--soft-green); }
+.copiloto-palette-icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 8px; color: var(--green); background: var(--hover); }
+.copiloto-palette-text { min-width: 0; font-size: var(--fs-md); color: var(--ink); }
+.copiloto-palette-text em { color: var(--muted); font-style: normal; font-size: var(--fs-sm); }
+.copiloto-palette-text small { display: block; color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.copiloto-palette-foot { margin: 4px 6px 2px; color: var(--text-3); font-size: 11px; }
+.copiloto-functions-toggle.listening { color: var(--red); border-color: var(--red); animation: copiloto-pulse 1.2s ease-in-out infinite; }
+@keyframes copiloto-pulse { 50% { box-shadow: 0 0 0 4px rgba(200, 60, 50, .15); } }
+
+/* Guía de /ayuda. */
+.copiloto-help { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.copiloto-help section { padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.copiloto-help header { display: flex; align-items: center; gap: 6px; color: var(--green); }
+.copiloto-help header b { color: var(--ink); }
+.copiloto-help p { margin: 6px 0 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.45; }
+.copiloto-help-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.copiloto-help-examples button { padding: 6px 9px; font-size: var(--fs-sm); color: var(--green); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); text-align: left; }
+.copiloto-help-examples button:hover { background: var(--soft-green); }
+.copiloto-help-commands { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; font-size: var(--fs-sm); color: var(--muted); }
+.copiloto-help-foot { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+@media (max-width: 700px) {
+  .copiloto-skills { grid-template-columns: 1fr; }
+  .copiloto-palette { left: 16px; right: 16px; }
+  /* En el móvil, el teclado ya trae el dictado. */
+  .copiloto-mic { display: none !important; }
+}

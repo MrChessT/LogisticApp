@@ -303,7 +303,10 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
     if (exact.length === 1) named = exact;
   }
   // Lo pedido por su nombre («margen de la croqueta de cecina», «receta de los macarrones con queso»).
-  const asked = /\b(?:receta|escandallo|ficha(?: tecnica)?|coste|alergenos?|margen|food ?cost|pvp|precio)\s+(?:de\s+(?:la|las|los)|del|de)\s+(.+?)\s*\??$/.exec(text)?.[1];
+  // También «¿qué alérgenos tiene el rodaballo…?», «¿qué lleva la tarta…?».
+  const asked =
+    /\b(?:receta|escandallo|ficha(?: tecnica)?|coste|alergenos?|margen|food ?cost|pvp|precio)\s+(?:de\s+(?:la|las|los)|del|de)\s+(.+?)\s*\??$/.exec(text)?.[1] ??
+    /\b(?:tiene|tienen|lleva|llevan)\s+(?:el|la|los|las)\s+(.+?)\s*\??$/.exec(text)?.[1];
   const words = asked ? asked.split(" ").filter((w) => w.length >= 4) : [];
   const stem = (w: string) => w.slice(0, Math.max(4, w.length - 1));
   const full = all.filter((r) => { const n = normalize(r.name); return words.length > 0 && words.every((w) => n.includes(stem(w))); });
