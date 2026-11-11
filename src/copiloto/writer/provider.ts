@@ -16,7 +16,8 @@ export interface WriterProvider {
 export interface ProviderOptions {
   url: string;
   model: string;
-  apiKey?: string;
+  /** Clave fija o función que la obtiene en cada petición (token OIDC de Vercel, que caduca). */
+  apiKey?: string | (() => Promise<string | undefined>);
   maxTokens: number;
   temperature: number;
   numCtx: number;
@@ -104,17 +105,15 @@ export class OpenAICompatibleProvider implements WriterProvider {
     return this.options.model;
   }
 
-  private headers(): Record<string, string> {
-    return {
-      "Content-Type": "application/json",
-      ...(this.options.apiKey ? { Authorization: `Bearer ${this.options.apiKey}` } : {}),
-    };
+  private async headers(): Promise<Record<string, string>> {
+    const key = typeof this.options.apiKey === "function" ? await this.options.apiKey() : this.options.apiKey;
+    return { "Content-Type": "application/json", ...(key ? { Authorization: `Bearer ${key}` } : {}) };
   }
 
   async *stream(messages: ChatMessages, signal: AbortSignal): AsyncIterable<string> {
     const response = await fetch(`${this.options.url}/v1/chat/completions`, {
       method: "POST",
-      headers: this.headers(),
+      headers: await this.headers(),
       signal,
       body: JSON.stringify({
         model: this.options.model,
@@ -140,7 +139,7 @@ export class OpenAICompatibleProvider implements WriterProvider {
 
   async ping(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.options.url}/v1/models`, { headers: this.headers(), signal: AbortSignal.timeout(3000) });
+      const response = await fetch(`${this.options.url}/v1/models`, { headers: await this.headers(), signal: AbortSignal.timeout(3000) });
       return response.ok;
     } catch {
       return false;

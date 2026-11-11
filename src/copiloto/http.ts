@@ -223,6 +223,30 @@ async function analytics(url: URL, user: RequestUser): Promise<Response> {
   return json({ ...result, locations: ctx.locations.map((l) => ({ id: l.id, name: l.name })) });
 }
 
+/** Resumen redactado del mismo informe (mismos permisos y filtros). text null: sin ayudante o sin resumen fiable. */
+async function analyticsSummary(url: URL, user: RequestUser): Promise<Response> {
+  const rt = runtime();
+  if (!rt.assistant.enabled) return json({ text: null });
+  const blocked = limited(rt.limiters.suggestions, `summary:${user.userId}`);
+  if (blocked) return blocked;
+  const parsed = AnalyticsQuery.safeParse(Object.fromEntries(url.searchParams));
+  if (!parsed.success) return fail(400, { code: "invalid_request", message: "Petición no válida", retryable: false });
+  const ctx = await loadContext(user);
+  if (!ctx.seesCosts) return fail(403, { code: "forbidden", message: "Tu usuario no tiene permiso para ver costes e importes.", retryable: false });
+  if (parsed.data.locationId && !ctx.locations.some((l) => l.id === parsed.data.locationId)) {
+    return fail(403, { code: "forbidden", message: "No tienes acceso a ese local", retryable: false });
+  }
+  const result = await new Analytics(scopeFor(user).tools.source).view(parsed.data.vista, {
+    ctx,
+    locationIds: parsed.data.locationId ? [parsed.data.locationId] : ctx.locations.map((l) => l.id),
+    productIds: parsed.data.productId ? [parsed.data.productId] : [],
+    days: parsed.data.dias,
+    now: new Date(),
+  });
+  const text = await rt.assistant.summary(result);
+  return json({ text });
+}
+
 const ReorderQuery = z.object({
   locationId: z.uuid(),
   dias: z.coerce
@@ -303,6 +327,7 @@ async function health(): Promise<Response> {
   const body: HealthResponse = {
     status: !jev.ok || !supabaseOk ? "caido" : (writerOk || !rt.writerProvider) && (embedOk || !rt.embedder) ? "ok" : "degradado",
     jev,
+    assistant: { enabled: rt.assistant.enabled, model: rt.assistant.enabled ? rt.config.assist.model : "-" },
     writer: { ok: writerOk, provider: rt.config.WRITER_PROVIDER, model: rt.writerProvider ? rt.config.WRITER_MODEL : "plantillas" },
     embeddings: { ok: embedOk, provider: rt.embedder ? rt.config.EMBED_PROVIDER : "lexico", model: rt.embedder ? rt.config.EMBED_MODEL : "-" },
     supabase: { ok: supabaseOk },
@@ -325,6 +350,8 @@ export async function handleCopiloto(route: string, request: Request, user: Requ
         return await suggestions(url, user);
       case "GET analytics":
         return await analytics(url, user);
+      case "GET analytics/resumen":
+        return await analyticsSummary(url, user);
       case "GET reorder":
         return await reorder(url, user);
       case "GET health":

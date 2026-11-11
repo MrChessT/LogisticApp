@@ -469,6 +469,8 @@ export interface HealthResponse {
   status: "ok" | "degradado" | "caido";
   /** error: por qué no responde Jev (camino y qué revisar), para el administrador. */
   jev: { ok: boolean; model: string | null; latencyMs: number | null; error?: string | null };
+  /** Ayudante con LLM (resumen de informes y preguntas generales). */
+  assistant: { enabled: boolean; model: string };
   writer: { ok: boolean; provider: string; model: string };
   embeddings: { ok: boolean; provider: string; model: string };
   supabase: { ok: boolean };

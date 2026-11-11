@@ -32,6 +32,13 @@ const EnvSchema = z.object({
   WRITER_KEEP_ALIVE: z.string().default("30m"),
   WRITER_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
 
+  // Ayudante con LLM (Vercel AI Gateway): resumen de informes y preguntas generales que Jev no cubre.
+  // En Vercel se activa solo (token OIDC del despliegue); ASSIST_ENABLED=false lo apaga.
+  ASSIST_ENABLED: bool.optional(),
+  ASSIST_URL: z.string().url().default("https://ai-gateway.vercel.sh"),
+  ASSIST_MODEL: z.string().default("anthropic/claude-haiku-5.5"),
+  ASSIST_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
+
   EMBED_PROVIDER: z.enum(["ollama", "openai", "none"]).default("ollama"),
   EMBED_URL: z.string().url().optional(),
   EMBED_MODEL: z.string().default("nomic-embed-text"),
@@ -50,6 +57,7 @@ export type Config = z.infer<typeof EnvSchema> & {
   writerUrl: string;
   embedUrl: string;
   jev: { apiKey: string | undefined; baseURL: string; model: string; via: "typesafe" | "ai-gateway"; oidc: boolean };
+  assist: { enabled: boolean; url: string; model: string; apiKey: string | undefined; oidc: boolean; timeoutMs: number };
 };
 
 const GATEWAY_URL = "https://ai-gateway.vercel.sh/typesafe";
@@ -87,8 +95,20 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const viaGatewayUrl = (url: string | undefined) => Boolean(url?.includes("ai-gateway.vercel.sh"));
   const writerApiKey = cfg.WRITER_API_KEY ?? (viaGatewayUrl(cfg.WRITER_URL) ? cfg.AI_GATEWAY_API_KEY : undefined);
   const embedApiKey = cfg.EMBED_API_KEY ?? (viaGatewayUrl(cfg.EMBED_URL) ? cfg.AI_GATEWAY_API_KEY : undefined);
+  // Ayudante: con clave del gateway o en Vercel (OIDC). Sin ninguna de las dos, apagado (desarrollo y tests).
+  const onVercel = cleaned.VERCEL === "1" || Boolean(cleaned.VERCEL_OIDC_TOKEN);
+  const assistKey = cfg.AI_GATEWAY_API_KEY;
+  const assist = {
+    enabled: (cfg.ASSIST_ENABLED ?? true) && (Boolean(assistKey) || onVercel),
+    url: cfg.ASSIST_URL,
+    model: cfg.ASSIST_MODEL,
+    apiKey: assistKey,
+    oidc: !assistKey && onVercel,
+    timeoutMs: cfg.ASSIST_TIMEOUT_MS,
+  };
   return {
     ...cfg,
+    assist,
     WRITER_API_KEY: writerApiKey,
     EMBED_API_KEY: embedApiKey,
     jev,

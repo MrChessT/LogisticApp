@@ -20,6 +20,7 @@ import { RateLimiter } from "./security/rate-limit";
 import { SuggestionEngine } from "./suggestions/engine";
 import type { SupabaseSettings } from "./supabase/client";
 import { OllamaProvider, OpenAICompatibleProvider, type WriterProvider } from "./writer/provider";
+import { Assistant } from "./writer/assistant";
 import { Writer } from "./writer/writer";
 
 export interface Runtime {
@@ -28,6 +29,7 @@ export interface Runtime {
   metrics: Metrics;
   jev: JevClient;
   writerProvider: WriterProvider | null;
+  assistant: Assistant;
   embedder: EmbeddingProvider | null;
   agent: Agent;
   suggestions: SuggestionEngine;
@@ -79,6 +81,16 @@ function build(): Runtime {
     config.EMBED_PROVIDER === "ollama" ? new OllamaEmbeddings(embedOptions) : config.EMBED_PROVIDER === "openai" ? new OpenAIEmbeddings(embedOptions) : null;
   const retriever: Retriever = embedder ? new HybridRetriever(embedder, metrics) : new LexicalRetriever();
 
+  // Ayudante (resumen de informes y preguntas generales) por Vercel AI Gateway.
+  const assistKey = config.assist.oidc ? () => getVercelOidcToken().catch(() => undefined) : config.assist.apiKey;
+  const assistant = new Assistant(
+    config.assist.enabled
+      ? new OpenAICompatibleProvider({ url: config.assist.url, model: config.assist.model, ...(assistKey ? { apiKey: assistKey } : {}), maxTokens: 400, temperature: 0.3, numCtx: 4096, keepAlive: "0" })
+      : null,
+    metrics,
+    config.assist.timeoutMs,
+  );
+
   const writer = new Writer(writerProvider, metrics, { timeoutMs: config.WRITER_TIMEOUT_MS, attempts: 2 });
   const audit = new ConsoleAuditSink();
   // Las peticiones reales pasan sus propios almacenes (Supabase); estos solo son el valor por defecto.
@@ -87,6 +99,7 @@ function build(): Runtime {
     jev,
     retriever,
     writer,
+    assistant,
     metrics,
     thresholds,
     sessions: new SessionStore(),
@@ -102,6 +115,7 @@ function build(): Runtime {
     metrics,
     jev,
     writerProvider,
+    assistant,
     embedder,
     agent,
     suggestions: new SuggestionEngine({ jev, writer, metrics, thresholds }),

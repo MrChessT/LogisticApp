@@ -1,4 +1,5 @@
 import { Agent } from "../agent/loop";
+import type { Assistant } from "../writer/assistant";
 import { SessionStore } from "../agent/session";
 import { LruCache } from "../cache/lru";
 import { MemoryAuditSink } from "../audit/audit";
@@ -45,7 +46,7 @@ export class FakeProvider implements WriterProvider {
 }
 
 /** fastPath: por defecto desactivada, para que los tests prueben las decisiones de Jev. */
-export function makeAgent(jev: JevPort, provider: WriterProvider | null = null, options: { fastPath?: boolean } = {}) {
+export function makeAgent(jev: JevPort, provider: WriterProvider | null = null, options: { fastPath?: boolean; assistant?: Assistant } = {}) {
   const metrics = new Metrics("0.042");
   const audit = new MemoryAuditSink();
   const sessions = new SessionStore(undefined, new LruCache(100, 60_000));
@@ -59,6 +60,7 @@ export function makeAgent(jev: JevPort, provider: WriterProvider | null = null, 
     info: new FixtureInfoSource(NOW),
     retriever: new LexicalRetriever(),
     writer: new Writer(provider, metrics, { timeoutMs: 2000, attempts: 2 }),
+    ...(options.assistant ? { assistant: options.assistant } : {}),
     metrics,
     thresholds: DEFAULT_THRESHOLDS,
     sessions,

@@ -36,6 +36,7 @@ export function renderTemplate(report: DecisionReport): string {
     case "aclaracion":
       return o.clarify.question;
     case "fuera_de_ambito":
+      if (o.general) return `${o.general}\n\nRespuesta general: no he consultado los datos de tus locales.`;
       return "Solo puedo ayudarte con el negocio: stock, compras, facturas, escandallos, inventarios, mermas, traspasos y equipo.";
     case "bloqueado":
       return "No puedo hacer eso. Pregúntame por el stock, los movimientos o las operaciones de tus locales.";

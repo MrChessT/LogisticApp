@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Sparkles } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import type { AnalyticsResponse, AnalyticsView } from "@/copiloto/contract";
 import "../productos/productos.css";
@@ -32,10 +32,26 @@ export default function InformesPage() {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Resumen redactado (llega después de las cifras; si no hay ayudante o no es fiable, no se muestra).
+  const [summary, setSummary] = useState<{ state: "cargando" | "listo"; text: string | null }>({ state: "listo", text: null });
+  const request = useRef(0);
+
+  async function loadSummary(params: URLSearchParams, id: number) {
+    setSummary({ state: "cargando", text: null });
+    try {
+      const res = await fetch(`/api/copiloto/analytics/resumen?${params.toString()}`);
+      const body = (await res.json()) as { text?: string | null };
+      if (request.current === id) setSummary({ state: "listo", text: res.ok ? (body.text ?? null) : null });
+    } catch {
+      if (request.current === id) setSummary({ state: "listo", text: null });
+    }
+  }
 
   async function load(next: { view: AnalyticsView; location: string; days: number }) {
+    const id = ++request.current;
     setLoading(true);
     setError("");
+    setSummary({ state: "listo", text: null });
     const params = new URLSearchParams({ vista: next.view, dias: String(next.days) });
     if (next.location) params.set("locationId", next.location);
     const url = new URLSearchParams({ vista: next.view, dias: String(next.days), ...(next.location ? { local: next.location } : {}) });
@@ -44,7 +60,9 @@ export default function InformesPage() {
       const res = await fetch(`/api/copiloto/analytics?${params.toString()}`);
       const body = (await res.json()) as AnalyticsResponse & { message?: string };
       if (!res.ok) throw new Error(body.message ?? "No se pudieron cargar los informes.");
+      if (request.current !== id) return;
       setData(body);
+      if (body.kpis.length > 0 || body.charts.length > 0) void loadSummary(params, id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los informes.");
     } finally {
@@ -136,6 +154,16 @@ export default function InformesPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {(summary.state === "cargando" || summary.text) && (
+            <section className="informes-summary" aria-live="polite">
+              <Sparkles size={16} aria-hidden />
+              <div>
+                <p>{summary.text ?? "Redactando el resumen…"}</p>
+                {summary.text && <small>Resumen redactado con IA a partir de estas cifras; cada número está comprobado.</small>}
+              </div>
+            </section>
           )}
 
           {!data && loading && <p className="informes-muted">Calculando…</p>}

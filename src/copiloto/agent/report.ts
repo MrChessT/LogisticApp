@@ -39,7 +39,8 @@ export type ReportOutcome =
   | { kind: "aclaracion"; clarify: ClarifyEvent }
   /** charla: saludo, despedida o agradecimiento (respuesta corta en vez de la ayuda). */
   | { kind: "conversacion"; charla?: "hola" | "gracias" | "adios" }
-  | { kind: "fuera_de_ambito" }
+  /** general: respuesta general del ayudante (sin datos del negocio), si la pregunta lo permite. */
+  | { kind: "fuera_de_ambito"; general?: string }
   | { kind: "bloqueado" }
   | { kind: "borrador"; draft: Draft }
   | { kind: "resuelto"; status: "confirmado" | "descartado"; message: string }
