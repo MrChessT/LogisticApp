@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, Camera, Check, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, MessagesSquare, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Camera, Check, Mic, MicOff, RotateCcw, CircleAlert, CircleCheck, Flag, FlaskConical, LayoutGrid, Loader2, Send, ShieldAlert, MessagesSquare, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import Decimal from "decimal.js";
 import { decimalText, euros, parseDecimal } from "@/lib/format";
@@ -13,6 +13,7 @@ import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, Decision, Decisio
 import type { ConfirmResponse } from "@/copiloto/drafts/confirm";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
 import { QuickActions } from "./quick-actions";
+import { CommandPalette, HelpCard, localCommandOf, matchCommands, Welcome, type Command, type LocalCommand } from "./assistant-home";
 import "./copiloto.css";
 
 type Item =
@@ -34,6 +35,10 @@ type Item =
       error?: string;
       /** Foto de un albarán leída en el chat: se revisa y registra en Nueva recepción. */
       photo?: { file: File; read: boolean };
+      /** Guía de /ayuda. */
+      help?: boolean;
+      /** Lista de /avisos. */
+      alerts?: Suggestion[];
     };
 
 type AssistantItem = Extract<Item, { role: "assistant" }>;
@@ -56,15 +61,6 @@ const ROUTE_LABELS: Record<AppRoute, string> = {
   "/equipo": "Equipo",
   "/zonas": "Zonas",
 };
-
-const EXAMPLES = [
-  "¿Qué me falta para el finde?",
-  "Prepara el pedido de la semana",
-  "¿Qué pedidos tengo pendientes?",
-  "¿Qué facturas vencen esta semana?",
-  "¿Qué platos llevan gluten?",
-  "El Barceló ahora cuesta 15 €",
-];
 
 const DECIMAL = /^\d+([.,]\d+)?$/;
 /** Ediciones numéricas: se normalizan a "12.5". El resto (nombre, medida) va tal cual. */
@@ -163,6 +159,14 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const sessionId = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Comandos «/»: el resaltado de la lista (se mueve con ↑ ↓). Historial de lo escrito (↑ en el campo vacío).
+  const [paletteIndex, setPaletteIndex] = useState(0);
+  const [paletteClosed, setPaletteClosed] = useState(false);
+  const history = useRef<string[]>([]);
+  const historyAt = useRef<number | null>(null);
+  // Dictado por voz (si el navegador lo tiene): lo dicho se escribe en el campo para revisarlo y enviarlo.
+  const [listening, setListening] = useState(false);
+  const recognition = useRef<{ stop: () => void } | null>(null);
 
   const loadSuggestions = useCallback(async () => {
     try {
@@ -352,10 +356,128 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
     }
   }
 
+  /** Comandos que resuelve el panel sin ir al servidor. */
+  function runLocal(command: LocalCommand) {
+    setInput("");
+    if (command === "nueva") {
+      sessionId.current = null;
+      setItems([]);
+      setPendingClarify(null);
+      void loadSuggestions();
+      return;
+    }
+    if (command === "foto") return photoInput.current?.click();
+    if (command === "funciones") return setFunctionsOpen(true);
+    const said = command === "ayuda" ? "/ayuda" : "/avisos";
+    if (command === "ayuda") {
+      setItems((prev) => [...prev, { id: newId(), role: "user", text: said }, { id: newId(), role: "assistant", text: "Esto es lo que sé hacer. Toca un ejemplo para probarlo.", pending: false, help: true }]);
+      return;
+    }
+    const list = suggestions ?? [];
+    setItems((prev) => [
+      ...prev,
+      { id: newId(), role: "user", text: said },
+      { id: newId(), role: "assistant", text: list.length ? `${list.length === 1 ? "Esto conviene revisarlo" : "Esto conviene revisarlo"} ahora:` : "Nada urgente que revisar ahora mismo.", pending: false, alerts: list },
+    ]);
+    if (suggestions === null) void loadSuggestions();
+  }
+
+  /** Enviar lo escrito, o lo de un ejemplo: los comandos del panel se resuelven aquí. */
+  function ask(text: string) {
+    const local = localCommandOf(text);
+    if (local) return runLocal(local);
+    void send(text);
+  }
+
+  function pickCommand(c: Command) {
+    setPaletteIndex(0);
+    if (c.local) return runLocal(c.local);
+    if (c.arg) {
+      // Se deja escrito para completarlo («/ficha » + producto).
+      setInput(`/${c.name} `);
+      setPaletteClosed(true);
+      inputRef.current?.focus();
+      return;
+    }
+    setInput("");
+    void send(`/${c.name}`, undefined, undefined, c.label);
+  }
+
+  function fill(text: string) {
+    setInput(text);
+    inputRef.current?.focus();
+  }
+
+  function toggleVoice() {
+    if (listening) {
+      recognition.current?.stop();
+      return;
+    }
+    type Rec = { lang: string; interimResults: boolean; continuous: boolean; start: () => void; stop: () => void; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
+    const Ctor = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.lang = "es-ES";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onresult = (e) => setInput(Array.from(e.results).map((r) => r[0]?.transcript ?? "").join(" ").trim());
+    rec.onend = () => {
+      setListening(false);
+      recognition.current = null;
+      inputRef.current?.focus();
+    };
+    rec.onerror = () => setListening(false);
+    recognition.current = rec;
+    setListening(true);
+    rec.start();
+  }
+
+  const palette = paletteClosed ? [] : matchCommands(input);
+  const voiceAvailable = typeof window !== "undefined" && Boolean((window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition);
+
+  function onInputKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (palette.length > 0) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setPaletteIndex((i) => (i + step + palette.length) % palette.length);
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        pickCommand(palette[Math.min(paletteIndex, palette.length - 1)]!);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setPaletteClosed(true);
+        return;
+      }
+    }
+    // ↑ / ↓ con el campo vacío o recorriendo el historial: lo último que se escribió.
+    if ((event.key === "ArrowUp" || event.key === "ArrowDown") && (input === "" || historyAt.current !== null) && history.current.length > 0) {
+      event.preventDefault();
+      const last = history.current.length - 1;
+      const at = historyAt.current === null ? (event.key === "ArrowUp" ? last : null) : historyAt.current + (event.key === "ArrowUp" ? -1 : 1);
+      if (at === null || at > last) {
+        historyAt.current = null;
+        setInput("");
+      } else {
+        historyAt.current = Math.max(0, at);
+        setInput(history.current[historyAt.current]!);
+      }
+    }
+  }
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const text = input.trim();
     if (!text) return;
+    history.current = [...history.current.filter((h) => h !== text), text].slice(-20);
+    historyAt.current = null;
+    const local = localCommandOf(text);
+    if (local) return runLocal(local);
     setInput("");
     // Texto libre como respuesta a una aclaración abierta.
     if (pendingClarify) void send(text, { clarifyId: pendingClarify.clarifyId, optionId: "otra", freeText: text, field: pendingClarify.field });
@@ -417,6 +539,11 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
               </div>
               <div className="copiloto-header-actions">
                 {items.length > 0 && (
+                  <button type="button" className="icon-button" onClick={() => runLocal("nueva")} aria-label="Nueva conversación" title="Nueva conversación (/nueva)">
+                    <RotateCcw size={15} />
+                  </button>
+                )}
+                {items.length > 0 && (
                   <button type="button" className="copiloto-report-all" onClick={() => setReportFor({ index: null })} title="Reportar algo de toda la conversación">
                     <Flag size={14} /> Reportar
                   </button>
@@ -433,31 +560,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
             )}
 
             <div className="copiloto-list" ref={listRef}>
-              {items.length === 0 && (
-                <div className="copiloto-empty">
-                  <p className="copiloto-section">Ahora mismo</p>
-                  {suggestions === null && <p className="copiloto-muted"><Loader2 size={14} className="copiloto-spin" /> Buscando qué revisar…</p>}
-                  {suggestions?.length === 0 && <p className="copiloto-muted">Nada urgente que revisar.</p>}
-                  {suggestions?.map((s) => (
-                    <button
-                      type="button"
-                      key={s.id}
-                      className={`copiloto-suggestion ${s.urgency}`}
-                      onClick={() => s.action && window.location.assign(hrefFor(s.action))}
-                    >
-                      <i />
-                      <span>{s.text}</span>
-                      {s.action && <ArrowRight size={14} />}
-                    </button>
-                  ))}
-                  <p className="copiloto-section">Prueba con</p>
-                  <div className="copiloto-examples">
-                    {EXAMPLES.map((example) => (
-                      <button type="button" key={example} onClick={() => void send(example)}>{example}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {items.length === 0 && <Welcome route={currentRoute(pathname)} alerts={suggestions === null ? null : suggestions.length} onAsk={ask} onFill={fill} />}
 
               {items.map((item) =>
                 item.role === "user" ? (
@@ -479,6 +582,18 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                             onClick={() => item.clarify && void send(option.label, { clarifyId: item.clarify.clarifyId, optionId: option.id })}
                           >
                             {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {item.help && <HelpCard onAsk={ask} />}
+                    {item.alerts && item.alerts.length > 0 && (
+                      <div className="copiloto-alerts">
+                        {item.alerts.map((s) => (
+                          <button type="button" key={s.id} className={`copiloto-suggestion ${s.urgency}`} onClick={() => s.action && window.location.assign(hrefFor(s.action))}>
+                            <i />
+                            <span>{s.text}</span>
+                            {s.action && <ArrowRight size={14} />}
                           </button>
                         ))}
                       </div>
@@ -534,6 +649,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
             )}
 
             <form className="copiloto-input" onSubmit={submit}>
+              <CommandPalette commands={palette} active={Math.min(paletteIndex, Math.max(0, palette.length - 1))} onPick={pickCommand} onHover={setPaletteIndex} />
               <button
                 type="button"
                 className={`copiloto-functions-toggle${functionsOpen ? " active" : ""}`}
@@ -569,16 +685,20 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                 ref={inputRef}
                 value={input}
                 onChange={(event) => {
-                  // «/» en el campo vacío abre el menú de funciones.
-                  if (event.target.value === "/" && !input) {
-                    setFunctionsOpen(true);
-                    return;
-                  }
                   setInput(event.target.value);
+                  setPaletteIndex(0);
+                  setPaletteClosed(false);
+                  historyAt.current = null;
                 }}
-                placeholder={pendingClarify ? "Responde o escribe otra cosa…" : "Pregunta o pide una operación…"}
+                onKeyDown={onInputKey}
+                placeholder={listening ? "Te escucho…" : pendingClarify ? "Responde o escribe otra cosa…" : "Pregunta, pide una operación o escribe /"}
                 maxLength={1000}
               />
+              {voiceAvailable && (
+                <button type="button" className={`copiloto-functions-toggle copiloto-mic${listening ? " active listening" : ""}`} onClick={toggleVoice} disabled={busy} aria-label={listening ? "Parar el dictado" : "Dictar"} title={listening ? "Parar" : "Dictar por voz"}>
+                  {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+              )}
               <button type="submit" className="primary-button" disabled={busy || !input.trim()} aria-label="Enviar">
                 {busy ? <Loader2 size={16} className="copiloto-spin" /> : <Send size={16} />}
               </button>
