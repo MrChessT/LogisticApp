@@ -1,0 +1,62 @@
+[
+  {
+    "nombre": "Seguimientos de stock",
+    "turnos": [
+      { "usuario": "¿cuánta tónica queda en el Parador?", "espera": "Stock de" },
+      { "usuario": "¿y en Pickles?", "espera": "Pickles", "sinAclarar": true },
+      { "usuario": "lo mismo pero en el Vivero", "espera": "Vivero", "sinAclarar": true },
+      { "usuario": "¿cuánto se gastó de eso la semana pasada?", "espera": "Entiendo: .*tónica.*semana pasada" }
+    ]
+  },
+  {
+    "nombre": "Ventas y carta",
+    "turnos": [
+      { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer " },
+      { "usuario": "¿y el sábado?", "espera": "^El sábado \\d" },
+      { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada" },
+      { "usuario": "qué plato deja más margen", "espera": "^El plato que más deja por ración" },
+      { "usuario": "cuál es el plato estrella", "espera": "estrella", "no": "platos y \\d+ elaboraciones" },
+      { "usuario": "¿y el food cost de ese plato?", "espera": "Entiendo: .*food cost", "no": "platos y \\d+ elaboraciones" }
+    ]
+  },
+  {
+    "nombre": "Cómo va el mes",
+    "turnos": [
+      { "usuario": "cómo vamos este mes", "espera": "^En \\w+ \\(del 1 al" },
+      { "usuario": "y comparado con el mes pasado?", "espera": "^Frente al mismo tramo" }
+    ]
+  },
+  {
+    "nombre": "Jerga y erratas",
+    "turnos": [
+      { "usuario": "kuanto ron ai en la oliva", "espera": "Stock de ron en La Oliva" },
+      { "usuario": "lo + caro q tenemos", "espera": "Lo más caro" },
+      { "usuario": "facturas pendientes de pagar", "espera": "Pendiente de pago|No hay facturas" },
+      { "usuario": "qué me falta pa mañana en el parador", "espera": "reponer|No falta nada" }
+    ]
+  },
+  {
+    "nombre": "Preguntas generales",
+    "turnos": [
+      { "usuario": "qué significa trabajar con FIFO en cocina", "espera": "Respuesta general", "sinAclarar": true },
+      { "usuario": "qué food cost es razonable para un restaurante", "espera": "Respuesta general", "no": "elaboraciones" },
+      { "usuario": "¿Quién ganó el mundial de 2010?", "espera": "Solo puedo ayudarte con el negocio" }
+    ]
+  },
+  {
+    "nombre": "Charla y ayuda",
+    "turnos": [
+      { "usuario": "hola", "espera": "^¡Hola!" },
+      { "usuario": "qué sabes hacer", "espera": "Te respondo sobre stock" },
+      { "usuario": "gracias crack", "espera": "De nada" }
+    ]
+  },
+  {
+    "nombre": "Cambio de tema: no arrastra el contexto",
+    "turnos": [
+      { "usuario": "¿cuánta coca-cola queda en el Vivero?", "espera": "Vivero" },
+      { "usuario": "¿qué facturas vencen esta semana?", "espera": "Pendiente de pago|No hay facturas", "no": "Entiendo" },
+      { "usuario": "¿cómo voy este mes?", "espera": "^En \\w+ \\(del 1 al", "no": "Entiendo" }
+    ]
+  }
+]

@@ -69,6 +69,13 @@ describe("reescritura de seguimientos antes de enrutar", () => {
     expect(provider.prompts).toHaveLength(0);
   });
 
+  it("una reescritura que enumera productos («A, B y 12 más») no se usa", async () => {
+    const provider = new FakeProvider([['{"tipo":"datos","consulta":"¿cuánto se gastó de Coca-Cola 20 cl y 12 más ayer?"}']]);
+    const { agent } = makeAgent(new FakeJev([STOCK]), null, { assistant: new Assistant(provider, new Metrics("0")) });
+    await run(agent, chat("¿cuánta coca-cola queda en el Vivero?"));
+    expect(text(await run(agent, chat("¿y cuánto se vendió de eso ayer?")))).not.toContain("Entiendo");
+  });
+
   it("si la reescritura se inventa un producto, se usa el mensaje tal cual", async () => {
     const provider = new FakeProvider([['{"tipo":"datos","consulta":"¿cuánta tónica se vendió ayer?"}']]);
     const { agent } = makeAgent(new FakeJev([STOCK]), null, { assistant: new Assistant(provider, new Metrics("0")) });

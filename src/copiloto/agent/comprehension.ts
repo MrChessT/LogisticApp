@@ -38,6 +38,8 @@ export async function rewriteFollowUp(assistant: Assistant, message: string, ses
   const grounded =
     understanding?.tipo === "datos" &&
     tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") &&
+    // Una lista de productos («A, B y 12 más») no es una petición que alguien escribiría.
+    !/\by \d+ mas\b/.test(tokenize(understanding.consulta).join(" ")) &&
     groundedLocations(understanding.consulta, message, session, focus, ctx) &&
     groundedProducts(understanding.consulta, [message, ...session.turns.map((t) => t.text), focusText].join(" "), ctx);
   return grounded ? understanding.consulta : null;
@@ -62,8 +64,9 @@ export function resolves(plan: Plan): boolean {
 /** Lo último de la conversación en una línea, para la comprensión (nombres, no ids). */
 export function describeFocus(focus: Focus, ctx: SessionContext): string {
   const all = focus.productIds.map((id) => ctx.products.find((p) => p.id === id)?.name).filter(Boolean);
-  // Pocos nombres: con una familia entera («el ron») la IA los enumeraba en vez de decir «el ron».
-  const products = all.length > 3 ? [...all.slice(0, 3), `y ${all.length - 3} más`] : all;
+  // Con una familia entera («el ron», «las tónicas») no se dan nombres: la IA los enumeraba en vez de
+  // decir la familia como la dijo el usuario.
+  const products = all.length > 3 ? [`${all.length} productos (los de la última consulta; nómbralos como los llamó el usuario)`] : all;
   const locations = focus.locationIds.map((id) => ctx.locations.find((l) => l.id === id)?.name).filter(Boolean);
   return [
     focus.tool ? `consulta: ${focus.tool.replace(/^query_/, "").replace(/_/g, " ")}` : focus.accion ? `operación: ${focus.accion}` : null,
