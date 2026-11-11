@@ -65,6 +65,9 @@ function pick(kind: AnalyticsResponse["charts"][number]["kind"], points: Point[]
 }
 
 export class Assistant {
+  /** Último motivo por el que no hubo texto (para /health; sin datos del usuario). */
+  lastError: string | null = null;
+
   constructor(
     private readonly provider: WriterProvider | null,
     private readonly metrics: Metrics,
@@ -81,7 +84,9 @@ export class Assistant {
     const view = summaryView(report);
     const text = await this.complete(SUMMARY_PROMPT, `<informe>\n${JSON.stringify(view)}\n</informe>`, MAX_SUMMARY);
     if (!text) return this.miss();
-    if (!verifyNumbers(text, allowedNumbers(view)).ok) {
+    const check = verifyNumbers(text, allowedNumbers(view));
+    if (!check.ok) {
+      this.lastError = `resumen descartado: cifras no presentes en el informe (${check.unknown.slice(0, 5).join(", ")})`;
       this.metrics.writer.regenerado += 1;
       return this.miss();
     }
@@ -111,11 +116,20 @@ export class Assistant {
       let out = "";
       for await (const delta of this.provider!.stream({ system, user }, controller.signal)) {
         out += delta;
-        if (out.length > max + 200) return null;
+        if (out.length > max + 200) {
+          this.lastError = "respuesta demasiado larga";
+          return null;
+        }
       }
       const text = out.trim();
-      return text.length > 0 && text.length <= max ? text : null;
-    } catch {
+      if (text.length === 0 || text.length > max) {
+        this.lastError = text.length === 0 ? "respuesta vacía" : "respuesta demasiado larga";
+        return null;
+      }
+      this.lastError = null;
+      return text;
+    } catch (err) {
+      this.lastError = controller.signal.aborted ? `sin respuesta en ${this.timeoutMs} ms` : err instanceof Error ? err.message.slice(0, 200) : "error";
       return null;
     } finally {
       clearTimeout(timer);
