@@ -59,6 +59,8 @@ export interface AgentDeps {
   tools?: Tools;
   retriever: Retriever;
   writer: Writer;
+  /** Aviso de un fallo no previsto al procesar un mensaje (en producción, el registro de errores). */
+  onError?: (err: unknown) => void;
   /** Preguntas generales fuera de ámbito (LLM sin datos). Opcional: sin él, respuesta fija. */
   assistant?: Assistant;
   metrics: Metrics;
@@ -423,6 +425,8 @@ export class Agent {
             });
       await audit.catch(() => undefined);
     } catch (err) {
+      // El usuario ve un mensaje; el fallo se registra para poder arreglarlo (ver lib/report-error).
+      this.deps.onError?.(err);
       await emit({ event: "error", data: errorEvent(err) });
     }
   }
