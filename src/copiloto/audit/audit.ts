@@ -15,6 +15,8 @@ export type AuditEvent =
       jevModel: string | null;
       catalogVersion: string;
       shortcut: boolean;
+      /** La comprensión reescribió el mensaje: lo que se entendió (message es lo que dijo el usuario). */
+      understoodAs?: string;
     }
   | { type: "borrador"; at: string; userId: string; orgId: string; messageId: string; draftId: string; kind: string; coherence: number }
   | { type: "confirmacion"; at: string; userId: string; orgId: string; draftId: string; kind: string; ok: boolean; code?: string }

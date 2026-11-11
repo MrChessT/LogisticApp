@@ -24,7 +24,7 @@ import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
 import type { DecisionReport, Evaluation, ReportOutcome } from "./report";
-import { buildRouting, referencesPrevious, wantsAreaBreakdown, type RoutingMeta } from "./routing";
+import { buildRouting, contextReference, referencesPrevious, wantsAreaBreakdown, type RoutingMeta } from "./routing";
 import { activeFocus, type Focus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
 import type { Draft } from "../contract/index";
@@ -248,6 +248,30 @@ export class Agent {
         }
       }
 
+      // Seguimiento que depende de lo hablado («¿y sus proveedores?», «¿cuánto se vendió de eso?»): antes de
+      // enrutar, la IA lo reescribe como petición completa con la conversación y el foco. Las referencias
+      // claras siempre; un «¿y…?» solo si lo cogería un atajo de palabras clave (Jev ya hereda el foco).
+      // Lo reescrito sigue el camino normal (atajos, vía rápida, Jev y umbrales); si falla, el mensaje tal cual.
+      let understoodAs: string | null = null;
+      const followFocus = activeFocus(session, this.now().getTime());
+      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !req.followUpId && followFocus && !followFocus.draftId) {
+        const reference = contextReference(message);
+        const keyword = () => Boolean(tareaTopicOf(message) ?? infoTopicOf(message) ?? topicReply(message) ?? screenHelp(message, ctx.locations.map((l) => l.name)) ?? consumptionByHand(message));
+        if (reference === "fuerte" || (reference === "debil" && keyword())) {
+          const focusText = describeFocus(followFocus, ctx);
+          const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, focus: focusText }, "seguimiento"));
+          if (
+            understanding?.tipo === "datos" &&
+            tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") &&
+            groundedLocations(understanding.consulta, message, session, followFocus, ctx) &&
+            groundedProducts(understanding.consulta, [message, ...session.turns.map((t) => t.text), focusText].join(" "), ctx)
+          ) {
+            understoodAs = understanding.consulta;
+            message = understanding.consulta;
+          }
+        }
+      }
+
       // «merma», «registrar merma», «nuevo producto»: empieza esa operación (Jev solo pregunta lo que falte).
       const onlyOperation = !plan && !reuse ? operationOnly(message) : null;
       if (onlyOperation) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: onlyOperation };
@@ -314,10 +338,9 @@ export class Agent {
       // Comprensión con IA (solo si Jev no ha entendido un mensaje nuevo): la IA reescribe la petición con el
       // contexto y esa petición vuelve a pasar por Jev y sus umbrales. Se adopta solo si ahora se entiende;
       // si no, sigue la aclaración de siempre. La IA nunca decide qué hacer ni da cifras.
-      let understoodAs: string | null = null;
       let skipGeneral = false;
       const focusNow = activeFocus(session, this.now().getTime());
-      if (deps.assistant?.enabled && !shortcut && !reuse && !req.clarification && !req.followUpId && !focusNow?.draftId && needsUnderstanding(plan, message)) {
+      if (deps.assistant?.enabled && !understoodAs && !shortcut && !reuse && !req.clarification && !req.followUpId && !focusNow?.draftId && needsUnderstanding(plan, message)) {
         const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, ...(focusNow ? { focus: describeFocus(focusNow, ctx) } : {}) }));
         if (understanding?.tipo === "general") {
           plan = { type: "aviso", text: `${understanding.respuesta}\n\n${GENERAL_NOTE}` };
@@ -386,7 +409,8 @@ export class Agent {
               orgId: ctx.orgId,
               sessionId: req.sessionId,
               messageId,
-              message,
+              message: understoodAs ? req.message : message,
+              ...(understoodAs ? { understoodAs } : {}),
               intent,
               decisions,
               outcome: outcome.kind,
@@ -968,4 +992,17 @@ function groundedLocations(rewrite: string, message: string, session: Session, f
     ...(focus?.locationIds ?? []),
   ]);
   return named.every((l) => known.has(l.id));
+}
+
+// Palabras de los nombres de producto que no identifican ninguno (formatos, envases, adjetivos comunes).
+const GENERIC_PRODUCT_WORDS = new Set(["caja", "cajas", "botella", "botellas", "litro", "litros", "kilo", "kilos", "unidad", "unidades", "pack", "bandeja", "garrafa", "barril", "lata", "latas", "especial", "clasica", "clasico", "original", "premium", "extra", "zero", "fresco", "fresca", "natural"]);
+
+/** La reescritura no se inventa productos: cada palabra de producto que usa está en el mensaje, la conversación o el foco. */
+export function groundedProducts(rewrite: string, source: string, ctx: SessionContext): boolean {
+  const productWords = new Set(ctx.products.flatMap((p) => tokenize(p.name)).filter((w) => w.length >= 4 && !/^\d/.test(w) && !GENERIC_PRODUCT_WORDS.has(w)));
+  const known = tokenize(source).filter((w) => w.length >= 4);
+  const stem = (w: string) => w.slice(0, 5);
+  return tokenize(rewrite)
+    .filter((w) => productWords.has(w))
+    .every((w) => known.some((k) => k === w || stem(k) === stem(w)));
 }
