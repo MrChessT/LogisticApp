@@ -200,9 +200,15 @@ export async function overview(
     : "";
   const hint = now.consumption.isZero() ? " El consumo se registra con las ventas o al cerrar un inventario; sin él, las cifras de salida se quedan cortas." : "";
 
+  // «¿y comparado con el mes pasado?»: la comparación va delante, concepto a concepto.
+  const compared = /\b(compar\w*|frente|respecto|vs|versus|anterior|diferencia)\b|\bque (el|la) (mes|semana) pasad[oa]\b/.test(normalize(p.message));
+  const versus = (name: string, a: Decimal, b: Decimal) => `${name} ${formatMoney(a)} (antes ${formatMoney(b)}${b.gt(0) || a.gt(0) ? `, ${change(a, b)}` : ""})`;
+  const comparison = compared
+    ? `Frente ${period.previousLabel}: ${[versus("compras", now.purchase, before.purchase), versus("consumo", now.consumption, before.consumption), versus("mermas", now.waste, before.waste)].join(", ")}. `
+    : "";
   const row = (concepto: string, a: Decimal, b: Decimal) => ({ concepto, actual: formatMoney(a), anterior: formatMoney(b), cambio: change(a, b) });
   return {
-    text: `${first}${salesLine} ${stockLine}${hint}`,
+    text: `${comparison}${first}${salesLine} ${stockLine}${hint}`,
     rows: 3,
     table: {
       columns: [

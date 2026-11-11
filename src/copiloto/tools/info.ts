@@ -11,7 +11,7 @@ import { formatDecimal, formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
 import { overview, priceRanking, type FiguresSource } from "./info-figures";
-import { sales, type SalesSource } from "./info-sales";
+import { MENU_RE, sales, type SalesSource } from "./info-sales";
 
 // Datos crudos (cifras como texto) ---------------------------------------------------------
 
@@ -518,7 +518,7 @@ export const QUERY_PAY = /\b(de|por|sin|que|hay que|tengo que|tenemos que|quedan
 
 const TOPICS: Array<[InfoTool, RegExp]> = [
   // Ventas del TPV. «Facturación» y «facturamos» son ventas, no facturas de proveedor.
-  ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost\b.*\b(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b|\bvende (mas|menos)\b|\b(pasta|dinero|pelas)\b.*\b(hicimos|hemos hecho|sacamos|hemos sacado|se hizo)\b|\bcaja (de |del )?(ayer|hoy|anoche|anteayer|\d{1,2}|lunes|martes|miercoles|jueves|viernes|sabado|domingo|esta semana|la semana)\b|\b(ingenieria de (menu|carta)|matriz de (la )?(carta|menu)|(quitar|quito|sacar|saco|quitaria) de la carta|que platos (quito|quitar|sobran|funcionan|no funcionan|deberia quitar)|platos? (que )?(no )?funcionan|caballos? de batalla|puzles?|platos? perro|rentabilidad de la carta|analisis de (la )?carta)\b/],
+  ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost\b.*\b(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b|\bvende (mas|menos)\b|\b(pasta|dinero|pelas)\b.*\b(hicimos|hemos hecho|sacamos|hemos sacado|se hizo)\b|\bcaja (de |del )?(ayer|hoy|anoche|anteayer|\d{1,2}|lunes|martes|miercoles|jueves|viernes|sabado|domingo|esta semana|la semana)\b|\b(ingenieria de (menu|carta)|matriz de (la )?(carta|menu)|(quitar|quito|sacar|saco|quitaria) de la carta|que platos (quito|quitar|sobran|funcionan|no funcionan|deberia quitar)|platos? (que )?(no )?funcionan|caballos? de batalla|puzles?|platos? perro|rentabilidad de la carta|analisis de (la )?carta|platos? estrellas?|(deja|dejan|da|dan|tiene|tienen) (el )?(mas|mayor|mejor) margen|(mas|menos) rentables?|(mejor|peor|mayor|menor) margen)\b/],
   ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b/],
   ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
@@ -546,5 +546,11 @@ export function infoTopicOf(message: string): InfoTool | null {
   if (hits.includes("query_sales") && /\b(precio de venta|pvp|a cuanto se vende|a que precio)\b/.test(text)) return hits.includes("query_recipes") ? "query_recipes" : null;
   // «food cost de las ventas de octubre»: ventas, aunque diga «food cost».
   if (hits.includes("query_sales") && hits.every((h) => h === "query_sales" || h === "query_recipes" || h === "query_overview")) return "query_sales";
+  // «¿qué food cost es razonable?», «¿cómo se calcula…?»: pregunta general, no un dato del negocio.
+  if (/\b(razonable|ideal|recomendad[oa]s?|aconsejable|deberia (ser|tener)|como se calcula|que significa)\b/.test(text)) return null;
+  // «¿qué plato deja más margen?», «el plato estrella»: ingeniería de menú (ventas), no la lista de escandallos.
+  if (hits.includes("query_sales") && MENU_RE.test(text)) return "query_sales";
+  // «¿qué proveedores nos traen la cerveza?»: proveedor de un producto (lo resuelve Jev), no la lista de proveedores.
+  if (hits.includes("query_suppliers") && /\b(trae|traen|sirve|sirven|suministra|suministran|vende|venden)\b/.test(text)) return null;
   return hits.length === 1 ? hits[0]! : hits.includes("query_recipes") && /alergen|gluten|lactos|food ?cost|escandallo/.test(text) ? "query_recipes" : null;
 }

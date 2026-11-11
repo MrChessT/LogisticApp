@@ -83,6 +83,11 @@ describe("cómo voy", () => {
   });
 });
 
+it("«comparado con el mes pasado»: la comparación va delante", async () => {
+  const r = await overview(new FixtureInfoSource(NOW), fixtureContext(), { message: "¿y comparado con el mes pasado?", locationIds: all, locationsChosen: false, now: NOW });
+  expect(r.text).toMatch(/^Frente al mismo tramo de agosto: compras 300,00 € \(antes 200,00 €, \+50 %\), consumo 120,00 € \(antes 100,00 €, \+20 %\), mermas 30,00 € \(antes 10,00 €, \+200 %\)\. En septiembre/);
+});
+
 it("entradas de mercancía sin importe: lo dice, no «no hay compras»", async () => {
   class NoCost extends FixtureInfoSource {
     override async figureMovements() {
