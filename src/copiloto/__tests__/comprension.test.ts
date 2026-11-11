@@ -22,6 +22,14 @@ describe("comprensión con IA validada por Jev", () => {
     expect(text(events)).toMatch(/Coca-Cola/);
   });
 
+  it("pronombre resuelto con la conversación: responde el precio y dice cómo lo ha entendido", async () => {
+    const jev = new FakeJev([DOUBT, { intent: "consultar", intent_alt: "leer", herramienta: "query_prices", local: "Vivero", producto_0: "Coca-Cola 20 cl" }]);
+    const { agent } = makeAgent(jev, null, { assistant: assistant('{"tipo":"datos","consulta":"¿a cuánto compramos la coca-cola en el Vivero?"}') });
+    const events = await run(agent, chat("¿y a cuánto la compramos en el Vivero?"));
+    expect(clarify(events)).toBeUndefined();
+    expect(text(events)).toMatch(/^Entiendo: «¿a cuánto compramos la coca-cola en el Vivero\?»\.\nCoca-Cola 20 cl · Caja 24 ud: 13,20 €/);
+  });
+
   it("si la reescritura tampoco se entiende, sigue la aclaración de siempre", async () => {
     const jev = new FakeJev([DOUBT, DOUBT]);
     const { agent } = makeAgent(jev, null, { assistant: assistant('{"tipo":"datos","consulta":"¿lo de antes?"}') });

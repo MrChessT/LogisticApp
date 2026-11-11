@@ -25,6 +25,7 @@ import { euros as formatCurrency, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, lookupProducts, purchasePack, type LookupProduct } from "@/lib/product-lookup";
+import { onPendingPhoto, takePendingPhoto } from "@/lib/pending-photo";
 import { bestProduct, guessSupplier, lineCode, packForUnit, readAlbaranPhoto, searchTerms, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, photoUrl, priceCheck, type Incident } from "@/lib/receipt-checks";
@@ -174,6 +175,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setOrgId(ref.orgId);
     setLocations(ref.locations);
     setSuppliers(ref.suppliers);
+    setReferenceReady(true);
   }
 
   async function loadReference() {
@@ -454,6 +456,30 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     void bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
+
+  // Foto de un albarán enviada desde el asistente: se abre Nueva recepción y se lee (cuando ya están los proveedores).
+  const [photoToScan, setPhotoToScan] = useState<File | null>(null);
+  const [referenceReady, setReferenceReady] = useState(false);
+  useEffect(() => {
+    if (kind !== "recepciones") return;
+    const pick = () => {
+      const photo = takePendingPhoto();
+      if (photo) setPhotoToScan(photo);
+    };
+    void Promise.resolve().then(pick);
+    return onPendingPhoto(pick);
+  }, [kind]);
+  useEffect(() => {
+    if (!photoToScan || !referenceReady) return;
+    const photo = photoToScan;
+    void (async () => {
+      await Promise.resolve();
+      setPhotoToScan(null);
+      openModal();
+      await handleScanAlbaran(photo);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoToScan, referenceReady]);
 
   function resetForms() {
     setFormError("");
