@@ -68,14 +68,29 @@ export class Assistant {
   /** Último motivo por el que no hubo texto (para /health; sin datos del usuario). */
   lastError: string | null = null;
 
+  private readonly providers: WriterProvider[];
+  /** Modelo en uso: el primero de la lista al que el gateway da acceso. */
+  private current = 0;
+
   constructor(
-    private readonly provider: WriterProvider | null,
+    provider: WriterProvider | WriterProvider[] | null,
     private readonly metrics: Metrics,
     private readonly timeoutMs = 12_000,
-  ) {}
+  ) {
+    this.providers = provider === null ? [] : Array.isArray(provider) ? provider : [provider];
+  }
 
   get enabled(): boolean {
-    return this.provider !== null;
+    return this.providers.length > 0;
+  }
+
+  /** Modelo que se está usando (o null sin ayudante). */
+  get model(): string | null {
+    return this.providers[this.current]?.model ?? null;
+  }
+
+  private get provider(): WriterProvider | null {
+    return this.providers[this.current] ?? null;
   }
 
   /** Resumen del informe con cifras verificadas, o null (sin LLM, sin datos, error o cifra inventada). */
@@ -109,7 +124,17 @@ export class Assistant {
     return null;
   }
 
+  /** Si el modelo no está disponible para esta cuenta (403/404), prueba el siguiente y se queda con él. */
   private async complete(system: string, user: string, max: number): Promise<string | null> {
+    while (true) {
+      const text = await this.completeOnce(system, user, max);
+      const unavailable = /LLM respondió (403|404)\b/.test(this.lastError ?? "");
+      if (text !== null || !unavailable || this.current >= this.providers.length - 1) return text;
+      this.current += 1;
+    }
+  }
+
+  private async completeOnce(system: string, user: string, max: number): Promise<string | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {

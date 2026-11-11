@@ -85,7 +85,9 @@ function build(): Runtime {
   const assistKey = config.assist.oidc ? () => getVercelOidcToken().catch(() => undefined) : config.assist.apiKey;
   const assistant = new Assistant(
     config.assist.enabled
-      ? new OpenAICompatibleProvider({ url: config.assist.url, model: config.assist.model, ...(assistKey ? { apiKey: assistKey } : {}), maxTokens: 400, temperature: 0.3, numCtx: 4096, keepAlive: "0" })
+      ? config.assist.models.map(
+          (model) => new OpenAICompatibleProvider({ url: config.assist.url, model, ...(assistKey ? { apiKey: assistKey } : {}), maxTokens: 400, temperature: 0.3, numCtx: 4096, keepAlive: "0" }),
+        )
       : null,
     metrics,
     config.assist.timeoutMs,

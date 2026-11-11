@@ -328,7 +328,7 @@ async function health(): Promise<Response> {
   const body: HealthResponse = {
     status: !jev.ok || !supabaseOk ? "caido" : (writerOk || !rt.writerProvider) && (embedOk || !rt.embedder) ? "ok" : "degradado",
     jev,
-    assistant: { enabled: rt.assistant.enabled, model: rt.assistant.enabled ? rt.config.assist.model : "-", lastError: rt.assistant.lastError },
+    assistant: { enabled: rt.assistant.enabled, model: rt.assistant.model ?? "-", lastError: rt.assistant.lastError },
     writer: { ok: writerOk, provider: rt.config.WRITER_PROVIDER, model: rt.writerProvider ? rt.config.WRITER_MODEL : "plantillas" },
     embeddings: { ok: embedOk, provider: rt.embedder ? rt.config.EMBED_PROVIDER : "lexico", model: rt.embedder ? rt.config.EMBED_MODEL : "-" },
     supabase: { ok: supabaseOk },
