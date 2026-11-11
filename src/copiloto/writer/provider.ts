@@ -126,7 +126,10 @@ export class OpenAICompatibleProvider implements WriterProvider {
         ],
       }),
     });
-    if (!response.ok || !response.body) throw new Error(`LLM respondió ${response.status}`);
+    if (!response.ok || !response.body) {
+      const detail = response.body ? (await response.text().catch(() => "")).slice(0, 160) : "";
+      throw new Error(`LLM respondió ${response.status}${detail ? `: ${detail}` : ""}`);
+    }
     for await (const line of lines(response.body)) {
       if (!line.startsWith("data:")) continue;
       const payload = line.slice(5).trim();
