@@ -4,5 +4,11 @@
   "ignoreBinaries": [
     "supabase",
     "psql"
+  ],
+  "entry": [
+    "scripts/ocr/worker.mjs"
+  ],
+  "ignoreDependencies": [
+    "@gutenye/ocr-models"
   ]
 }

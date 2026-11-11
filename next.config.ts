@@ -41,11 +41,23 @@ const securityHeaders = [
   { key: "X-Robots-Tag", value: "noindex, nofollow" },
 ];
 
+// Lector de albaranes (public/ocr): corre en un Web Worker aparte. OpenCV necesita `eval` y onnxruntime,
+// WebAssembly; se permite solo a esos ficheros, nunca a las páginas de la app. Los ficheros van en una
+// carpeta con versión, así que se pueden guardar en caché para siempre.
+const ocrSecurityHeaders = [
+  { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" },
+  { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    // La última regla que coincide manda: la de /ocr sustituye la CSP general solo en esos ficheros.
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/ocr/:path*", headers: ocrSecurityHeaders },
+    ];
   },
 };
 

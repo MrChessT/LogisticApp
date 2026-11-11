@@ -120,3 +120,17 @@
 .op-modal select:disabled, .op-modal input:disabled { background-color: var(--surface-2); color: var(--text-3); }
 .op-photo-title, .receive-photo-title { display: block; color: var(--text); font-size: var(--fs-sm); font-weight: 600; }
 .op-photo small { display: block; margin-top: 6px; color: var(--text-3); font-size: var(--fs-sm); }
+
+/* Leer albarán con foto */
+.op-scan { display: flex; margin-bottom: 4px; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--brand-softer); border: 1px solid var(--brand-line); border-radius: var(--r-md); }
+.op-scan-title { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: var(--fs-sm); font-weight: 600; }
+.op-scan small { color: var(--text-3); font-size: var(--fs-sm); }
+.op-scan-status { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.45; }
+.op-scan-status.warn { color: var(--warn); }
+.op-scan-result { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: var(--r-sm); font-size: var(--fs-sm); line-height: 1.45; }
+.op-scan-result svg { flex: none; margin-top: 2px; }
+.op-scan-result.ok { color: var(--brand-strong); background: var(--panel); border: 1px solid var(--brand-line); }
+.op-scan-result.warn { color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn-line); }
+.op-read-line { margin: 0 0 6px; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.4; }
+.op-read-line b { color: var(--text-2); font-weight: 600; }
+.op-receipt-line.needs-product { box-shadow: inset 3px 0 0 var(--warn-dot); padding-left: 10px; }

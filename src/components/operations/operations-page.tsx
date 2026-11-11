@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Camera,
+  CheckCircle2,
   ChevronDown,
   CirclePlus,
   ClipboardList,
@@ -9,6 +11,7 @@ import {
   Plus,
   Search,
   Trash2,
+  TriangleAlert,
   Truck,
   X,
   XCircle,
@@ -21,7 +24,8 @@ import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
 import { formatStock, type UnitDimension } from "@/lib/units";
 import { countingPacks, toBaseQty, unitChoices, type PackRow, type UnitChoice } from "@/lib/packs";
-import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
+import { clearLookupCache, lookupPackRows, lookupProducts, purchasePack, type LookupProduct } from "@/lib/product-lookup";
+import { bestProduct, guessSupplier, lineCode, packForUnit, readAlbaranPhoto, searchTerms, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, photoUrl, priceCheck, type Incident } from "@/lib/receipt-checks";
 import { EXIT_KIND_LABEL, EXIT_KIND_REASONS, EXIT_KINDS, isExitKind, isLoss, type ExitKind } from "@/lib/exit-kinds";
@@ -39,7 +43,10 @@ const unitsOf = (product: LookupProduct | null): UnitChoice[] => (product ? unit
 type SupplierOption = { id: string; name: string };
 type Reference = { orgId: string; locations: Location[]; suppliers: SupplierOption[] };
 type TransferLine = { product: LookupProduct | null; qty: string; unit: string };
-type ReceiptLine = { product: LookupProduct | null; packId: string; qty: string; price: string; incident: Incident | "" };
+/** Lo que decía el albarán en la foto (si la línea se leyó de una foto): se enseña y, al guardar, se recuerda. */
+type ReadLine = { code: string | null; description: string; qty: number; unit: string | null; price: number; discountPct: number | null; amount: number; lot: string | null };
+type ReceiptLine = { product: LookupProduct | null; packId: string; qty: string; price: string; incident: Incident | ""; read?: ReadLine };
+type ScanState = { stage: "idle" } | { stage: "reading" } | { stage: "error"; message: string } | { stage: "done"; result: AlbaranPhotoRead };
 
 /** Locales y proveedores compartidos por las cuatro pantallas de operativa (el catálogo ya no se
  *  descarga: cada formulario busca en el servidor solo lo que se escribe). */
@@ -157,6 +164,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [agreedBySupplier, setAgreedBySupplier] = useState<{ supplierId: string; prices: Map<string, number> } | null>(null);
   const agreed = agreedBySupplier && agreedBySupplier.supplierId === rSupplier ? agreedBySupplier.prices : NO_PRICES;
   const [rLines, setRLines] = useState<ReceiptLine[]>([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
+  const [scan, setScan] = useState<ScanState>({ stage: "idle" });
 
   // Inventarios
   const [ivLocation, setIvLocation] = useState("");
@@ -464,6 +472,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setRDocDate(new Date().toISOString().slice(0, 10));
     setRLines([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
     setRPhoto(null);
+    setScan({ stage: "idle" });
     setIvLocation("");
   }
 
@@ -585,10 +594,77 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     await loadRows();
   }
 
+  /** Empareja cada línea leída: primero lo aprendido de este proveedor; si no, el catálogo, solo si está claro. */
+  async function matchReadLines(result: AlbaranPhotoRead, supplierId: string): Promise<ReceiptLine[]> {
+    const supabase = createClient();
+    const memory = new Map<string, { productId: string; packId: string | null; name: string }>();
+    if (supabase && supplierId) {
+      const { data } = await supabase.from("supplier_item_codes").select("code, product_id, pack_id, products(name)").eq("supplier_id", supplierId);
+      for (const r of (data ?? []) as Array<{ code: string; product_id: string; pack_id: string | null; products: { name: string } | null }>) {
+        memory.set(r.code, { productId: r.product_id, packId: r.pack_id, name: r.products?.name ?? "" });
+      }
+    }
+    const opts = { locationId: rLocation || null, supplierId: supplierId || null, limit: 8 };
+    return Promise.all(result.lines.map(async (l): Promise<ReceiptLine> => {
+      const code = lineCode(l);
+      // Con descuento, el precio que cuenta es el neto (importe / cantidad).
+      const price = l.discountPct ? Math.round((l.amount / l.qty) * 10000) / 10000 : l.price;
+      const read: ReadLine = { code, description: l.description, qty: l.qty, unit: l.unit, price: l.price, discountPct: l.discountPct, amount: l.amount, lot: l.lot };
+      let product: LookupProduct | null = null;
+      let packId = "";
+      try {
+        const remembered = code ? memory.get(code) : undefined;
+        if (remembered?.name) {
+          product = (await lookupProducts(remembered.name, opts)).find((p) => p.id === remembered.productId) ?? null;
+          if (product && remembered.packId && product.packs.some((k) => k.id === remembered.packId)) packId = remembered.packId;
+        }
+        if (!product && l.description) {
+          const found = new Map<string, LookupProduct>();
+          for (const term of searchTerms(l.description)) for (const p of await lookupProducts(term, opts)) found.set(p.id, p);
+          product = bestProduct(l.description, [...found.values()]);
+        }
+      } catch {
+        product = null;
+      }
+      if (product && !packId) packId = (packForUnit(product.packs, product.dimension, l.unit, l.qty) ?? purchasePack(product))?.id ?? "";
+      return { product, packId, qty: String(l.qty), price: String(price), incident: "", read };
+    }));
+  }
+
+  async function handleScanAlbaran(file: File | null) {
+    if (!file) return;
+    setRPhoto(file);
+    setFormError("");
+    setScan({ stage: "reading" });
+    try {
+      const result = await readAlbaranPhoto(file);
+      if (result.lines.length === 0) {
+        setScan({ stage: "error", message: "No he encontrado líneas con cantidad, precio e importe. Rellénalas a mano; la foto queda adjunta." });
+        return;
+      }
+      let supplierId = rSupplier;
+      if (!supplierId) {
+        const guessed = guessSupplier(result.texts, suppliers);
+        if (guessed) {
+          supplierId = guessed.id;
+          setRSupplier(guessed.id);
+        }
+      }
+      if (result.date) setRDocDate(result.date);
+      setRLines(await matchReadLines(result, supplierId));
+      setScan({ stage: "done", result });
+    } catch (e) {
+      setScan({ stage: "error", message: e instanceof Error && e.message ? e.message : "No se pudo leer la foto." });
+    }
+  }
+
   async function handleCreateReceipt() {
     setFormError("");
     if (!rLocation) { setFormError("Elige un local."); return; }
     // Sin precio no se guarda a 0 €: un 0 tapaba el precio bueno del proveedor y valoraba el stock a 0 €.
+    // Una línea leída de la foto sin producto no se descarta en silencio: o se elige, o se quita.
+    const unmatched = rLines.find((line) => line.read && !line.packId);
+    if (unmatched) { setFormError(`Elige el producto de «${unmatched.read!.description || "una línea del albarán"}» o quita esa línea.`); return; }
     const unpriced = rLines.find((line) => line.packId && Number(line.qty) > 0 && line.price.trim() === "");
     if (unpriced) { setFormError(`Falta el precio de ${unpriced.product?.name ?? "una línea"}: escríbelo como viene en el albarán.`); return; }
     const validLines = rLines.filter((line) => line.packId && Number(line.qty) > 0 && Number(line.price) >= 0);
@@ -630,6 +706,11 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       setSaving(false);
       return;
     }
+    // Lo leído de la foto se recuerda para este proveedor: la próxima vez la línea sale sola.
+    const learned = validLines
+      .filter((line) => line.read?.code && line.product)
+      .map((line) => ({ code: line.read!.code, description: line.read!.description, product_id: line.product!.id, pack_id: line.packId || null }));
+    if (rSupplier && learned.length > 0) await supabase.rpc("remember_supplier_codes", { p_supplier: rSupplier, p_items: learned });
     if (rPhoto) {
       const photoError = await attachReceiptPhoto(supabase, { id: receipt.id, orgId, locationId: rLocation }, rPhoto);
       if (photoError) {
@@ -856,6 +937,34 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
 
             {kind === "recepciones" && (
               <>
+                <div className="op-scan">
+                  <span className="op-scan-title"><Camera size={16} aria-hidden="true" /> Leer albarán con foto</span>
+                  {scan.stage === "reading" ? (
+                    <p className="op-scan-status" role="status">Leyendo el albarán… La primera vez tarda más: descarga el lector (unos 40 MB) y queda guardado.</p>
+                  ) : (
+                    <>
+                      <FilePick file={null} onChange={(f) => void handleScanAlbaran(f)} accept="image/*" capture="environment" label={scan.stage === "done" ? "Leer otra foto" : "Hacer foto del albarán"} />
+                      {scan.stage === "idle" && <small>Rellena las líneas solas. Se lee en este dispositivo; revísalo antes de registrar.</small>}
+                    </>
+                  )}
+                  {scan.stage === "error" && <p className="op-scan-status warn" role="alert"><TriangleAlert size={15} aria-hidden="true" /> {scan.message}</p>}
+                  {scan.stage === "done" && (() => {
+                    const r = scan.result;
+                    const missing = rLines.filter((l) => l.read && !l.product).length;
+                    const lines = `${r.lines.length} ${r.lines.length === 1 ? "línea" : "líneas"}`;
+                    return (
+                      <div className={`op-scan-result ${r.status === "cuadra" ? "ok" : "warn"}`} role="status">
+                        {r.status === "cuadra" ? <CheckCircle2 size={16} aria-hidden="true" /> : <TriangleAlert size={16} aria-hidden="true" />}
+                        <span>
+                          {r.status === "cuadra" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)} = base del albarán · IVA {r.vatRate} % {formatCurrency(r.vat!)} · total {formatCurrency(r.total!)}. Cuadra.</>}
+                          {r.status === "parcial" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)}, igual que la base del albarán, pero no he visto el total con IVA. Compáralo con el papel.</>}
+                          {r.status === "no_cuadra" && <>Leídas {lines} ({formatCurrency(r.linesTotal)}), pero las cuentas no cuadran con el albarán: puede faltar una línea o haber un número mal leído. Compáralo con el papel.</>}
+                          {missing > 0 && <> {missing === 1 ? "Una línea no tiene" : `${missing} líneas no tienen`} producto: elígelo y la próxima vez de este proveedor saldrá solo.</>}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
                 <div className="op-modal-grid">
                   <label>Local
                     <select value={rLocation} onChange={(e) => setRLocation(e.target.value)}>
@@ -880,7 +989,17 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                 </div>
                 <div className="op-modal-lines">
                   {rLines.map((line, index) => (
-                    <div className="op-receipt-line" key={index}>
+                    <div className={`op-receipt-line${line.read && !line.product ? " needs-product" : ""}`} key={index}>
+                      {line.read && (
+                        <p className="op-read-line">
+                          En el albarán: <b>{line.read.description || "(sin descripción)"}</b>
+                          {line.read.code && !line.read.code.startsWith("txt:") ? ` · ref. ${line.read.code}` : ""}
+                          {` · ${quantity(line.read.qty, line.read.unit ?? "", 3).trim()} × ${formatCurrency(line.read.price)}`}
+                          {line.read.discountPct ? ` − ${line.read.discountPct} %` : ""}
+                          {` = ${formatCurrency(line.read.amount)}`}
+                          {line.read.lot ? ` · lote ${line.read.lot}` : ""}
+                        </p>
+                      )}
                       <ProductPicker
                         value={line.product}
                         options={{ locationId: rLocation || null, supplierId: rSupplier || null }}
@@ -890,8 +1009,10 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                           return price ? formatCurrency(price) : null;
                         }}
                         onChange={(product) => {
-                          const pack = product ? purchasePack(product) : null;
-                          setRLines(rLines.map((l, i) => i === index ? { ...l, product, packId: pack?.id ?? "", price: pack?.price ? String(Number(pack.price)) : l.price } : l));
+                          // Una línea leída de la foto: el formato según cómo viene en el albarán (por kilos, por
+                          // unidades) y el precio del albarán, que es lo que se ha pagado.
+                          const pack = product ? (line.read ? packForUnit(product.packs, product.dimension, line.read.unit, line.read.qty) : null) ?? purchasePack(product) : null;
+                          setRLines(rLines.map((l, i) => i === index ? { ...l, product, packId: pack?.id ?? "", price: !l.read && pack?.price ? String(Number(pack.price)) : l.price } : l));
                         }}
                       />
                       <div className="op-modal-line-row with-price">

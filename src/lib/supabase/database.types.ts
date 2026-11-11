@@ -276,6 +276,14 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      supplier_item_codes: {
+        Row: { id: string; org_id: string; supplier_id: string; code: string; description: string | null; product_id: string; pack_id: string | null; updated_at: string };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [
+          { foreignKeyName: "supplier_item_codes_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] },
+        ];
+      };
       sales_days: {
         Row: { id: string; org_id: string; location_id: string; sale_date: string; source: string; file_name: string | null; total_amount: number; created_by: string | null; created_at: string };
         Insert: Record<string, never>;
@@ -886,6 +894,7 @@ export type Database = {
         Args: { p_org: string; p_location: string; p_date: string; p_lines: Json; p_source?: string; p_file?: string | null; p_apply?: boolean };
         Returns: Json;
       };
+      remember_supplier_codes: { Args: { p_supplier: string; p_items: Json }; Returns: number };
       link_sales_item: { Args: { p_item: string; p_recipe: string | null; p_product: string | null; p_qty: number | null; p_ignored?: boolean }; Returns: undefined };
       sales_report: {
         Args: { p_org: string; p_from: string; p_to: string; p_location?: string | null };
