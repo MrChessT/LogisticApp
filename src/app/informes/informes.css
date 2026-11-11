@@ -23,6 +23,10 @@
 .informes-kpi small.bad { color: var(--red); }
 .informes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .informes-grid .wide { grid-column: 1 / -1; }
+.informes-summary { display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px; margin-bottom: 12px; background: var(--soft-green); border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--ink); }
+.informes-summary svg { flex: none; margin-top: 3px; color: var(--green); }
+.informes-summary p { margin: 0; font-size: var(--fs-md); line-height: 1.5; }
+.informes-summary small { display: block; margin-top: 6px; color: var(--muted); font-size: var(--fs-sm); }
 .informes-muted { color: var(--muted); font-size: var(--fs-sm); margin: 14px 0 0; }
 .informes-error { color: var(--red); font-size: var(--fs-md); }
 @media (max-width: 900px) { .informes-grid { grid-template-columns: 1fr; } }

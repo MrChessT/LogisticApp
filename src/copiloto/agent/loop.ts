@@ -17,6 +17,7 @@ import { businessDay } from "../../lib/business-day";
 import { daysInclusive, horizon, pastPeriod } from "../tools/periods";
 import type { ToolName, Tools } from "../tools/tools";
 import { movementTypesIn, type EvalItem, type ToolParams } from "../tools/types";
+import type { Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
 import { Interpreter, locationLabel, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan, type QueryPlan } from "./interpret";
 import { validateDraft } from "../drafts/schemas";
@@ -58,6 +59,8 @@ export interface AgentDeps {
   tools?: Tools;
   retriever: Retriever;
   writer: Writer;
+  /** Preguntas generales fuera de ámbito (LLM sin datos). Opcional: sin él, respuesta fija. */
+  assistant?: Assistant;
   metrics: Metrics;
   thresholds: Thresholds;
   sessions: SessionStore;
@@ -523,8 +526,10 @@ export class Agent {
         const charla = smallTalk(env.message);
         return charla ? { kind: "conversacion", charla } : { kind: "conversacion" };
       }
-      case "fuera_de_ambito":
-        return { kind: "fuera_de_ambito" };
+      case "fuera_de_ambito": {
+        const general = await this.deps.assistant?.general(env.message);
+        return general ? { kind: "fuera_de_ambito", general } : { kind: "fuera_de_ambito" };
+      }
       case "aviso":
         if (plan.route) await emit({ event: "navigate", data: { route: plan.route, filters: {}, auto: false } });
         return { kind: "tarea", tarea: "aviso", text: plan.text, rows: 0 };
