@@ -254,12 +254,15 @@ export class Agent {
       // Lo reescrito sigue el camino normal (atajos, vía rápida, Jev y umbrales); si falla, el mensaje tal cual.
       let understoodAs: string | null = null;
       const followFocus = activeFocus(session, this.now().getTime());
-      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !req.followUpId && followFocus && !followFocus.draftId) {
+      // Hace falta conversación reciente: el foco (consultas de inventario) o los últimos turnos (informes,
+      // facturas, escandallos, que no dejan foco).
+      const recent = followFocus ? !followFocus.draftId : session.turns.length > 0;
+      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !req.followUpId && recent) {
         const reference = contextReference(message);
         const keyword = () => Boolean(tareaTopicOf(message) ?? infoTopicOf(message) ?? topicReply(message) ?? screenHelp(message, ctx.locations.map((l) => l.name)) ?? consumptionByHand(message));
         if (reference === "fuerte" || (reference === "debil" && keyword())) {
-          const focusText = describeFocus(followFocus, ctx);
-          const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, focus: focusText }, "seguimiento"));
+          const focusText = followFocus ? describeFocus(followFocus, ctx) : "";
+          const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, ...(focusText ? { focus: focusText } : {}) }, "seguimiento"));
           if (
             understanding?.tipo === "datos" &&
             tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") &&
@@ -973,7 +976,9 @@ function resolves(plan: Plan): boolean {
 
 /** Lo último de la conversación en una línea, para la comprensión (nombres, no ids). */
 export function describeFocus(focus: Focus, ctx: SessionContext): string {
-  const products = focus.productIds.map((id) => ctx.products.find((p) => p.id === id)?.name).filter(Boolean).slice(0, 5);
+  const all = focus.productIds.map((id) => ctx.products.find((p) => p.id === id)?.name).filter(Boolean);
+  // Pocos nombres: con una familia entera («el ron») la IA los enumeraba en vez de decir «el ron».
+  const products = all.length > 3 ? [...all.slice(0, 3), `y ${all.length - 3} más`] : all;
   const locations = focus.locationIds.map((id) => ctx.locations.find((l) => l.id === id)?.name).filter(Boolean);
   return [
     focus.tool ? `consulta: ${focus.tool.replace(/^query_/, "").replace(/_/g, " ")}` : focus.accion ? `operación: ${focus.accion}` : null,

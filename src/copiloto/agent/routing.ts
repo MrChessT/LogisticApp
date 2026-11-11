@@ -98,6 +98,9 @@ export function referencesPrevious(message: string): boolean {
   return words[0] === "y" || words.some((w) => /^(eso|esa|ese|esos|esas|ahi|alli|mismo|misma|mismos|mismas|tambien)$/.test(w));
 }
 
+/** Verbos que, en un mensaje corto, dejan el sujeto sobreentendido («¿qué alérgenos tiene?», «¿cuánto cuesta?»). */
+const IMPLICIT_SUBJECT = /^(tiene|tienen|lleva|llevan|cuesta|cuestan|vale|valen|sale|salen|queda|quedan|deja|dejan)$/;
+
 const TIME_AFTER = /^(semana|mes|ano|lunes|martes|miercoles|jueves|viernes|sabado|domingo|noche|manana|tarde|finde|fin|temporada|trimestre)$/;
 
 /**
@@ -112,11 +115,14 @@ export function contextReference(message: string): "fuerte" | "debil" | null {
   const demonstrative = words.some((w, i) => /^(eso|esa|ese|esos|esas|esto|aquel|aquella|aquello)$/.test(w) || (/^(este|esta|estos|estas)$/.test(w) && !TIME_AFTER.test(words[i + 1] ?? "") && words[i + 1] !== undefined));
   const strong =
     demonstrative ||
-    words.some((w) => /^(sus?|mismo|misma|mismos|mismas|ahi|alli|alla)$/.test(w)) ||
-    /\b(me|nos|se|te) (la|lo|las|los)\b/.test(text) ||
-    /\b(la|lo|las|los|le|les) (compramos|compro|compran|pedimos|pido|piden|pagamos|pago|pagan|vendemos|vendo|venden|vendimos|tenemos|tengo|traen|trae|trajo|servimos|usamos|gastamos|gasto|pedi|compre|hemos|habeis)\b/.test(text);
+    words.some((w) => /^(sus?|ahi|alli|alla)$/.test(w)) ||
+    /\b(me|nos|se|te) (la|lo|las|los|le|les)\b/.test(text) ||
+    /\b(le|les) [a-z]{3,}/.test(text) ||
+    /\b(la|lo|las|los) (compramos|compro|compran|compraron|pedimos|pido|piden|pidieron|pagamos|pago|pagan|debemos|debo|deben|vendemos|vendo|venden|vendimos|vendieron|tenemos|tengo|traen|trae|trajo|trajeron|servimos|usamos|gastamos|gasto|pedi|compre|enviamos|mandamos|hemos|habeis)\b/.test(text);
   if (strong) return "fuerte";
-  return words[0] === "y" || words.includes("tambien") ? "debil" : null;
+  // «lo mismo pero en el Vivero», «¿y el sábado?», «también»: suele cambiar dónde o cuándo (Jev hereda el
+  // foco). Los mensajes muy cortos («¿qué alérgenos tiene?») dejan sobreentendido de qué se habla.
+  return words[0] === "y" || words.includes("tambien") || words.some((w) => /^(mismo|misma|mismos|mismas)$/.test(w)) || (words.length <= 5 && words.some((w) => IMPLICIT_SUBJECT.test(w))) ? "debil" : null;
 }
 
 /**

@@ -204,3 +204,14 @@ describe("ingeniería de menú", () => {
     expect(infoTopicOf("qué proveedores tenemos")).toBe("query_suppliers");
   });
 });
+
+describe("ventas de un día de la semana", () => {
+  // Miércoles 11 de noviembre de 2026. Medido en producción: «¿y el sábado?» daba el mes entero.
+  const wed = new Date(2026, 10, 11, 12);
+  it.each([
+    ["¿y el sábado?", "2026-11-07", "el sábado 7/11/2026"],
+    ["ventas del lunes", "2026-11-09", "el lunes 9/11/2026"],
+    ["¿cuánto se vendió el miércoles?", "2026-11-11", "el miércoles 11/11/2026"],
+    ["el miércoles pasado", "2026-11-04", "el miércoles 4/11/2026"],
+  ])("«%s» → %s", (message, day, label) => expect(salesPeriod(message, wed)).toEqual({ from: day, to: day, label, explicit: true }));
+});
