@@ -7,7 +7,7 @@
 --   report_app_error  Lo llama la propia aplicación al capturar un error. Devuelve true si es la primera
 --                     vez hoy (entonces la aplicación avisa por el webhook de alertas, si está configurado).
 --
--- Nadie lee la tabla desde la app (sin políticas): se consulta con scripts/ops/errores.sh.
+-- Nadie lee la tabla desde la app (sin permisos ni políticas): se consulta con scripts/ops/errores.sh.
 -- La función la puede llamar cualquiera (también sin sesión: un fallo en el acceso es un fallo), así que
 -- recorta lo que recibe y deja de crear filas nuevas a partir de 300 errores distintos al día.
 
@@ -30,6 +30,8 @@ create table app_errors (
 create index app_errors_last_seen on app_errors (last_seen desc);
 
 alter table app_errors enable row level security;
+-- Nadie la lee ni la escribe directamente: solo report_app_error (y el propietario de la base).
+revoke all on table app_errors from anon, authenticated;
 
 create or replace function report_app_error(p_source text, p_message text, p_path text default null, p_digest text default null, p_detail jsonb default '{}'::jsonb)
 returns boolean
