@@ -20,24 +20,8 @@ Cliente de referencia: Parador Eventos (Parador, Pickels, Vivero y La Oliva).
 
 ## Estructura
 
-```
-src/
-  app/                 Pantallas (App Router) y la ruta /api/copiloto
-  components/          Asistente (panel), gráficas y operaciones compartidas
-  copiloto/            El agente, solo servidor: Jev, herramientas, borradores, analítica
-  lib/                 Supabase (clientes y tipos), formato es-ES, unidades, preferencias
-  proxy.ts             Sesión en cada navegación (Next 16: sustituye a middleware)
-supabase/
-  migrations/          Esquema, RLS y RPC, numerados (fuente de verdad)
-  tests/               Tests pgTAP de permisos y RPC (los ejecuta el CI)
-  seed/                Datos de ejemplo de Parador Eventos, en orden 01 → 04
-  scripts/             Herramientas puntuales (restablecer contraseña; aplicar.sql generado)
-  config.toml          Supabase local (Postgres 17, igual que producción)
-scripts/               Utilidades del repositorio (unir migraciones)
-docs/
-  copiloto/            Contrato de la API, arquitectura, catálogo de Jev y evaluación
-  parador-eventos-cobertura.md   Alcance frente al negocio
-```
+El mapa del código, el recorrido de un mensaje del asistente, los errores y alertas y las variables de
+entorno están en **[docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)**. Las normas de trabajo, en [CLAUDE.md](CLAUDE.md).
 
 ## Desarrollo
 
@@ -51,7 +35,7 @@ Variables en `.env.local` (plantilla en `.env.example`): `NEXT_PUBLIC_SUPABASE_U
 ## Calidad
 
 ```bash
-npm run check        # lint + tipos + tests + build (lo mismo que el CI)
+npm run check        # lint + tipos + knip + tamaño de ficheros + tests + build (lo mismo que el CI)
 ```
 
 - `npm test`: tests de la app y del asistente, con Jev y LLM simulados.
@@ -90,8 +74,20 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0023 | Tipos nuevos para la pantalla de almacén: movimiento `internal_move` (entre zonas del mismo local, no es consumo) y rol `kiosk` (pantalla de almacén). Va sola porque un valor nuevo de un enum no se puede usar en la misma transacción en que se crea |
 | 0024 | Salidas de almacén: `area_moves` (lo que sale a barra o vuelve, pendiente hasta validarse), PIN de 6 cifras por validador (`validator_pins`, cifrado; 5 fallos bloquean 15 min), «puede validar» para personal (`memberships.can_validate`) y pantallas `kiosk` aisladas (un local, sin precios, sin acceso a tablas). Funciones `warehouse_context`, `warehouse_catalog`, `area_move_submit` (idempotente, para reintentos sin cobertura), `area_move_cancel`, `area_moves_list`, `kiosk_validators`, `area_moves_decide`, `set_validation_pin`. Validar crea dos `internal_move` (sale de una zona, entra en otra): el total del local no cambia |
 | 0025 | Opiniones del asistente: `copilot_feedback` (reportes de una respuesta o de una conversación, con copia de la conversación), `copilot_feedback_add/list/review` y modo pruebas por persona (`memberships.assistant_test`, `team_set_tester`): lo que confirma en el asistente no se guarda. Pantalla `/opiniones` para revisar y exportar a Markdown |
+| 0026–0029 | Proveedores con condiciones de pedido, recepción blindada (precio pactado e incidencias) y conteo fino con motivo |
+| 0030 | Endurecimiento de seguridad y rendimiento, sin cambios de comportamiento |
+| 0031, 0036 | Importación de catálogo y de escandallos desde Excel, con vista previa |
+| 0032–0034 | Permiso «ve costes» por persona, zonas coherentes con el stock y trazabilidad |
+| 0035 | Escandallos: recetas, rendimientos, coste, food cost y alérgenos |
+| 0037 | Facturas de proveedor y cuadre con albaranes |
+| 0038–0039 | Stock «bajo mínimo» con lo que está sin stock; recepciones a 0 € no pisan el último precio |
+| 0040, 0042 | Ventas del TPV con coste teórico; PVP de los platos según lo cobrado |
+| 0041 | Memoria de códigos de proveedor para el lector de albaranes |
+| 0043 | Registro de errores de la aplicación |
 
-**Aplicar en el proyecto real:** `npm run db:bundle -- 0008` genera `supabase/scripts/aplicar.sql` con las migraciones desde la 0008, en una sola transacción. Se pega en Supabase → SQL Editor → Run.
+La cabecera de cada migración explica qué añade y por qué.
+
+**Aplicar en producción:** `bash scripts/ops/aplicar-migracion.sh supabase/migrations/NNNN_nombre.sql` (una migración, en una sola transacción; recarga el esquema de la API). `npm run db:bundle` sigue sirviendo para unir varias en un script.
 
 **Local** (Docker): `npm run db:start`, `npm run db:reset`, `npm run db:test`.
 
@@ -110,7 +106,8 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 - `src/copiloto/jev/catalog.ts`: todas las preguntas a Jev (cambiar un texto sube `CATALOG_VERSION`). `gates/thresholds.ts`: umbrales de confianza.
 - `agent/`: interpretación y bucle; `drafts/`: borradores, comprobaciones y confirmación; `tools/` y `analytics/`: cálculos.
 - `src/app/api/copiloto/[...ruta]/route.ts`: `chat` (SSE), `actions/confirm`, `suggestions`, `analytics`, `reorder` y `health`.
-- Documentación: [contrato](docs/copiloto/CONTRACT.md), [arquitectura](docs/copiloto/PROPUESTA.md), [catálogo de Jev y mediciones](docs/copiloto/CATALOGO_JEV.md).
+- Documentación: [arquitectura](docs/ARQUITECTURA.md), [contrato](docs/copiloto/CONTRACT.md), [catálogo de Jev y mediciones](docs/copiloto/CATALOGO_JEV.md).
+- Batería contra un entorno real: `node scripts/ops/bateria-asistente.mjs` (conversaciones con lo que debe y no debe aparecer).
 
 ## Despliegue
 
@@ -125,6 +122,6 @@ La app envía cabeceras de seguridad (`next.config.ts`): CSP que solo permite la
 - Supabase → Authentication → URL Configuration: *Site URL* con el dominio real y `https://<dominio>/auth/callback` en *Redirect URLs* (enlace mágico y recuperar contraseña).
 - Supabase → Authentication → Sign In / Providers: desactivar *Allow new users to sign up*. Los usuarios los da de alta un administrador; el enlace mágico ya no crea cuentas.
 - Supabase → Authentication → SMTP: un SMTP propio (el de Supabase solo manda unos pocos correos por hora).
-- Migraciones hasta la 0025 aplicadas (`npm run db:bundle -- 0022 0022`; después `-- 0023 0023` y `-- 0024 0024`, cada una en su propio Run: un valor nuevo de enum no se puede usar en la misma transacción) y, una vez, `supabase/scripts/preparar_lanzamiento.sql`.
+- Todas las migraciones aplicadas (la última del repositorio).
 - Términos de uso y política de privacidad: la pantalla de acceso los menciona, pero aún no existen.
 - Límite de peticiones del asistente: está en memoria de cada instancia; con mucho tráfico, moverlo a un almacén compartido.
