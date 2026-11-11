@@ -13,3 +13,6 @@ supabase/.temp/
 # Script generado con npm run db:bundle
 supabase/scripts/aplicar.sql
 __pycache__/
+
+# Lector de albaranes: se genera con scripts/build-ocr.mjs (modelos y WebAssembly, ~40 MB)
+public/ocr/
