@@ -1,5 +1,6 @@
 // Plantillas deterministas: se usan si no hay LLM, si falla o si el verificador rechaza su texto.
 // Solo usan cifras que ya están en el informe.
+import { GENERAL_NOTE } from "./assistant";
 import type { DecisionReport, Evaluation, Scope } from "../agent/report";
 import type { ToolRow } from "../tools/types";
 
@@ -36,7 +37,7 @@ export function renderTemplate(report: DecisionReport): string {
     case "aclaracion":
       return o.clarify.question;
     case "fuera_de_ambito":
-      if (o.general) return `${o.general}\n\nRespuesta general: no he consultado los datos de tus locales.`;
+      if (o.general) return `${o.general}\n\n${GENERAL_NOTE}`;
       return "Solo puedo ayudarte con el negocio: stock, compras, facturas, escandallos, inventarios, mermas, traspasos y equipo.";
     case "bloqueado":
       return "No puedo hacer eso. Pregúntame por el stock, los movimientos o las operaciones de tus locales.";

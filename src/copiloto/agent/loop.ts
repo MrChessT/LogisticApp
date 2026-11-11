@@ -17,7 +17,7 @@ import { businessDay } from "../../lib/business-day";
 import { daysInclusive, horizon, pastPeriod } from "../tools/periods";
 import type { ToolName, Tools } from "../tools/tools";
 import { movementTypesIn, type EvalItem, type ToolParams } from "../tools/types";
-import type { Assistant } from "../writer/assistant";
+import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
 import { Interpreter, locationLabel, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan, type QueryPlan } from "./interpret";
 import { validateDraft } from "../drafts/schemas";
@@ -296,14 +296,7 @@ export class Agent {
 
       if (plan) {
         deps.metrics.shortcuts += 1;
-        intent =
-          plan.type === "conversar" || plan.type === "aviso"
-              ? "conversar"
-              : plan.type === "catalogo" || plan.type === "accion"
-                ? "proponer_accion"
-                : plan.type === "tarea"
-                  ? "pedir_sugerencias"
-                  : "consultar";
+        intent = shortcutIntent(plan);
       } else {
         if (!routing) {
           const built = await timer.time("entidades", () =>
@@ -318,6 +311,28 @@ export class Agent {
         plan = interpretation.plan;
       }
 
+      // Comprensión con IA (solo si Jev no ha entendido un mensaje nuevo): la IA reescribe la petición con el
+      // contexto y esa petición vuelve a pasar por Jev y sus umbrales. Se adopta solo si ahora se entiende;
+      // si no, sigue la aclaración de siempre. La IA nunca decide qué hacer ni da cifras.
+      let understoodAs: string | null = null;
+      let skipGeneral = false;
+      const focusNow = activeFocus(session, this.now().getTime());
+      if (deps.assistant?.enabled && !shortcut && !reuse && !req.clarification && !req.followUpId && !focusNow?.draftId && needsUnderstanding(plan, message)) {
+        const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, ...(focusNow ? { focus: describeFocus(focusNow, ctx) } : {}) }));
+        if (understanding?.tipo === "general") {
+          plan = { type: "aviso", text: `${understanding.respuesta}\n\n${GENERAL_NOTE}` };
+          intent = "conversar";
+          decisions = [];
+        } else if (understanding?.tipo === "datos" && tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") && groundedLocations(understanding.consulta, message, session, focusNow, ctx)) {
+          const again = await this.replan(understanding.consulta, page, pageContext, session, ctx, deps, timer, habits);
+          if (resolves(again.plan)) {
+            ({ plan, intent, decisions, routing, shortcut } = again);
+            understoodAs = understanding.consulta;
+            message = understanding.consulta;
+          }
+        } else if (understanding?.tipo === "otro") skipGeneral = true;
+      }
+
       for (const d of decisions) deps.metrics.gates[d.gate] += 1;
       const intentDecision: Decision =
         decisions.find((d) => d.id === "intent") ??
@@ -327,7 +342,13 @@ export class Agent {
         data: { messageId, intent: intentDecision, decisions: decisions.filter((d) => d.id !== "intent"), shortcut },
       });
 
-      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft });
+      const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft, skipGeneral });
+      // Lo que se entendió va delante de la respuesta: el usuario ve cómo se ha leído su mensaje.
+      if (understoodAs) {
+        const said = `Entiendo: «${understoodAs}».`;
+        if (outcome.kind === "consulta") outcome.notices.unshift(said);
+        else if (outcome.kind === "tarea") outcome.text = `${said}\n${outcome.text}`;
+      }
 
       const report: DecisionReport = {
         version: 1,
@@ -348,7 +369,7 @@ export class Agent {
 
       const written = await timer.time("redaccion", () => deps.writer.write(report, emit));
       // En el historial va lo que el usuario dijo (no la orden original que se reutiliza al aclarar).
-      deps.sessions.addTurn(session, { role: "user", text: req.clarification ? req.clarification.freeText ?? req.message : message });
+      deps.sessions.addTurn(session, { role: "user", text: req.clarification ? req.clarification.freeText ?? req.message : understoodAs ? req.message : message });
       deps.sessions.addTurn(session, { role: "assistant", text: written.text });
       timer.flush(deps.metrics);
       await deps.sessions.save(req.sessionId, ctx.orgId, session).catch(() => undefined);
@@ -377,6 +398,41 @@ export class Agent {
     } catch (err) {
       await emit({ event: "error", data: errorEvent(err) });
     }
+  }
+
+  /**
+   * Plan de una petición reescrita por la comprensión: lo mismo que un mensaje nuevo (temas sin Jev,
+   * vía rápida de stock y, si no, Jev con sus umbrales). Sin aclaraciones pendientes ni anulaciones.
+   */
+  private async replan(
+    message: string,
+    page: AppRoute,
+    pageContext: ChatRequest["pageContext"],
+    session: Session,
+    ctx: SessionContext,
+    deps: AgentDeps & { retriever: Retriever },
+    timer: StageTimer,
+    habits: Awaited<ReturnType<HabitsStore["get"]>>,
+  ): Promise<{ plan: Plan; intent: Intent; decisions: Decision[]; routing: { meta: RoutingMeta; jev: JevResult } | undefined; shortcut: boolean }> {
+    const tarea = tareaTopicOf(message);
+    const infoTool = tarea ? null : infoTopicOf(message);
+    if (tarea || infoTool) {
+      const named = namedLocations(ctx.locations, message);
+      const ids = named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id);
+      const plan: Plan = tarea
+        ? { type: "tarea", tarea, locationIds: ids }
+        : { type: "info", tool: infoTool!, locationIds: ids, locationsDefaulted: named.length === 0 && !pageContext?.locationId, products: [], periodo: "no_indicado" };
+      return { plan, intent: shortcutIntent(plan), decisions: [], routing: undefined, shortcut: true };
+    }
+    if (this.deps.fastPath !== false) {
+      const fast = await fastStockPlan(message, ctx, deps.retriever);
+      if (fast) return { plan: fast, intent: shortcutIntent(fast), decisions: [], routing: undefined, shortcut: true };
+    }
+    const focus = activeFocus(session, this.now().getTime());
+    const built = await timer.time("entidades", () => buildRouting(message, page, pageContext?.locationId, session.turns, ctx, deps.retriever, deps.selfConsistency, focus?.draftTitle));
+    const jev = await timer.time("jev1", () => deps.jev.evaluate(built.state as unknown as EntryType, built.questions));
+    const interpretation = new Interpreter(jev.answers, built.meta, ctx, deps.thresholds, {}, pageContext?.locationId, focus, habits).run();
+    return { plan: interpretation.plan, intent: interpretation.intent, decisions: interpretation.decisions, routing: { meta: built.meta, jev }, shortcut: false };
   }
 
   private async dropStaleDraft(session: Session, ctx: SessionContext, drafts: DraftStore): Promise<void> {
@@ -527,7 +583,7 @@ export class Agent {
         return charla ? { kind: "conversacion", charla } : { kind: "conversacion" };
       }
       case "fuera_de_ambito": {
-        const general = await this.deps.assistant?.general(env.message);
+        const general = env.skipGeneral ? null : await this.deps.assistant?.general(env.message);
         return general ? { kind: "fuera_de_ambito", general } : { kind: "fuera_de_ambito" };
       }
       case "aviso":
@@ -726,6 +782,8 @@ export class Agent {
 
 interface ExecEnv {
   message: string;
+  /** La comprensión ya dijo que no es una pregunta general: no se vuelve a preguntar a la IA. */
+  skipGeneral?: boolean;
   messageId: string;
   page: AppRoute;
   pageContext: ChatRequest["pageContext"];
@@ -857,4 +915,54 @@ const ANSWER_HINT: Partial<Record<ClarifyPlan["field"], string>> = {
 export function namedLocations<L extends { name: string }>(locations: readonly L[], message: string): L[] {
   const words = new Set(tokenize(message));
   return locations.filter((l) => tokenize(l.name).some((w) => w.length > 2 && words.has(w)));
+}
+
+/** Intención de un plan resuelto sin Jev (atajos, temas, vía rápida). */
+function shortcutIntent(plan: Plan): Intent {
+  return plan.type === "conversar" || plan.type === "aviso"
+    ? "conversar"
+    : plan.type === "catalogo" || plan.type === "accion"
+      ? "proponer_accion"
+      : plan.type === "tarea"
+        ? "pedir_sugerencias"
+        : "consultar";
+}
+
+const HELP_RE = /\b(que (sabes|puedes) hacer|que haces|como funcionas|para que sirves|ayuda|ayudame|que te puedo preguntar)\b/;
+
+/** Jev no ha entendido el mensaje: dudaba de la intención o de la consulta, o lo dio por ajeno o por charla (sin ser saludo ni ayuda). */
+export function needsUnderstanding(plan: Plan, message: string): boolean {
+  if (plan.type === "clarify") return plan.field === "intent" || plan.field === "herramienta";
+  if (plan.type === "fuera_de_ambito") return true;
+  if (plan.type === "conversar") return !smallTalk(message) && !HELP_RE.test(tokenize(message).join(" "));
+  return false;
+}
+
+/** La petición reescrita se entiende ahora: ni duda la intención o la consulta, ni es charla o ajena. */
+function resolves(plan: Plan): boolean {
+  if (plan.type === "clarify") return plan.field !== "intent" && plan.field !== "herramienta";
+  return plan.type !== "conversar" && plan.type !== "fuera_de_ambito" && plan.type !== "bloqueado";
+}
+
+/** Lo último de la conversación en una línea, para la comprensión (nombres, no ids). */
+export function describeFocus(focus: Focus, ctx: SessionContext): string {
+  const products = focus.productIds.map((id) => ctx.products.find((p) => p.id === id)?.name).filter(Boolean).slice(0, 5);
+  const locations = focus.locationIds.map((id) => ctx.locations.find((l) => l.id === id)?.name).filter(Boolean);
+  return [
+    focus.tool ? `consulta: ${focus.tool.replace(/^query_/, "").replace(/_/g, " ")}` : focus.accion ? `operación: ${focus.accion}` : null,
+    products.length ? `productos: ${products.join(", ")}` : null,
+    locations.length ? `locales: ${locations.join(", ")}` : null,
+    focus.periodo && focus.periodo !== "no_indicado" ? `periodo: ${focus.periodo.replace(/_/g, " ")}` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+/** La reescritura no se inventa locales: los que nombra están en el mensaje, la conversación o el foco. */
+function groundedLocations(rewrite: string, message: string, session: Session, focus: Focus | undefined, ctx: SessionContext): boolean {
+  const named = namedLocations(ctx.locations, rewrite);
+  if (named.length === 0) return true;
+  const known = new Set([
+    ...namedLocations(ctx.locations, [message, ...session.turns.map((t) => t.text)].join(" ")).map((l) => l.id),
+    ...(focus?.locationIds ?? []),
+  ]);
+  return named.every((l) => known.has(l.id));
 }

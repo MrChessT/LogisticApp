@@ -33,7 +33,7 @@ export interface SalesResult { text: string; table?: TableEvent; rows: number }
 
 const MAX_ROWS = 10;
 /** «¿qué platos quito de la carta?», «ingeniería de menú», «qué platos funcionan». */
-export const MENU_RE = /\b(ingenieria de (menu|carta)|matriz de (la )?(carta|menu)|(quitar|quito|sacar|saco|quitaria) de la carta|que platos (quito|quitar|sobran|funcionan|no funcionan|deberia quitar)|platos? (que )?(no )?funcionan|caballos? de batalla|puzles?|platos? perro|rentabilidad de la carta|analisis de (la )?carta)\b/;
+export const MENU_RE = /\b(ingenieria de (menu|carta)|matriz de (la )?(carta|menu)|(quitar|quito|sacar|saco|quitaria) de la carta|que platos (quito|quitar|sobran|funcionan|no funcionan|deberia quitar)|platos? (que )?(no )?funcionan|caballos? de batalla|puzles?|platos? perro|rentabilidad de la carta|analisis de (la )?carta|platos? estrellas?|(deja|dejan|da|dan|tiene|tienen) (el )?(mas|mayor|mejor) margen|(mas|menos) rentables?|(mejor|peor|mayor|menor) margen)\b/;
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const money = (v: Decimal.Value) => formatMoney(v);
 const pct = (v: Decimal.Value) => `${formatDecimal(v, 1)} %`;
@@ -174,16 +174,31 @@ export async function sales(source: SalesSource, ctx: SessionContext, p: { messa
       const list = names(c);
       return list.length ? `${MENU_CLASS[c].label} (${hint}): ${list.slice(0, 4).join(", ")}${list.length > 4 ? ` y ${list.length - 4} más` : ""}.` : "";
     };
-    const text = [
+    // Lo que se preguntó va primero: el plato que más (o menos) deja por ración, o las estrellas.
+    const byMargin = [...analysis.rows].sort((a, b) => b.unitMargin - a.unitMargin);
+    const best = byMargin[0]!;
+    const worst = byMargin[byMargin.length - 1]!;
+    const stars = names("estrella");
+    const lead = /\b(menos rentables?|(peor|menor) margen)\b/.test(text)
+      ? `El plato que menos deja por ración ${when} es ${worst.name}: ${money(worst.unitMargin)} de margen (${qtyText(worst.qty)} raciones).`
+      : /\b(mas rentables?|(mas|mayor|mejor) margen)\b/.test(text)
+        ? `El plato que más deja por ración ${when} es ${best.name}: ${money(best.unitMargin)} de margen (${qtyText(best.qty)} raciones).`
+        : /\bestrellas?\b/.test(text)
+          ? stars.length
+            ? `Tus platos estrella ${when} (se venden mucho y dejan buen margen): ${stars.slice(0, 3).join(", ")}${stars.length > 3 ? ` y ${stars.length - 3} más` : ""}.`
+            : `${when.charAt(0).toUpperCase()}${when.slice(1)} ningún plato es estrella (vender mucho y dejar buen margen a la vez).`
+          : "";
+    const answer = [
+      lead,
       `Ingeniería de menú ${when} (${plural(analysis.rows.length, "plato con coste", "platos con coste")}, margen medio ${money(analysis.avgMargin)} por ración).`,
-      part("estrella", "mantener"),
+      lead.startsWith("Tus platos estrella") ? "" : part("estrella", "mantener"),
       part("caballo", "se venden mucho pero dejan poco: revisa ración o precio"),
       part("puzle", "dejan margen pero se venden poco: dales visibilidad"),
       part("perro", "candidatos a salir de la carta"),
       nDays < 7 ? `Con ${plural(nDays, "día", "días")} de ventas es orientativo.` : "",
     ].filter(Boolean).join(" ");
     return {
-      text,
+      text: answer,
       table: {
         columns: [
           { key: "plato", label: "Plato" },
