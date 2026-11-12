@@ -86,6 +86,14 @@ Reglas que no se rompen:
 | `photo.ts`, `use-voice.ts` | Foto de albarán (se lee en el navegador) y dictado |
 | `report-form.tsx`, `quick-actions.tsx` | Reportar una respuesta y menú de funciones |
 
+## Estilos
+
+- `src/app/globals.css`: tokens (colores, tipografía, radios, sombras). Todo color sale de aquí.
+- `src/app/theme.css`: la capa visual común (menú lateral en verde de marca, fondo, relieve de tarjetas)
+  y el movimiento. Solo se anima `transform` y `opacity`, con duraciones cortas, y con «reducir
+  movimiento» del sistema no se anima nada. Un cambio de aspecto general va aquí, no en cada pantalla.
+- Cada pantalla y componente tiene su CSS al lado; usa los tokens, no colores sueltos.
+
 ## Lector de albaranes
 
 OCR en el navegador (un Web Worker servido desde `/ocr`, generado por `scripts/build-ocr.mjs`; la foto
