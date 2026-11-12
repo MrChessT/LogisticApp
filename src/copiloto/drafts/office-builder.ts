@@ -202,7 +202,8 @@ export async function supplierTerms({ message, ctx, info, now }: OfficeInput): P
   if (!hasRole(ctx.role, "manager")) return { kind: "error", message: "Las condiciones de los proveedores las cambian los encargados y la administración." };
   const named = mentionedSupplier(message, ctx.suppliers);
   const changes = parseTermChanges(message);
-  if (!named || changes.length === 0) return { kind: "error", message: "Dime el proveedor y lo que cambia, por ejemplo «el pedido mínimo de Makro es 200 €»." };
+  if (changes.length === 0) return { kind: "error", message: "Dime el proveedor y lo que cambia, por ejemplo «el pedido mínimo de Makro es 200 €»." };
+  if (!named) return { kind: "error", message: "No encuentro ese proveedor. Dímelo como sale en Proveedores (o pregúntame «¿qué proveedores tenemos?»).", navigate: nav("/proveedores") };
   const current = (await info.suppliers(ctx.orgId)).find((s) => s.name === named.name);
   const before: Record<TermField, string | number[] | number | null> = {
     min_order: current?.minOrder ?? null,
