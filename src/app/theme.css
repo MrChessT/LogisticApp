@@ -1,0 +1,128 @@
+/*
+ * Capa visual de la app: color de marca en el marco y movimiento sutil.
+ *
+ * Reglas (para que no cueste rendimiento ni accesibilidad):
+ *  · Solo se animan transform y opacity (no recalculan la página), con duraciones cortas (120–450 ms).
+ *  · Nada se repite en bucle salvo los indicadores de carga.
+ *  · Con «reducir movimiento» activado en el sistema, todo el movimiento se quita (al final del fichero).
+ *  · Los colores salen de los tokens de globals.css; aquí solo se combinan.
+ *  · «html …» delante: gana a los estilos de cada pantalla, que se cargan después que este fichero.
+ */
+
+/* ---------- Fondo: verde muy suave con un brillo de marca arriba, en vez de blanco plano ---------- */
+:root { --canvas: #f1f5f1; --shadow-card: 0 1px 2px rgba(23, 37, 31, .04), 0 6px 18px rgba(23, 37, 31, .05); }
+.shell-main {
+  background:
+    radial-gradient(900px 340px at 12% -120px, rgba(46, 128, 100, .13), transparent 70%),
+    radial-gradient(700px 300px at 92% -140px, rgba(216, 240, 109, .22), transparent 70%),
+    var(--canvas);
+}
+/* Las pantallas no tapan el fondo del marco. */
+.shell-content > main { background-color: transparent; }
+.shell-topbar { background: rgba(241, 245, 241, .82); }
+
+/* ---------- Menú lateral en verde de marca ---------- */
+.shell .sidebar {
+  color: #e6efe9;
+  background: linear-gradient(180deg, #194b3d 0%, #143e33 55%, #11362c 100%);
+  border-right: 0;
+}
+.shell .logo-word { color: #fff; }
+.shell .logo-word span { color: var(--accent); }
+.shell .workspace { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .09); }
+.shell .workspace-avatar { color: var(--accent-ink); background: var(--accent); }
+.shell .workspace-copy strong { color: #fff; }
+.shell .workspace-copy small { color: rgba(230, 239, 233, .66); }
+.shell .nav-heading { color: rgba(230, 239, 233, .55); }
+.shell .nav-item { position: relative; color: rgba(230, 239, 233, .78); }
+.shell .nav-item svg { color: rgba(230, 239, 233, .6); transition: color .15s ease, transform .15s ease; }
+.shell .nav-item:hover { color: #fff; background: rgba(255, 255, 255, .07); }
+.shell .nav-item:hover svg { color: #fff; transform: translateX(1px); }
+.shell .nav-item.active { color: #fff; background: rgba(216, 240, 109, .13); }
+.shell .nav-item.active svg { color: var(--accent); }
+/* Marca del apartado activo: una barra lima que entra desde la izquierda. */
+.shell .nav-item::before {
+  content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--accent); transform: scaleY(0); transition: transform .2s ease;
+}
+.shell .nav-item.active::before { transform: scaleY(1); }
+.shell .nav-badge { color: #ffd2b0; background: rgba(229, 138, 78, .22); }
+.shell .nav-item:focus-visible, .shell .brand-link:focus-visible, .shell .user-link:focus-visible { outline-color: var(--accent); }
+.shell .user-card { border-top-color: rgba(255, 255, 255, .1); }
+.shell .user-link:hover { background: rgba(255, 255, 255, .07); }
+.shell .user-avatar { color: var(--accent-ink); background: var(--accent); }
+.shell .sidebar .icon-button { color: rgba(230, 239, 233, .7); }
+.shell .sidebar .icon-button:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+
+/* ---------- Tarjetas con algo de relieve ---------- */
+html :is(.kpi-strip, .panel) { box-shadow: var(--shadow-card); }
+html .kpi-strip { background: linear-gradient(180deg, #fff 0%, #fbfdfb 100%); }
+.kpi-value { animation: rise .45s ease-out both; }
+.kpi:nth-child(2) .kpi-value { animation-delay: .05s; }
+.kpi:nth-child(3) .kpi-value { animation-delay: .1s; }
+.kpi:nth-child(4) .kpi-value { animation-delay: .15s; }
+a.kpi { transition: background-color .15s ease; }
+
+/* Botón principal: al pasar por encima se queda en lima (antes pasaba a verde oscuro con el texto oscuro). */
+html .primary-button:hover { background: var(--accent-hover); }
+
+/* ---------- Movimiento ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes slide-in { from { opacity: .6; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* Al entrar en una pantalla, sus bloques aparecen escalonados (el primero ya, el sexto a los 0,2 s). */
+.shell-content > main > * { animation: rise .35s ease-out both; }
+.shell-content > main > *:nth-child(2) { animation-delay: .04s; }
+.shell-content > main > *:nth-child(3) { animation-delay: .08s; }
+.shell-content > main > *:nth-child(4) { animation-delay: .12s; }
+.shell-content > main > *:nth-child(5) { animation-delay: .16s; }
+.shell-content > main > *:nth-child(n + 6) { animation-delay: .2s; }
+
+/* Barras de nivel y minigráficas: crecen al aparecer. */
+.level-bar i { transform-origin: left center; animation: grow-x .6s cubic-bezier(.2, .7, .2, 1) both; }
+.kpi-spark i { transform-origin: bottom center; animation: grow-y .5s cubic-bezier(.2, .7, .2, 1) both; }
+.kpi-spark i:nth-child(2) { animation-delay: .03s; }
+.kpi-spark i:nth-child(3) { animation-delay: .06s; }
+.kpi-spark i:nth-child(4) { animation-delay: .09s; }
+.kpi-spark i:nth-child(5) { animation-delay: .12s; }
+.kpi-spark i:nth-child(n + 6) { animation-delay: .15s; }
+
+/* Ventanas: el fondo aparece y la ventana sube un poco. El asistente entra desde la derecha. */
+.op-modal-layer, .wh-modal-layer, .modal-layer, .search-overlay, .copiloto-overlay, .copiloto-report-layer, .mobile-backdrop { animation: fade .16s ease-out both; }
+.op-modal, .wh-modal, .product-modal, .search-dialog, .copiloto-report { animation: pop .22s cubic-bezier(.2, .8, .2, 1) both; }
+.copiloto-panel { animation: slide-in .26s cubic-bezier(.2, .8, .2, 1) both; }
+@media (max-width: 760px) {
+  .shell .sidebar.open { animation: slide-in-left .24s cubic-bezier(.2, .8, .2, 1) both; }
+}
+@keyframes slide-in-left { from { transform: translateX(-24px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+/* Respuesta al toque: los botones se hunden un poco y las tarjetas enlazadas se elevan. */
+:is(.primary-button, .secondary-button, .ghost-button, .catalog-primary, .operation-primary, .op-modal-submit, .login-submit, .copiloto-launcher) {
+  transition: background-color .15s ease, border-color .15s ease, transform .12s ease;
+}
+:is(.primary-button, .secondary-button, .ghost-button, .catalog-primary, .operation-primary, .op-modal-submit, .login-submit, .copiloto-launcher):active:not(:disabled) { transform: scale(.97); }
+.quick-actions a, .quick-actions button, .copiloto-starters button, .copiloto-skills button { transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.quick-actions a:hover, .quick-actions button:hover, .copiloto-skills button:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+.copiloto-starters button:hover { transform: translateX(2px); }
+.copiloto-launcher:hover { transform: translateY(-2px); }
+
+/* Filas de tabla: el resaltado entra suave en vez de saltar. */
+tbody tr, .menu-row, .op-row { transition: background-color .12s ease; }
+
+/* ---------- Entrada ---------- */
+html .login-page {
+  background:
+    radial-gradient(700px 420px at 15% 0%, rgba(46, 128, 100, .18), transparent 70%),
+    radial-gradient(600px 380px at 90% 100%, rgba(216, 240, 109, .28), transparent 70%),
+    var(--canvas);
+}
+html .login-card { box-shadow: 0 2px 4px rgba(23, 37, 31, .04), 0 18px 48px rgba(23, 37, 31, .1); animation: pop .4s cubic-bezier(.2, .8, .2, 1) both; }
+
+/* ---------- Sin movimiento si el sistema lo pide ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
