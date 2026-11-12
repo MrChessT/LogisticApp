@@ -121,11 +121,11 @@ describe("reporte del 16/10 (probador y Oskar)", () => {
     expect(find(await run(makeAgent(ok).agent, chat("ha llegado lo del Parador al Vivero")), "draft")).toMatchObject({ operation: "recibir_traspaso" });
   });
 
-  it("«llévame a los informes de mermas»: dice dónde están (con enlace) y nunca navega solo", async () => {
+  it("«llévame a los informes de mermas»: abre Informes en la vista Mermas, sin preguntar", async () => {
     const jev = new FakeJev();
     const events = await run(makeAgent(jev).agent, chat("llévame a los informes de mermas de este mes"));
     expect(jev.calls).toHaveLength(0);
-    expect(find(events, "navigate")?.auto).toBe(false);
+    expect(find(events, "navigate")).toMatchObject({ route: "/informes", auto: true, filters: { view: "mermas" } });
     expect(find(events, "done")!.text).toMatch(/Mermas|Informes/);
   });
 

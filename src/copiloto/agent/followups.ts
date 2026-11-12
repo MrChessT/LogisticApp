@@ -8,7 +8,10 @@ import type { ActionPlan, CatalogPlan, QueryPlan } from "./plans";
 export interface FollowUp {
   id: string;
   label: string;
-  plan: QueryPlan | CatalogPlan | ActionPlan | TareaPlan;
+  /** Consulta o borrador ya resuelto: se ejecuta sin Jev. */
+  plan?: QueryPlan | CatalogPlan | ActionPlan | TareaPlan;
+  /** O una frase completa que se envía como si la escribiera el usuario (pasa por Jev). */
+  say?: string;
 }
 
 /** Como mucho estos productos se arrastran a la siguiente consulta (la familia «ron» puede ser larga). */

@@ -58,5 +58,26 @@
       { "usuario": "¿qué facturas vencen esta semana?", "espera": "Pendiente de pago|No hay facturas", "no": "Entiendo" },
       { "usuario": "¿cómo voy este mes?", "espera": "^En \\w+ \\(del 1 al", "no": "Entiendo" }
     ]
+  },
+  {
+    "nombre": "Opiniones 12/11: preguntas de más (Oskar)",
+    "turnos": [
+      { "usuario": "cuantas mermas han habido en la oliva", "espera": "La Oliva", "sinAclarar": true },
+      { "usuario": "y en vivero", "espera": "Vivero", "sinAclarar": true, "no": "[Tt]raspaso" },
+      { "usuario": "resumen de operaciones", "sinAclarar": true, "no": "¿Qué quieres hacer\\?" },
+      { "usuario": "cuanto se espera ganar", "espera": "No hago previsiones", "sinAclarar": true },
+      { "usuario": "que categoría tiene el pacharan", "espera": "[Pp]achar", "sinAclarar": true },
+      { "usuario": "dame los nombres dle personal", "espera": "\\(propiedad|\\(administración|\\(encargado|\\(personal", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo", "sinAclarar": true },
+      { "usuario": "se ha consumido los siguientes productos: 10 cajas de cocacola y 3 fantas de naranja", "espera": "recuentos", "sinAclarar": true }
+    ]
+  },
+  {
+    "nombre": "Opiniones 12/11: llévame a la pantalla (probador)",
+    "turnos": [
+      { "usuario": "Llévame a los informes de mermas de este mes.", "espera": "Te llevo a Gestión › Informes, vista Mermas", "sinAclarar": true },
+      { "usuario": "si", "espera": "enlace|nada pendiente", "sinAclarar": true },
+      { "usuario": "llévame a pedidos", "espera": "Te llevo a Operativa › Pedidos", "sinAclarar": true }
+    ]
   }
 ]

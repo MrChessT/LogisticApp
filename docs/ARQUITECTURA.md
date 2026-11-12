@@ -55,8 +55,10 @@ Un mensaje recorre este camino (`agent/loop.ts` lo orquesta):
    mensaje nuevo.
 2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado («¿y sus
    proveedores?»), la IA lo reescribe como petición completa. Se descarta si inventa productos o locales.
-3. **Atajos sin Jev**: comandos `/…` (`shortcuts.ts`), temas claros de gestión (`tools/info.ts`:
-   ventas, facturas, escandallos…), avisos fijos (`topics.ts`) y la vía rápida de stock (`fast-path.ts`).
+3. **Atajos sin Jev**: comandos `/…` (`shortcuts.ts`), respuestas ya escritas (`fixed-replies.ts`: temas
+   que no lleva, ir a una pantalla, consumo dicho a mano, «sí» suelto sin nada pendiente, categoría de un
+   producto), temas claros de gestión (`tools/info.ts`: ventas, facturas, escandallos…) y la vía rápida
+   de stock (`fast-path.ts`).
 4. **Jev** (`routing.ts` construye las preguntas, `jev/catalog.ts` las define): devuelve probabilidades.
    `interpret.ts` aplica los umbrales (`gates/`) y produce un **plan** (`plans.ts`) o una aclaración.
    Si no llega al umbral, se pregunta: nunca se adivina.
@@ -74,12 +76,17 @@ Reglas que no se rompen:
   como tales. Si falla o no está, todo funciona igual que sin ella.
 - Cambiar un texto de `jev/catalog.ts` sube `CATALOG_VERSION`.
 - El asistente trabaja con el JWT del usuario: ve y puede lo mismo que esa persona.
+- Solo cambia de pantalla cuando se le pide («llévame a…», `/stock`): `navigate` con `auto`. Si se
+  pregunta dónde está algo, deja el enlace.
+- Los botones de seguimiento llevan una consulta ya resuelta (`plan`, sin Jev) o una frase completa
+  (`say`, que sigue el camino normal como si se hubiera escrito).
 
 ### Panel del asistente (`src/components/copiloto`)
 
 | Fichero | Qué es |
 | --- | --- |
 | `copiloto.tsx` | El panel: conversación, envío (texto, comandos, fotos, voz) y pintado |
+| `use-file-drop.ts` | Archivos arrastrados al panel o pegados (Ctrl+V); fotos → `photo.ts`, el resto dice dónde va |
 | `chat-model.ts`, `chat-stream.ts` | Mensajes de la conversación y lectura de la respuesta (SSE) |
 | `assistant-home.tsx` | Inicio según la pantalla, comandos «/» y guía de `/ayuda` |
 | `message-parts.tsx`, `draft-card.tsx` | Texto, tablas y tarjetas de borrador |

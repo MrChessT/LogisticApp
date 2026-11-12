@@ -30,10 +30,12 @@ describe("confirmar o descartar un borrador desde el chat", () => {
     expect(find(events, "done")!.text).toBe("Merma registrada.");
     expect(writer.calls.map((c) => c.method)).toEqual(["registerWaste"]);
 
-    // Ya no hay borrador pendiente: otro «sí» no vuelve a ejecutar nada.
+    // Ya no hay borrador pendiente: otro «sí» no vuelve a ejecutar nada (ni llega a Jev).
+    const calls = jev.calls.length;
     const again = await run(agent, chat("sí"));
-    expect(Object.keys(jev.calls.at(-1)!.questions)).not.toContain("borrador");
+    expect(jev.calls).toHaveLength(calls);
     expect(find(again, "resolved")).toBeUndefined();
+    expect(find(again, "done")!.text).toContain("No tengo nada pendiente de confirmar");
     expect(writer.calls).toHaveLength(1);
   });
 

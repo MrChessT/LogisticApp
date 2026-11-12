@@ -5,7 +5,7 @@
 // message-parts (texto, tablas), draft-card (borradores), report-form (reportes), quick-actions (funciones).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, Camera, Check, Flag, FlaskConical, LayoutGrid, Loader2, Mic, MicOff, MessagesSquare, RotateCcw, Send, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Camera, Check, Flag, FlaskConical, ImageUp, LayoutGrid, Loader2, Mic, MicOff, MessagesSquare, RotateCcw, Send, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import { createClient } from "@/lib/supabase/client";
 import { setPendingPhoto } from "@/lib/pending-photo";
@@ -19,6 +19,7 @@ import { DraftCard } from "./draft-card";
 import { AssistantText, TableCard, Understood } from "./message-parts";
 import { summarizeAlbaranPhoto } from "./photo";
 import { ReportForm } from "./report-form";
+import { fileKind, otherFileReply, useFileDrop } from "./use-file-drop";
 import { useVoice } from "./use-voice";
 import "./copiloto.css";
 
@@ -38,7 +39,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const [testMode, setTestMode] = useState(false);
   const testModeLoaded = useRef(false);
   /** Reporte abierto: sobre un mensaje (su índice) o sobre toda la conversación (null). */
-  const [reportFor, setReportFor] = useState<{ index: number | null } | null>(null);
+  const [reportFor, setReportFor] = useState<{ index: number | null; sessionId: string | null } | null>(null);
   const [reported, setReported] = useState<Set<string>>(new Set());
   const sessionId = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -124,11 +125,23 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
       const summary = await summarizeAlbaranPhoto(file);
       update(assistantId, () => ({ pending: false, text: summary.text, photo: { file, read: summary.read } }));
     } catch (err) {
-      update(assistantId, () => ({ pending: false, error: err instanceof Error && err.message ? err.message : "No se pudo leer la foto.", photo: { file, read: false } }));
+      // Los fallos del navegador al abrir la imagen llegan en inglés («could not be decoded»): se dice en claro.
+      const decode = err instanceof Error && /decod|load|image|canvas/i.test(err.message);
+      const message = decode ? "No he podido abrir la imagen (¿está dañada o en un formato raro?). Prueba con otra foto o una captura en JPG o PNG." : "No se pudo leer la foto.";
+      update(assistantId, () => ({ pending: false, error: message, photo: { file, read: false } }));
     } finally {
       setBusy(false);
     }
   }
+
+  /** Archivo arrastrado, pegado o elegido: las fotos se leen; del resto se dice dónde va. */
+  function handleFile(file: File) {
+    const kind = fileKind(file);
+    if (kind === "imagen") return void sendPhoto(file);
+    const navigate = kind === "pdf" ? { route: "/facturas" as const, filters: {}, auto: false } : undefined;
+    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Archivo: ${file.name}` }, { id: newId(), role: "assistant", text: otherFileReply(file, kind), pending: false, ...(navigate ? { navigate } : {}) }]);
+  }
+  const drop = useFileDrop(handleFile, !busy);
 
   function openPhotoInReceipts(file: File) {
     // El panel se cierra para dejar a la vista Nueva recepción (la conversación sigue al volver a abrirlo).
@@ -165,8 +178,10 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
           const t = data as { delta: string; reset?: boolean };
           update(assistantId, (item) => ({ text: (t.reset ? "" : item.text) + t.delta }));
         } else if (event === "navigate") {
-          // El asistente nunca cambia de pantalla solo: deja un enlace.
-          update(assistantId, () => ({ navigate: data as NavigateEvent }));
+          // Deja el enlace; si se pidió ir («llévame a…»), además abre la pantalla (el panel sigue abierto).
+          const nav = data as NavigateEvent;
+          update(assistantId, () => ({ navigate: nav }));
+          if (nav.auto) router.push(hrefFor(nav));
         } else if (event === "clarify") {
           setPendingClarify(data as ClarifyEvent);
           update(assistantId, () => ({ clarify: data as ClarifyEvent }));
@@ -337,7 +352,14 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
 
       {open && (
         <div className="copiloto-overlay" onClick={() => setOpen(false)}>
-          <aside className="copiloto-panel" role="dialog" aria-label="Asistente de inventario" onClick={(event) => event.stopPropagation()}>
+          <aside className={`copiloto-panel${drop.dragging ? " dropping" : ""}`} role="dialog" aria-label="Asistente de inventario" onClick={(event) => event.stopPropagation()} {...drop.dropHandlers}>
+            {drop.dragging && (
+              <div className="copiloto-drop" aria-hidden="true">
+                <ImageUp size={28} />
+                <strong>Suelta aquí la foto del albarán</strong>
+                <span>La leo en tu dispositivo y te digo qué llega</span>
+              </div>
+            )}
             <header className="copiloto-header">
               <div className="copiloto-title">
                 <span className="copiloto-mark"><MessagesSquare size={15} /></span>
@@ -353,7 +375,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                   </button>
                 )}
                 {items.length > 0 && (
-                  <button type="button" className="copiloto-report-all" onClick={() => setReportFor({ index: null })} title="Reportar algo de toda la conversación">
+                  <button type="button" className="copiloto-report-all" onClick={() => setReportFor({ index: null, sessionId: sessionId.current })} title="Reportar algo de toda la conversación">
                     <Flag size={14} /> Reportar
                   </button>
                 )}
@@ -435,7 +457,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                       <button
                         type="button"
                         className={`copiloto-report-link${reported.has(item.id) ? " done" : ""}`}
-                        onClick={() => setReportFor({ index: items.findIndex((i) => i.id === item.id) })}
+                        onClick={() => setReportFor({ index: items.findIndex((i) => i.id === item.id), sessionId: sessionId.current })}
                         title="¿Algo mal o mejorable en esta respuesta?"
                       >
                         {reported.has(item.id) ? <><Check size={12} /> Reportado</> : <><Flag size={12} /> Reportar</>}
@@ -475,7 +497,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                 onClick={() => photoInput.current?.click()}
                 disabled={busy}
                 aria-label="Enviar una foto"
-                title="Foto de un albarán"
+                title="Foto de un albarán (o arrástrala aquí)"
               >
                 <Camera size={16} />
               </button>
@@ -487,7 +509,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   event.target.value = "";
-                  if (file) void sendPhoto(file);
+                  if (file) handleFile(file);
                 }}
               />
               <input
@@ -500,6 +522,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                   historyAt.current = null;
                 }}
                 onKeyDown={onInputKey}
+                onPaste={drop.onPaste}
                 placeholder={listening ? "Te escucho…" : pendingClarify ? "Responde o escribe otra cosa…" : "Pregunta, pide una operación o escribe /"}
                 maxLength={1000}
               />
@@ -517,7 +540,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
               <ReportForm
                 items={items}
                 index={reportFor.index}
-                sessionId={sessionId.current}
+                sessionId={reportFor.sessionId}
                 page={pathname}
                 onClose={() => setReportFor(null)}
                 onSent={() => {

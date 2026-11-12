@@ -258,8 +258,12 @@ async function team(source: InfoSource, ctx: SessionContext, p: InfoParams): Pro
   const pending = people.filter((m) => m.pending).length;
   const order = { owner: 0, admin: 1, manager: 2, staff: 3 } as Record<string, number>;
   const sorted = [...people].sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || a.name.localeCompare(b.name, "es"));
+  // «dame los nombres del personal», «¿quién trabaja en el Vivero?»: los nombres van en el texto, no solo en la tabla.
+  const names = /\b(nombres?|quien(es)?|como se llaman)\b/.test(normalize(p.message)) && sorted.length <= 15
+    ? ` ${sorted.map((m) => `${m.name} (${(ROLE_LABEL[m.role] ?? m.role).toLowerCase()}${m.pending ? ", invitado" : ""})`).join(", ")}.`
+    : "";
   return {
-    text: `${plural(people.length, "persona", "personas")} ${scopeLabel(ctx, p)}: ${breakdown.join(", ")}.${pending ? ` ${plural(pending, "invitación está", "invitaciones están")} sin aceptar.` : ""}`.replace(/\s+:/, ":"),
+    text: `${plural(people.length, "persona", "personas")} ${scopeLabel(ctx, p)}: ${breakdown.join(", ")}.${names}${pending ? ` ${plural(pending, "invitación está", "invitaciones están")} sin aceptar.` : ""}`.replace(/\s+:/, ":"),
     table: table(
       [{ key: "nombre", label: "Nombre" }, { key: "puesto", label: "Puesto" }, { key: "locales", label: "Locales" }],
       sorted.map((m) => ({

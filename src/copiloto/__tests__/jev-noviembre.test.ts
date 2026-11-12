@@ -95,9 +95,9 @@ describe("tablas limpias", () => {
   });
 });
 
-describe("sin navegar solo", () => {
-  it("dice dónde está cada pantalla y deja el enlace", () => {
-    expect(screenHelp("llévame a mermas")).toMatchObject({ route: "/mermas" });
+describe("pantallas", () => {
+  it("abre la que se pide; de las que se pregunta, dice dónde está y deja el enlace", () => {
+    expect(screenHelp("llévame a mermas")).toMatchObject({ route: "/mermas", go: true });
     expect(screenHelp("¿dónde están las facturas?")).toMatchObject({ route: "/facturas", text: expect.stringContaining("Gestión › Facturas") });
     expect(screenHelp("abre pedidos")).toMatchObject({ route: "/pedidos" });
     // Operaciones, no pantallas.

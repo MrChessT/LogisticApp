@@ -1,14 +1,12 @@
 // Temas que el asistente no lleva (personal, ventas y márgenes) o que no se registran desde el chat
 // (consumo): respuesta fija, sin Jev. Antes caían en «¿Qué quieres consultar?» y acababan en algo sin
 // relación («que equipo hay» → stock del «Equilibrio»; «cuánto se espera ganar» → stock de especias).
-import type { AppRoute } from "../contract/index";
+import type { AnalyticsView, AppRoute } from "../contract/index";
 import { normalize, tokenize } from "../entities/normalize";
 import { QUERY_PAY } from "../tools/info";
+import type { AvisoPlan } from "./plans";
 
-export interface TopicReply {
-  text: string;
-  route?: AppRoute;
-}
+export type TopicReply = Omit<AvisoPlan, "type">;
 
 const STOCK_WORDS = /\b(stock|queda|quedan|botellas?|cajas?|merma|traspas|pedido|inventario|recuento|precio)\b/;
 
@@ -57,7 +55,10 @@ export function consumptionByHand(message: string): TopicReply | null {
   if (text === "consumo") return CONSUMPTION_REPLY;
   const registers = /\b(se ha consumido|se han consumido|hemos consumido|consumimos|se ha gastado|se han gastado|hemos gastado)\b|\b(apunta|registra|anota|mete)\b.*\bconsumo\b/.test(text);
   if (!registers || !/\d/.test(text)) return null;
-  return CONSUMPTION_REPLY;
+  // Lo dicho desde la primera cantidad («10 cajas de cocacola y 3 fantas en el Parador») se ofrece como
+  // merma ya escrita: si era eso, un toque y Jev prepara el borrador con los mismos productos.
+  const items = message.slice(message.search(/\d/)).trim().replace(/[.!]+$/, "");
+  return { ...CONSUMPTION_REPLY, text: `${CONSUMPTION_REPLY.text} Si se ha roto o tirado, te preparo la merma con lo que me has dicho.`, actions: [{ label: "Registrar como merma", say: `merma de ${items}` }] };
 }
 
 const CONSUMPTION_REPLY: TopicReply = {
@@ -95,9 +96,48 @@ export function screenHelp(message: string, locationNames: string[] = []): Topic
   if (/^(abre|abreme|abrir)\b/.test(text) && !/\b(pantalla|apartado|pagina|seccion|menu)\b/.test(text)) {
     if (/\b(inventario|pedido|traspaso|recuento|conteo)\b/.test(text) || locationNames.some((n) => text.includes(normalize(n)))) return null;
   }
-  const screen = SCREENS.find((s) => s.re.test(text));
-  if (!screen) return { text: "No te llevo a las pantallas, pero te digo dónde está cada cosa: en el menú de la izquierda, «Operativa» (stock, pedidos, recepciones, traspasos, almacén, inventarios y mermas) y «Gestión» (productos, proveedores, escandallos, facturas, informes, equipo y zonas). ¿Qué buscas?" };
-  return { text: `Lo tienes en el menú: ${screen.path}${screen.tip ? `, ${screen.tip}` : ""}. Te dejo el enlace.`, route: screen.route };
+  // «Llévame a los informes de mermas de este mes»: Informes con esa vista y ese periodo, no Mermas.
+  const report = /\b(informes?|graficas?|analisis|estadisticas)\b/.test(text) ? reportView(text) : null;
+  const screen = report ? SCREENS.find((s) => s.route === "/informes") : SCREENS.find((s) => s.re.test(text));
+  if (!screen) return { text: "¿A qué pantalla? En el menú de la izquierda están «Operativa» (stock, pedidos, recepciones, traspasos, almacén, inventarios y mermas) y «Gestión» (productos, proveedores, escandallos, ventas, facturas, informes, equipo y zonas). Dime cuál y te llevo." };
+  // «Llévame», «abre», «vamos a»: se abre la pantalla. «¿Dónde está…?»: se dice dónde, con el enlace.
+  const go = !/^(donde|como)\b/.test(text);
+  const where = report ? `${screen.path}, vista ${report.label}${report.days ? ` (últimos ${report.days} días)` : ""}` : screen.path;
+  const filters = report ? { view: report.view, ...(report.days ? { days: report.days } : {}) } : undefined;
+  if (go) return { text: `Te llevo a ${where}.${screen.tip && !report ? ` Si quieres, ${screen.tip.replace(/^o /, "")}.` : ""}`, route: screen.route, go, ...(filters ? { filters } : {}) };
+  return { text: `Lo tienes en el menú: ${where}${screen.tip ? `, ${screen.tip}` : ""}. Te dejo el enlace.`, route: screen.route, ...(filters ? { filters } : {}) };
+}
+
+const REPORT_VIEWS: Array<{ re: RegExp; view: AnalyticsView; label: string }> = [
+  { re: /\bmermas?\b|\broturas?\b/, view: "mermas", label: "Mermas" },
+  { re: /\bconsumos?\b|\bgasto\b|\bse gasta\b/, view: "consumo", label: "Consumo" },
+  { re: /\bprecios?\b/, view: "precios", label: "Precios" },
+  { re: /\breponer\b|\breposicion\b/, view: "reposicion", label: "Reposición" },
+  { re: /\bdesvios?\b|\bdescuadres?\b|\bdiferencias\b/, view: "desvios", label: "Desvíos" },
+  { re: /\bstock\b|\bexistencias\b/, view: "stock", label: "Stock" },
+];
+
+/** Vista y periodo de Informes dichos en el mensaje (Informes muestra 7, 30 o 90 días). */
+function reportView(text: string): { view: AnalyticsView; label: string; days?: 7 | 30 | 90 } {
+  const found = REPORT_VIEWS.find((v) => v.re.test(text)) ?? { view: "resumen" as const, label: "Resumen" };
+  const days = /\b(hoy|ayer|semana)\b/.test(text) ? 7 : /\b(trimestre|tres meses)\b/.test(text) ? 90 : /\bmes\b/.test(text) ? 30 : undefined;
+  return { view: found.view, label: found.label, ...(days ? { days } : {}) };
+}
+
+/**
+ * «sí», «no», «vale» sueltos cuando no hay nada pendiente (ni borrador ni pregunta): antes Jev no sabía
+ * qué se pedía y contestaba «¿Qué quieres hacer?».
+ */
+export function bareAnswer(message: string, lastAssistant: string | undefined): TopicReply | null {
+  const text = normalize(message).replace(/[¿?¡!.,]/g, " ").replace(/\s+/g, " ").trim();
+  if (/^(no|no gracias|nop|nada mas|eso es todo)$/.test(text)) return { text: "Vale. Aquí estoy si necesitas otra cosa." };
+  if (!/^(si|sip|vale|ok|okay|de acuerdo|claro|venga|perfecto|si porfa|si por favor|dale)$/.test(text)) return null;
+  const offered = lastAssistant && /\benlace\b/.test(lastAssistant);
+  return {
+    text: offered
+      ? "Pulsa el enlace de mi respuesta anterior y te abre la pantalla. Si quieres otra cosa, dímela."
+      : "No tengo nada pendiente de confirmar. Dime qué necesitas («¿cuánta coca queda en el Vivero?», «merma de 2 botellas de Larios») o escribe /ayuda.",
+  };
 }
 
 /** Saludo, agradecimiento o despedida corta («gracias!», «buenas», «hasta luego»). */

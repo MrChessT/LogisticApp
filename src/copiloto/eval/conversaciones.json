@@ -284,14 +284,23 @@
     ]
   },
   {
-    "nombre": "Dónde está una pantalla (sin navegar) y charlar",
+    "nombre": "Ir a una pantalla (solo si se pide), dónde está otra y charlar",
     "turnos": [
       {
         "usuario": "llévame a mermas",
         "jev": {},
         "espera": {
           "enlace": "/mermas",
+          "abre": true,
           "texto": "Operativa › Mermas"
+        }
+      },
+      {
+        "usuario": "¿dónde están las facturas?",
+        "jev": {},
+        "espera": {
+          "enlace": "/facturas",
+          "texto": "Gestión › Facturas"
         }
       },
       {
