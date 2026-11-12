@@ -28,6 +28,6 @@ if not isinstance(rows, list):
 if not rows:
     print("Sin errores registrados en el periodo."); sys.exit(0)
 for r in rows:
-    print(f"{r[\"ultima\"]}  {r[\"origen\"]:<9} ×{r[\"veces\"]:<4} {r[\"ruta\"][:40]:<40} {r[\"mensaje\"]}")
-print(f"\n{len(rows)} errores distintos.")
+    print("{}  {:<9} ×{:<4} {:<40} {}".format(r["ultima"], r["origen"], r["veces"], r["ruta"][:40], r["mensaje"]))
+print("\n{} errores distintos.".format(len(rows)))
 '

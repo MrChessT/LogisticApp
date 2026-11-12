@@ -8,7 +8,7 @@
 --                     vez hoy (entonces la aplicación avisa por el webhook de alertas, si está configurado).
 --
 -- Nadie lee la tabla desde la app (sin permisos ni políticas): se consulta con scripts/ops/errores.sh.
--- La función la puede llamar cualquiera (también sin sesión: un fallo en el acceso es un fallo), así que
+-- La 0044 la cierra a quien no tiene sesión (los errores sin sesión los registra el servidor). Aun así
 -- recorta lo que recibe y deja de crear filas nuevas a partir de 300 errores distintos al día.
 
 create table app_errors (

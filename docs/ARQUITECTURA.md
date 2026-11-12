@@ -98,7 +98,9 @@ producto es cada referencia de cada proveedor.
 - **Servidor**: `src/instrumentation.ts` (`onRequestError`). **Navegador**: `components/error-reporter.tsx`
   y `app/error.tsx` → `POST /api/errores`. **Asistente**: fallos internos del chat.
 - Todo acaba en `lib/report-error.ts` → función `report_app_error` → tabla `app_errors` (un error por
-  día y huella, con contador; sin datos del negocio).
+  día y huella, con contador; sin datos del negocio). Con sesión se registra a nombre del usuario; sin
+  sesión (acceso, fallos del servidor) con la clave de servicio, porque nadie sin sesión ejecuta
+  funciones de la base (regla de la 0030, con test).
 - **Aviso**: con la variable `ERROR_WEBHOOK_URL` (Slack, Discord o cualquier URL que acepte `{text}`)
   llega un mensaje la primera vez del día que aparece cada error.
 - **Consulta**: `bash scripts/ops/errores.sh [días]`.

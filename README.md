@@ -83,7 +83,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0038–0039 | Stock «bajo mínimo» con lo que está sin stock; recepciones a 0 € no pisan el último precio |
 | 0040, 0042 | Ventas del TPV con coste teórico; PVP de los platos según lo cobrado |
 | 0041 | Memoria de códigos de proveedor para el lector de albaranes |
-| 0043 | Registro de errores de la aplicación |
+| 0043–0044 | Registro de errores de la aplicación (solo con sesión o desde el servidor) |
 
 La cabecera de cada migración explica qué añade y por qué.
 

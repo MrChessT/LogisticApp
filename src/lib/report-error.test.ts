@@ -33,12 +33,23 @@ describe("registro de errores", () => {
   it("si ya se había visto hoy, o no hay webhook, no avisa", async () => {
     const repeated = stub(false);
     vi.stubEnv("ERROR_WEBHOOK_URL", "https://hooks.example.com/x");
-    await reportError("client", "falla");
+    await reportError("client", "falla", { token: "jwt" });
     expect(repeated).toHaveLength(1);
     const noHook = stub(true);
     vi.stubEnv("ERROR_WEBHOOK_URL", "");
-    await reportError("client", "falla");
+    await reportError("client", "falla", { token: "jwt" });
     expect(noHook).toHaveLength(1);
+  });
+
+  it("sin sesión lo registra el servidor con su clave; sin ella, no se intenta (la base no deja sin sesión)", async () => {
+    const calls = stub(true);
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service");
+    await reportError("server", new Error("al pintar"));
+    expect(calls[0]!.auth).toBe("Bearer service");
+    const none = stub(true);
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    await reportError("server", new Error("al pintar"));
+    expect(none).toHaveLength(0);
   });
 
   it("nunca lanza, aunque falle el registro", async () => {
