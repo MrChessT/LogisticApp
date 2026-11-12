@@ -75,18 +75,20 @@ export class SupabaseInfoSource implements InfoSource {
 
   async recipes(orgId: string): Promise<RecipeRaw[]> {
     const [recipes, costs] = await Promise.all([
-      this.db.from("recipes").select("id, name, kind, category, active, sale_price, target_food_cost").eq("org_id", orgId),
+      this.db.from("recipes").select("id, name, kind, category, active, sale_price, vat_rate, target_food_cost").eq("org_id", orgId),
       this.db.rpc("recipe_costs", { p_org: orgId }),
     ]);
     const byId = new Map(rows("los costes de los escandallos", costs).map((c) => [String(c.recipe_id), c]));
     return rows("los escandallos", recipes).map((r) => {
       const c = byId.get(String(r.id));
       return {
+        id: String(r.id),
         name: String(r.name),
         kind: r.kind === "elaboracion" ? "elaboracion" : "plato",
         category: textOrNull(r.category),
         active: r.active !== false,
         salePrice: textOrNull(r.sale_price),
+        vatRate: text(r.vat_rate ?? 10),
         target: text(r.target_food_cost),
         portionCost: textOrNull(c?.portion_cost),
         foodCostPct: textOrNull(c?.food_cost_pct),

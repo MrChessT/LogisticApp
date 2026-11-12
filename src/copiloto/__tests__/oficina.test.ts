@@ -97,3 +97,62 @@ describe("pagar una factura", () => {
     expect(find(events, "done")!.text).toContain("Pendiente de pago");
   });
 });
+
+describe("PVP de un plato", () => {
+  it("«pon el PVP de las croquetas a 10 €»: borrador con el food cost antes y después; al confirmar, guardado", async () => {
+    const setup = makeAgent(new FakeJev([{ coherencia: 0.95 }]));
+    const draft = find(await run(setup.agent, chat("pon el PVP de las croquetas a 10 €")), "draft") as DocumentDraft;
+    expect(draft).toMatchObject({ operation: "precio_venta", documentId: "e0000000-0000-4000-8000-000000000001", price: "10", title: "Cambiar PVP: Croquetas de jamón a 10,00 €" });
+    expect(draft.lines).toEqual([
+      { label: "PVP con IVA", qty: "9,00 € → 10,00 €" },
+      { label: "Food cost", qty: "41,6 % → 37,4 % (objetivo 30 %)" },
+    ]);
+    const result = await confirm(setup, draft.draftId);
+    expect(result).toMatchObject({ ok: true, message: "PVP actualizado a 10,00 €.", navigate: { route: "/escandallos" } });
+    expect(setup.writer.calls).toEqual([{ method: "setRecipePrice", args: { recipeId: draft.documentId, price: "10" } }]);
+  });
+
+  it("un salto grande se avisa", async () => {
+    const draft = find(await run(makeAgent(new FakeJev([{ coherencia: 0.95 }])).agent, chat("el precio de venta de la ensalada de la huerta ahora es 18,50")), "draft") as DocumentDraft;
+    expect(draft.price).toBe("18.5");
+    expect(draft.warnings.join(" ")).toContain("Cambio grande (+131 %)");
+  });
+
+  it("el precio de compra no entra aquí, ni la pregunta por el PVP", () => {
+    const ctx = fixtureContext();
+    expect(officeAction("el ron ahora cuesta 15 €", ctx)).toBeNull();
+    expect(officeAction("¿cuál es el PVP de las croquetas?", ctx)).toBeNull();
+  });
+
+  it("el personal no cambia precios", async () => {
+    const events = await run(makeAgent(new FakeJev()).agent, chat("pon el PVP de las croquetas a 10 €"), "staff");
+    expect(find(events, "draft")).toBeUndefined();
+    expect(JSON.stringify(events)).toContain("lo cambian los encargados");
+  });
+});
+
+describe("condiciones de un proveedor", () => {
+  it("«el pedido mínimo de Makro ahora es 200 €»: antes → después y, al confirmar, guardado", async () => {
+    const setup = makeAgent(new FakeJev([{ coherencia: 0.95 }]));
+    const draft = find(await run(setup.agent, chat("el pedido mínimo de Makro ahora es 200 €")), "draft") as DocumentDraft;
+    expect(draft).toMatchObject({ operation: "condiciones_proveedor", title: "Condiciones de Makro: pedido mínimo", terms: [{ field: "min_order", value: "200" }] });
+    expect(draft.lines).toEqual([{ label: "Pedido mínimo", qty: "150,00 € → 200,00 €" }]);
+    const result = await confirm(setup, draft.draftId);
+    expect(result).toMatchObject({ ok: true, message: "Condiciones del proveedor actualizadas.", navigate: { route: "/proveedores" } });
+    expect(setup.writer.calls).toEqual([{ method: "setSupplierTerms", args: { supplierId: draft.documentId, terms: draft.terms } }]);
+  });
+
+  it("varias cosas en una frase: días y hora límite", async () => {
+    const draft = find(await run(makeAgent(new FakeJev([{ coherencia: 0.95 }])).agent, chat("a Makro se le pide martes y viernes antes de las 11")), "draft") as DocumentDraft;
+    expect(draft.lines).toEqual([
+      { label: "Días de pedido", qty: "lun, jue → mar, vie" },
+      { label: "Hora límite", qty: "12:00 → 11:00" },
+    ]);
+  });
+
+  it("preguntar por las condiciones sigue siendo una consulta", async () => {
+    const events = await run(makeAgent(new FakeJev()).agent, chat("qué condiciones de pago tiene Makro"));
+    expect(find(events, "draft")).toBeUndefined();
+    expect(find(events, "done")!.text).toContain("pago: Transferencia a 30 días");
+  });
+});

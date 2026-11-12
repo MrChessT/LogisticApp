@@ -27,7 +27,7 @@ describe("última vez que se pidió o llegó", () => {
   it("varios productos: uno por línea, sin preguntar cuál", async () => {
     const r = await answer("última vez que pedimos ron");
     expect(r.clarify).toBeUndefined();
-    expect(r.text).toBe("Último pedido y última llegada:\n• Ron Barceló Añejo 70 cl: pedido 18/09 a Distribuciones Canarias (Parador) · llegada —\n• Ron Brugal Añejo 70 cl: pedido — · llegada —");
+    expect(r.text).toBe("Último pedido y última llegada:\n• Ron Barceló Añejo 70 cl: pedido 18/09 a Distribuciones Canarias (Parador) · llegada —\n• Otro, sin pedidos ni entradas en el último año.");
   });
 });
 
@@ -44,5 +44,22 @@ describe("proveedores de varios productos", () => {
 
   it("una orden sobre el proveedor no es una pregunta", async () => {
     expect((await answer("cambia el proveedor del ron a Makro")).text).not.toContain("Los trae");
+  });
+});
+
+describe("precios estimados", () => {
+  it("«Precio de referencia (estimado)» no es un proveedor a quien se compre", async () => {
+    const { productFact } = await import("../agent/product-facts");
+    const { fixtureContext, PRODUCTS } = await import("../dev/fixture");
+    const { LexicalRetriever } = await import("../entities/retriever");
+    const ron = PRODUCTS.filter((p) => p.name.startsWith("Ron"));
+    const source = {
+      supplierPrices: async () => [
+        { supplierId: "x", supplierName: "Precio de referencia (estimado)", packId: ron[0]!.packs[0]!.id, lastPrice: "10", lastPriceAt: null },
+        { supplierId: "y", supplierName: "Makro", packId: ron[1]!.packs[0]!.id, lastPrice: "11", lastPriceAt: null },
+      ],
+    } as unknown as Parameters<typeof productFact>[3];
+    const reply = await productFact("¿quién nos trae el ron?", fixtureContext(), new LexicalRetriever(), source);
+    expect(reply!.text).toBe("Solo uno tiene proveedor:\n• Makro: Ron Brugal Añejo 70 cl\n• Sin proveedor apuntado: Ron Barceló Añejo 70 cl");
   });
 });

@@ -372,11 +372,11 @@ export interface CountDraft extends DraftBase {
 
 /**
  * Algo sobre un documento que ya existe: recibir, enviar o cancelar un traspaso o un pedido; marcar una
- * factura como pagada; validar las salidas de almacén pendientes de un local.
+ * factura como pagada; validar las salidas de almacén pendientes de un local; cambiar el PVP de un plato o las condiciones de un proveedor.
  */
 export interface DocumentDraft extends DraftBase {
   kind: "documento";
-  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas";
+  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor";
   documentId: string;
   /** Local para enlazar la pantalla al terminar. */
   locationId: string;
@@ -388,6 +388,10 @@ export interface DocumentDraft extends DraftBase {
   receive?: Array<{ packId: string; packsQty: string; packPrice: string | null }>;
   /** Validar salidas: los movimientos de almacén que se validan (los que se enseñaron, ni uno más). */
   moveIds?: string[];
+  /** Precio de venta: el PVP nuevo con IVA (cadena decimal). */
+  price?: string;
+  /** Condiciones de proveedor: los campos que cambian, con su valor nuevo. */
+  terms?: Array<{ field: "min_order" | "order_days" | "order_cutoff" | "lead_time_hours" | "payment_terms"; value: string }>;
 }
 
 export type Draft = WasteDraft | TransferDraft | ReceiptDraft | CountCloseDraft | OrderDraft | CatalogDraft | DocumentDraft | CountDraft;

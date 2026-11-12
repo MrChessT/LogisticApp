@@ -50,8 +50,8 @@ export class FixtureInfoSource implements InfoSource {
 
   async recipes(): Promise<RecipeRaw[]> {
     return [
-      { name: "Croquetas de jamón", kind: "plato", category: "Entrantes", active: true, salePrice: "9.00", target: "30", portionCost: "3.40", foodCostPct: "41.6", margin: "4.78", missingPrices: 0, allergens: ["gluten", "lacteos", "huevo"] },
-      { name: "Ensalada de la huerta", kind: "plato", category: "Entrantes", active: true, salePrice: "8.00", target: "30", portionCost: "1.60", foodCostPct: "22.0", margin: "5.67", missingPrices: 1, allergens: [] },
+      { id: "e0000000-0000-4000-8000-000000000001", vatRate: "10", name: "Croquetas de jamón", kind: "plato", category: "Entrantes", active: true, salePrice: "9.00", target: "30", portionCost: "3.40", foodCostPct: "41.6", margin: "4.78", missingPrices: 0, allergens: ["gluten", "lacteos", "huevo"] },
+      { id: "e0000000-0000-4000-8000-000000000002", vatRate: "10", name: "Ensalada de la huerta", kind: "plato", category: "Entrantes", active: true, salePrice: "8.00", target: "30", portionCost: "1.60", foodCostPct: "22.0", margin: "5.67", missingPrices: 1, allergens: [] },
       { name: "Bechamel", kind: "elaboracion", category: "Bases", active: true, salePrice: null, target: "30", portionCost: "0.80", foodCostPct: null, margin: null, missingPrices: 0, allergens: ["gluten", "lacteos"] },
     ];
   }

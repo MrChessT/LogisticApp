@@ -11,7 +11,7 @@ import type { InventoryDataSource, OrderRaw, TransferRaw } from "../tools/types"
 import { draftBase, type BuildResult } from "./builder";
 import { validateDraft } from "./schemas";
 import type { InfoSource } from "../tools/info";
-import { invoicePayment, warehouseValidation } from "./office-builder";
+import { dishPrice, invoicePayment, supplierTerms, warehouseValidation } from "./office-builder";
 
 export interface DocumentBuildInput {
   plan: DocumentPlan;
@@ -32,6 +32,8 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   cancelar_pedido: "Cancelar pedido",
   pagar_factura: "Marcar factura pagada",
   validar_salidas: "Validar salidas de almacén",
+  precio_venta: "Cambiar PVP",
+  condiciones_proveedor: "Condiciones de proveedor",
 };
 
 /**
@@ -46,6 +48,8 @@ const FOR_JEV: Record<DocumentDraft["operation"], string> = {
   cancelar_pedido: "cancel a purchase order",
   pagar_factura: "mark a supplier invoice as paid today",
   validar_salidas: "validate the pending storeroom exits of a venue",
+  precio_venta: "change the menu sale price of a dish",
+  condiciones_proveedor: "change a supplier's ordering or payment terms",
 };
 
 /** Solo un encargado envía pedidos o cancela; recibir lo puede hacer cualquiera del local. */
@@ -69,6 +73,8 @@ export class DocumentDraftBuilder {
   async build({ plan, message, ctx, source, info, overrides, now }: DocumentBuildInput): Promise<BuildResult> {
     if (plan.accion === "pagar_factura") return invoicePayment({ plan, message, ctx, info, overrides, now });
     if (plan.accion === "validar_salidas") return warehouseValidation({ plan, message, ctx, info, overrides, now });
+    if (plan.accion === "precio_venta") return dishPrice({ plan, message, ctx, info, overrides, now });
+    if (plan.accion === "condiciones_proveedor") return supplierTerms({ plan, message, ctx, info, overrides, now });
     return plan.accion === "recibir_traspaso" || plan.accion === "cancelar_traspaso"
       ? this.transfer(plan, ctx, source, overrides, now)
       : this.order(plan, message, ctx, source, overrides, now);
