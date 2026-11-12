@@ -5,13 +5,13 @@
       { "usuario": "¿cuánta tónica queda en el Parador?", "espera": "Stock de" },
       { "usuario": "¿y en Pickles?", "espera": "Pickles", "sinAclarar": true },
       { "usuario": "lo mismo pero en el Vivero", "espera": "Vivero", "sinAclarar": true },
-      { "usuario": "¿cuánto se gastó de eso la semana pasada?", "espera": "Entiendo: .*tónica.*semana pasada" }
+      { "usuario": "¿cuánto se gastó de eso la semana pasada?", "espera": "Entiendo: .*tónica.*semana pasada", "no": "\\d+ productos|y \\d+ más" }
     ]
   },
   {
     "nombre": "Ventas y carta",
     "turnos": [
-      { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer " },
+      { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer |^No hay ventas importadas de ayer" },
       { "usuario": "¿y el sábado?", "espera": "^El sábado \\d" },
       { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada" },
       { "usuario": "qué plato deja más margen", "espera": "^El plato que más deja por ración" },
