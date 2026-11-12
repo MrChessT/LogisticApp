@@ -16,7 +16,7 @@ import type { Tools } from "../tools/tools";
 import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
 import { Interpreter } from "./interpret";
-import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, Plan } from "./plans";
+import { shortcutIntent, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type InfoPlan, type Plan } from "./plans";
 import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
@@ -27,15 +27,15 @@ import { HabitsStore } from "./habits";
 import type { ConfirmResponse } from "../drafts/confirm";
 import { isShortcut, resolveShortcut, tareaTopicOf } from "./shortcuts";
 import { CANCEL_OPTION, operationOnly } from "./free-text";
-import { resumeClarification } from "./clarify-answer";
+import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
 import { describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
 import { runQuery } from "./run-query";
 import { tokenize } from "../entities/normalize";
 import { fastStockPlan } from "./fast-path";
-import { consumptionByHand, screenHelp, smallTalk, topicReply } from "./topics";
+import { smallTalk } from "./topics";
+import { fixedReply } from "./fixed-replies";
 import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
-import type { InfoPlan } from "./plans";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
@@ -138,21 +138,23 @@ export class Agent {
 
       // Botón de seguimiento («Precios», «Consumo del mes»…): consulta ya resuelta, sin Jev.
       const followUp = req.followUpId ? session.followUps?.find((f) => f.id === req.followUpId) : undefined;
-      if (followUp) {
+      // Un botón con frase («Registrar como merma») sigue el camino normal, como si se hubiera escrito.
+      const byButton = Boolean(followUp?.plan);
+      if (followUp?.plan) {
         plan = followUp.plan;
         message = followUp.label;
         shortcut = true;
-      }
+      } else if (followUp?.say) message = followUp.say;
 
       // Respuesta a una aclaración: se retoma la orden original con lo contestado (ver clarify-answer.ts).
-      if (req.clarification && !followUp) {
+      if (req.clarification && !byButton) {
         ({ message, page, pageContext, overrides, answers, reuse, plan, shortcut } = await resumeClarification(req, session, ctx, deps.retriever, { message, page, pageContext, overrides, answers, reuse, plan, shortcut }));
       }
 
       // Seguimiento que depende de lo hablado («¿y sus proveedores?»): la IA lo completa antes de enrutar
       // (ver comprehension.ts). Lo reescrito sigue el camino normal; si falla, el mensaje tal cual.
       let understoodAs: string | null = null;
-      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !req.followUpId) {
+      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !followUp) {
         understoodAs = await rewriteFollowUp(deps.assistant, message, session, activeFocus(session, this.now().getTime()), ctx, timer);
         if (understoodAs) message = understoodAs;
       }
@@ -166,11 +168,12 @@ export class Agent {
         shortcut = plan !== null;
       }
 
-      // Lo que no es del inventario (personal, ventas), el consumo «a mano» y «olvídalo»: respuesta fija.
-      if (!plan && !reuse && !req.followUpId) {
-        const topic = topicReply(message) ?? screenHelp(message, ctx.locations.map((l) => l.name)) ?? consumptionByHand(message);
+      // Respuestas ya escritas (ver fixed-replies.ts): temas que no lleva, pantallas, «sí» suelto…
+      if (!plan && !reuse && !byButton) {
+        const waiting = Boolean(activeFocus(session, this.now().getTime())?.draftId) || session.clarifies.size > 0;
+        const topic = await fixedReply(message, session, ctx, deps.retriever, waiting);
         if (topic) {
-          plan = { type: "aviso", text: topic.text, ...(topic.route ? { route: topic.route } : {}) };
+          plan = { type: "aviso", ...topic };
           shortcut = true;
           session.clarifies.clear();
         }
@@ -225,7 +228,7 @@ export class Agent {
       // si no, sigue la aclaración de siempre. La IA nunca decide qué hacer ni da cifras.
       let skipGeneral = false;
       const focusNow = activeFocus(session, this.now().getTime());
-      if (deps.assistant?.enabled && !understoodAs && !shortcut && !reuse && !req.clarification && !req.followUpId && !focusNow?.draftId && needsUnderstanding(plan, message)) {
+      if (deps.assistant?.enabled && !understoodAs && !shortcut && !reuse && !req.clarification && !byButton && !focusNow?.draftId && needsUnderstanding(plan, message)) {
         const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, ...(focusNow ? { focus: describeFocus(focusNow, ctx) } : {}) }));
         if (understanding?.tipo === "general") {
           plan = { type: "aviso", text: `${understanding.respuesta}\n\n${GENERAL_NOTE}` };
@@ -361,7 +364,7 @@ export class Agent {
     // La misma pregunta otra vez: lo que se escribió no la contestaba. Se dice claro qué falta, con un
     // ejemplo de respuesta, y se ofrece dejarlo (nunca se manda a otra pantalla).
     const repeated = askedRecently(env.session, plan.question);
-    const asked = repeated ? `Me falta ese dato para seguir. ${plan.question}${ANSWER_HINT[plan.field] ? ` ${ANSWER_HINT[plan.field]}` : ""}` : plan.question;
+    const asked = repeated ? insistedQuestion(plan) : plan.question;
     const question = env.understoodAs ? `Entiendo: «${env.understoodAs}». ${asked}` : asked;
     const options = repeated ? [...plan.options, { id: CANCEL_OPTION, label: "Déjalo", probability: null }] : plan.options;
     const clarify: ClarifyEvent = {
@@ -499,7 +502,12 @@ export class Agent {
         return general ? { kind: "fuera_de_ambito", general } : { kind: "fuera_de_ambito" };
       }
       case "aviso":
-        if (plan.route) await emit({ event: "navigate", data: { route: plan.route, filters: {}, auto: false } });
+        if (plan.route) await emit({ event: "navigate", data: { route: plan.route, filters: plan.filters ?? {}, auto: plan.go ?? false } });
+        if (plan.actions?.length) {
+          const followUps = plan.actions.map((a) => ({ id: randomUUID().slice(0, 12), label: a.label, say: a.say }));
+          this.deps.sessions.setFollowUps(env.session, followUps);
+          await emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
+        }
         return { kind: "tarea", tarea: "aviso", text: plan.text, rows: 0 };
       case "bloqueado":
         return { kind: "bloqueado" };
@@ -575,33 +583,4 @@ interface ExecEnv {
   audit: AuditSink;
   drafts: DraftStore;
   confirmDraft?: ConfirmDraft;
-}
-
-/** ¿Se hizo esta misma pregunta en los últimos turnos del asistente? (bucle de aclaraciones) */
-function askedRecently(session: Session, question: string): boolean {
-  const recent = session.turns.filter((t) => t.role === "assistant").slice(-3);
-  const head = question.slice(0, 40);
-  return recent.some((t) => t.text.includes(head));
-}
-
-/** Cómo se contesta cada pregunta, para cuando lo escrito no la contestaba. */
-const ANSWER_HINT: Partial<Record<ClarifyPlan["field"], string>> = {
-  local: "Elige uno o escribe su nombre.",
-  local_destino: "Elige uno o escribe su nombre.",
-  producto: "Elige uno o escribe el nombre como sale en el catálogo.",
-  cantidad: "Escribe solo la cantidad, por ejemplo «3 botellas».",
-  precio: "Escribe solo el precio, por ejemplo «1,50».",
-  formato: "Elige uno de los formatos.",
-  documento: "Elige uno de la lista.",
-};
-
-/** Intención de un plan resuelto sin Jev (atajos, temas, vía rápida). */
-function shortcutIntent(plan: Plan): Intent {
-  return plan.type === "conversar" || plan.type === "aviso"
-    ? "conversar"
-    : plan.type === "catalogo" || plan.type === "accion"
-      ? "proponer_accion"
-      : plan.type === "tarea"
-        ? "pedir_sugerencias"
-        : "consultar";
 }

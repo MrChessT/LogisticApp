@@ -12,7 +12,6 @@ const BASELINE = {
   "src/app/productos/product-editor.tsx": 880,
   "src/components/operations/operations-page.tsx": 825,
   "src/copiloto/agent/interpret.ts": 855,
-  "src/copiloto/agent/loop.ts": 610,
   "src/copiloto/drafts/catalog-builder.ts": 875,
   "src/copiloto/tools/tools.ts": 790,
 };

@@ -5,7 +5,7 @@ import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
 import type { Retriever } from "../entities/retriever";
 import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, readFreeText, type FreeTextAnswer } from "./free-text";
-import type { Plan } from "./plans";
+import type { ClarifyPlan, Plan } from "./plans";
 import type { PendingClarify, Session } from "./session";
 import { resolveShortcut } from "./shortcuts";
 
@@ -129,4 +129,28 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
     }
   }
   return { message, page, pageContext, overrides, answers, reuse, plan, shortcut };
+}
+
+/** ¿Se hizo esta misma pregunta en los últimos turnos del asistente? (bucle de aclaraciones) */
+export function askedRecently(session: Session, question: string): boolean {
+  const recent = session.turns.filter((t) => t.role === "assistant").slice(-3);
+  const head = question.slice(0, 40);
+  return recent.some((t) => t.text.includes(head));
+}
+
+/** Cómo se contesta cada pregunta, para cuando lo escrito no la contestaba. */
+const ANSWER_HINT: Partial<Record<ClarifyPlan["field"], string>> = {
+  local: "Elige uno o escribe su nombre.",
+  local_destino: "Elige uno o escribe su nombre.",
+  producto: "Elige uno o escribe el nombre como sale en el catálogo.",
+  cantidad: "Escribe solo la cantidad, por ejemplo «3 botellas».",
+  precio: "Escribe solo el precio, por ejemplo «1,50».",
+  formato: "Elige uno de los formatos.",
+  documento: "Elige uno de la lista.",
+};
+
+/** La misma pregunta por segunda vez: se dice claro que falta ese dato, con un ejemplo de respuesta. */
+export function insistedQuestion(plan: ClarifyPlan): string {
+  const hint = ANSWER_HINT[plan.field];
+  return `Me falta ese dato para seguir. ${plan.question}${hint ? ` ${hint}` : ""}`;
 }

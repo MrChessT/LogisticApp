@@ -1,8 +1,8 @@
 // Planes: lo que el asistente va a hacer con un mensaje, ya decidido (por Jev y sus umbrales, por un
 // atajo o por la respuesta a una aclaración). Ejecutarlos es cosa de loop.ts.
-import type { AppRoute, ClarifyField, GateOutcome } from "../contract/index";
+import type { AppRoute, ClarifyField, GateOutcome, NavigateEvent } from "../contract/index";
 import type { Product } from "../domain";
-import type { Accion, Dato, InfoTool, MotivoMerma, Periodo } from "../jev/catalog";
+import type { Accion, Dato, InfoTool, Intent, MotivoMerma, Periodo } from "../jev/catalog";
 import type { TareaPlan } from "../skills/tareas";
 import type { ToolName } from "../tools/tools";
 
@@ -120,5 +120,30 @@ export type Plan =
   | { type: "conversar" }
   | { type: "fuera_de_ambito" }
   | { type: "bloqueado" }
-  /** Respuesta fija para lo que el asistente no lleva (personal, ventas) o no se registra a mano (consumo). */
-  | { type: "aviso"; text: string; route?: AppRoute };
+  | AvisoPlan;
+
+/**
+ * Respuesta ya escrita: lo que el asistente no lleva (personal, previsiones), lo que no se registra a
+ * mano (consumo), ir a una pantalla o un dato del catálogo que no necesita a Jev.
+ */
+export interface AvisoPlan {
+  type: "aviso";
+  text: string;
+  route?: AppRoute;
+  filters?: NavigateEvent["filters"];
+  /** Se pidió ir a la pantalla: el panel la abre (además de dejar el enlace). */
+  go?: boolean;
+  /** Botones que envían una frase ya completa, como si la escribiera el usuario. */
+  actions?: Array<{ label: string; say: string }>;
+}
+
+/** Intención de un plan resuelto sin Jev (atajos, temas, vía rápida). */
+export function shortcutIntent(plan: Plan): Intent {
+  return plan.type === "conversar" || plan.type === "aviso"
+    ? "conversar"
+    : plan.type === "catalogo" || plan.type === "accion"
+      ? "proponer_accion"
+      : plan.type === "tarea"
+        ? "pedir_sugerencias"
+        : "consultar";
+}

@@ -246,3 +246,15 @@
   /* En el móvil, el teclado ya trae el dictado. */
   .copiloto-mic { display: none !important; }
 }
+
+/* Archivo arrastrado encima del panel: un velo con borde discontinuo indica dónde soltarlo. */
+.copiloto-panel { position: relative; }
+.copiloto-drop {
+  position: absolute; inset: 10px; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  color: var(--brand); text-align: center; pointer-events: none;
+  background: rgba(241, 245, 241, .92); border: 2px dashed var(--brand); border-radius: var(--r-lg);
+  animation: fade .14s ease-out both;
+}
+.copiloto-drop strong { font: 600 16px var(--font-display), sans-serif; color: var(--ink); }
+.copiloto-drop span { color: var(--muted); font-size: var(--fs-sm); }
+.copiloto-drop svg { animation: rise .3s ease-out both; }

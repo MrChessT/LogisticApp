@@ -261,12 +261,12 @@ describe("enrutado del agente", () => {
 });
 
 describe("atajos deterministas", () => {
-  it("/mermas dice dónde está y deja el enlace (nunca navega solo), sin llamar a Jev", async () => {
+  it("/mermas abre la pantalla (se ha pedido) y deja el enlace, sin llamar a Jev", async () => {
     const jev = new FakeJev();
     const { agent, metrics } = makeAgent(jev);
     const events = await run(agent, chat("/mermas"));
     expect(jev.calls).toHaveLength(0);
-    expect(find(events, "navigate")).toEqual({ route: "/mermas", filters: {}, auto: false });
+    expect(find(events, "navigate")).toEqual({ route: "/mermas", filters: {}, auto: true });
     expect(find(events, "done")!.text).toContain("Mermas");
     expect(find(events, "decision")!.shortcut).toBe(true);
     expect(metrics.shortcuts).toBe(1);
