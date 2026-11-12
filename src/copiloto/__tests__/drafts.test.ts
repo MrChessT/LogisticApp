@@ -6,7 +6,7 @@ import { FixtureDataSource } from "../dev/fixture";
 import { DraftBuilder } from "../drafts/builder";
 import { ConfirmService } from "../drafts/confirm";
 import { MemoryAuditSink } from "../audit/audit";
-import type { ActionPlan } from "../agent/interpret";
+import type { ActionPlan } from "../agent/plans";
 import type { Product } from "../domain";
 import { chat, FakeJev, find, makeAgent, NOW, run } from "./helpers";
 

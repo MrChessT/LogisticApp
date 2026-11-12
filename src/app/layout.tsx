@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
 import { CopilotoLoader } from "@/components/copiloto/copiloto-loader";
+import { ErrorReporter } from "@/components/error-reporter";
 import { AppShell } from "@/components/shell/app-shell";
 import "./globals.css";
 import "./page-chrome.css";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <AppShell>{children}</AppShell>
         <CopilotoLoader />
+        <ErrorReporter />
       </body>
     </html>
   );

@@ -9,7 +9,7 @@
 import Decimal from "decimal.js";
 import type { NavigateEvent, TableEvent } from "../contract/index";
 import type { Pack, Product, SessionContext } from "../domain";
-import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/interpret";
+import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/plans";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
 import { isLoss } from "../../lib/exit-kinds";
@@ -17,7 +17,7 @@ import { addDays } from "../tools/periods";
 import { computeReorder } from "../tools/tools";
 import type { InventoryDataSource } from "../tools/types";
 
-export const TAREAS = {
+const TAREAS = {
   pedidos: { label: "Preparar pedidos", hint: "Todos los locales, por proveedor y en cajas" },
   equilibrar: { label: "Equilibrar locales", hint: "Traspasos de donde sobra a donde falta" },
   catalogo: { label: "Revisar catálogo", hint: "Precios, formatos y stock que no cuadran" },
@@ -32,7 +32,7 @@ export interface TareaPlan {
 }
 
 /** Lo que una tarea deja preparado para un toque: borradores o consultas ya resueltas. */
-export interface TareaFollowUp {
+interface TareaFollowUp {
   label: string;
   plan: QueryPlan | CatalogPlan | ActionPlan | TareaPlan;
 }

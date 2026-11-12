@@ -20,6 +20,7 @@ import { RateLimiter } from "./security/rate-limit";
 import { SuggestionEngine } from "./suggestions/engine";
 import type { SupabaseSettings } from "./supabase/client";
 import { OllamaProvider, OpenAICompatibleProvider, type WriterProvider } from "./writer/provider";
+import { reportError } from "../lib/report-error";
 import { Assistant } from "./writer/assistant";
 import { Writer } from "./writer/writer";
 
@@ -102,6 +103,7 @@ function build(): Runtime {
     retriever,
     writer,
     assistant,
+    onError: (err) => void reportError("assistant", err, { path: "/api/copiloto/chat" }),
     metrics,
     thresholds,
     sessions: new SessionStore(),

@@ -5,7 +5,7 @@ import Decimal from "decimal.js";
 import type { CountCloseDraft, CountDraft, Draft, DraftCheck, ReceiptDraft, Role, TransferDraft, WasteDraft } from "../contract/index";
 import { hasRole, type Pack, type Product, type SessionContext } from "../domain";
 import { bareCountNeedsWeight, formatDecimal, formatMoney, formatStock, toBase, unitReadings } from "../entities/units";
-import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, ResolvedProduct } from "../agent/interpret";
+import type { ActionPlan, CatalogPlan, ClarifyPlan, DocumentPlan, ResolvedProduct } from "../agent/plans";
 import { DocumentDraftBuilder } from "./document-builder";
 import type { NavigateEvent } from "../contract/index";
 import { CatalogDraftBuilder, type Review } from "./catalog-builder";
@@ -472,7 +472,7 @@ function boxesPlusLoose(p: ResolvedProduct, warnings: string[]): Quantity | null
 }
 
 /** Opción «unidades sueltas» de la pregunta de formato (productos que se cuentan por unidades). */
-export const BASE_PACK = "base";
+const BASE_PACK = "base";
 
 /**
  * La unidad «suelta» de un producto, si es evidente: en lo que se cuenta por unidades, el formato de 1 ud

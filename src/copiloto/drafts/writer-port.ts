@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExitKind } from "../../lib/exit-kinds";
 
-export const RPC_ERROR_CODES = [
+const RPC_ERROR_CODES = [
   "unauthenticated",
   "forbidden",
   "not_found",
@@ -34,7 +34,7 @@ export class RpcError extends Error {
 }
 
 /** Extrae el código que lanzan las funciones de la BD (`raise exception 'forbidden'`). */
-export function rpcCode(error: { message?: string; code?: string } | null | undefined): RpcErrorCode {
+function rpcCode(error: { message?: string; code?: string } | null | undefined): RpcErrorCode {
   const message = error?.message ?? "";
   const found = RPC_ERROR_CODES.find((code) => message === code || message.startsWith(`${code}:`) || message.includes(` ${code}`));
   if (found) return found;

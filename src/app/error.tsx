@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { reportClientError } from "@/lib/report-client-error";
 import "./status-page.css";
 
 // Si una pantalla falla al pintarse, se ofrece reintentar en lugar de dejar la página en blanco.
 export default function ErrorPage({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
     console.error(error);
+    reportClientError(error, error.digest);
   }, [error]);
 
   return (

@@ -9,7 +9,7 @@ export const CATALOG_VERSION = "2026-11-11.1";
 
 // Opciones fijas --------------------------------------------------------------
 
-export const INTENTS = {
+const INTENTS = {
   consultar: "Get figures or facts from the business data: stock levels and value, movements, consumption and what was broken or written off, prices, suppliers and their terms, formats and minimum levels of a product, purchases and spending, purchase orders, pending transfers, stock counts and their differences, supplier invoices and what is pending to pay, the team (staff), recipes and dishes (cost, food cost, allergens), sales registered at the till (how much was sold, best sellers, food cost of what was sold), storage areas or zones. Usually a question (\"¿se ha roto algo hoy?\", \"¿cuál es el mínimo…?\", \"¿quién nos trae…?\", \"¿qué facturas hay pendientes?\").",
   proponer_accion:
     "An instruction to record or prepare an operation, or a statement of what just happened to the goods, that changes stock, documents or the product catalog: waste or breakage, transfer between venues, receiving or cancelling a transfer, goods receipt, starting a stock count, recording counted quantities, closing a stock count, adding a new product, changing a purchase price, changing a minimum or target stock level, archiving or removing a product, preparing, sending, receiving or cancelling a purchase order.",
@@ -19,13 +19,13 @@ export const INTENTS = {
 } as const satisfies ChoiceCriteria;
 export type Intent = keyof typeof INTENTS;
 
-export const INTENT_ALT = {
+const INTENT_ALT = {
   leer: "The user wants to see or know something; nothing would change.",
   cambiar: "The user wants to record, move, receive, write off, close, add, reprice, archive or reconfigure something, which would change stock, documents or the product catalog.",
   ninguno: "Neither: small talk, help, or unrelated.",
 } as const satisfies ChoiceCriteria;
 
-export const HERRAMIENTAS = {
+const HERRAMIENTAS = {
   query_stock: "Current quantities (how many are left) and value in money of products in a venue or area.",
   query_movements: "What happened over a period: waste and breakage, consumption, goods that arrived or were purchased (\"¿qué me ha llegado hoy?\"), transfers, adjustments.",
   query_prices: "Supplier prices and how they changed (whether something got more expensive: \"¿ha subido algo la coca?\").",
@@ -50,13 +50,13 @@ export const HERRAMIENTAS = {
 export type Herramienta = keyof typeof HERRAMIENTAS;
 
 /** Consultas de información de gestión (facturas, equipo, escandallos…): las resuelve tools/info.ts. */
-export const INFO_TOOLS = ["query_sales", "query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview"] as const;
+const INFO_TOOLS = ["query_sales", "query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview"] as const;
 export type InfoTool = (typeof INFO_TOOLS)[number];
 export function isInfoTool(tool: string): tool is InfoTool {
   return (INFO_TOOLS as readonly string[]).includes(tool);
 }
 
-export const ACCIONES = {
+const ACCIONES = {
   merma: "Write off goods that were broken, spilled, expired or spoiled (\"pocho\"), thrown away (\"tira\", \"tírame\", \"baja\", \"dar de baja\") or given away to customers (\"invitación\", \"hemos invitado\").",
   traspaso: "Send goods from one of our venues to another (\"pasa\", \"pásame\", \"manda\", \"lleva\").",
   recepcion: "Register goods delivered by a supplier: how many units, bottles or boxes arrived (\"nos han entregado\", \"han traído\", \"ha llegado el camión con…\"). Not for adding a new item to the catalog.",
@@ -77,7 +77,7 @@ export const ACCIONES = {
 } as const satisfies ChoiceCriteria;
 export type Accion = keyof typeof ACCIONES;
 
-export const PERIODOS = {
+const PERIODOS = {
   hoy: "Today.",
   ayer: "Yesterday.",
   semana: "This week or the last seven days.",
@@ -89,7 +89,7 @@ export const PERIODOS = {
 export type Periodo = keyof typeof PERIODOS;
 
 // Qué quiere saber una consulta: la respuesta enseña solo eso (sin euros si pregunta cuántas hay).
-export const DATOS = {
+const DATOS = {
   cantidad: "How many units, bottles or boxes there are, remain or are left (\"¿cuánto queda?\", \"¿cuántas hay?\", \"¿cómo vamos de…?\").",
   valor: "How much the stock is worth in money (euros, \"dinero\", \"pasta\").",
   precio: "What it costs to buy, how much a supplier charges or what we pay for it.",
@@ -100,7 +100,7 @@ export const DATOS = {
 } as const satisfies ChoiceCriteria;
 export type Dato = keyof typeof DATOS;
 
-export const MOTIVOS_MERMA = {
+const MOTIVOS_MERMA = {
   rotura: "Broken.",
   caducidad: "Expired or spoiled.",
   derrame: "Spilled or poured out.",
@@ -111,7 +111,7 @@ export const MOTIVOS_MERMA = {
 } as const satisfies ChoiceCriteria;
 export type MotivoMerma = keyof typeof MOTIVOS_MERMA;
 
-export const BORRADOR = {
+const BORRADOR = {
   confirmar: "The message accepts the proposed operation as it is.",
   cancelar: "The message rejects, cancels or discards the proposed operation.",
   ninguno: "Neither: it asks something, changes the operation or requests something different.",
@@ -126,7 +126,7 @@ export const RESERVED_KEYS = new Set([NO_INDICADO, TODOS, NO_APLICA, NINGUNO, VA
 
 // Etiquetas en español para la UI (Decision.valueLabel) ---------------------
 
-export const LABELS: Record<string, string> = {
+const LABELS: Record<string, string> = {
   consultar: "Consultar datos",
   proponer_accion: "Preparar una operación",
   pedir_sugerencias: "Pedir sugerencias",
@@ -212,7 +212,7 @@ export function label(value: string): string {
 
 // Llamada nº 1: enrutado y entidades -------------------------------------------
 
-export interface RoutingSegmentInput {
+interface RoutingSegmentInput {
   /** Opciones de producto: clave = nombre del producto; valor = descripción estructurada. */
   candidates: Record<string, JsonValue>;
   hasAmount: boolean;
@@ -360,7 +360,7 @@ export function routingQuestions(input: RoutingInput): Questions {
 
 export type EvalKind = "reponer" | "desvio" | "subida" | "atasco" | "pedido" | "conteo";
 
-export const URGENCY_LEVELS = [
+const URGENCY_LEVELS = [
   "baja: can wait; informational only.",
   "media: should be handled this week.",
   "alta: should be handled today or before the next service.",
@@ -410,7 +410,7 @@ export function evaluationQuestions(kinds: EvalKind[], withDraft: boolean): Ques
 // Cada borrador de catálogo añade estas preguntas a la de coherencia, en la misma llamada.
 // El state lleva `request`, `draft` y los bloques que referencian las preguntas.
 
-export const MEDIDAS = {
+const MEDIDAS = {
   volume: "Measured by volume (millilitres): drinks, spirits, beer, syrups, oils.",
   mass: "Measured by weight (grams): fruit, meat, ice, coffee beans, flour.",
   count: "Counted in units: cans, small bottles sold individually, packs, napkins, disposables.",
@@ -418,7 +418,7 @@ export const MEDIDAS = {
 export type Medida = keyof typeof MEDIDAS;
 
 /** ¿Es el producto nuevo el mismo artículo que `similar.i`? (uno por candidato). */
-export function duplicateQuestions(count: number): Questions {
+function duplicateQuestions(count: number): Questions {
   const questions: Questions = {};
   for (let i = 0; i < count; i += 1) {
     questions[`duplicado_${i}`] = noul(

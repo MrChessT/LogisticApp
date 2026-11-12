@@ -5,13 +5,13 @@ import type { ExitKind } from "../../lib/exit-kinds";
 export const CONTRACT_VERSION = "1.0.0-draft";
 
 export const DecimalString = z.string().regex(/^-?\d+(\.\d+)?$/, "cantidad decimal no válida");
-export const Uuid = z.uuid();
+const Uuid = z.uuid();
 
 export const ROLES = ["owner", "admin", "manager", "staff"] as const;
 export const Role = z.enum(ROLES);
 export type Role = z.infer<typeof Role>;
 
-export const APP_ROUTES = [
+const APP_ROUTES = [
   "/", "/productos", "/stock", "/pedidos", "/recepciones", "/traspasos", "/inventarios", "/mermas", "/informes",
   "/almacen", "/proveedores", "/escandallos", "/ventas", "/facturas", "/equipo", "/zonas",
 ] as const;
@@ -67,13 +67,13 @@ export interface DecisionEvent {
   shortcut: boolean;
 }
 
-export interface TextEvent {
+interface TextEvent {
   delta: string;
   /** true: descarta el texto recibido hasta ahora (el verificador lo ha rechazado). */
   reset?: boolean;
 }
 
-export interface NavigateFilters {
+interface NavigateFilters {
   locationId?: string;
   areaId?: string;
   productId?: string;
@@ -121,7 +121,7 @@ export interface ClarifyEvent {
   allowFreeText: boolean;
 }
 
-export type ErrorCode =
+type ErrorCode =
   | "unauthenticated"
   | "forbidden"
   | "rate_limited"
@@ -162,7 +162,7 @@ export interface DoneEvent {
 
 // Borradores -----------------------------------------------------------------
 
-export interface QuantityInput {
+interface QuantityInput {
   amount: string;
   unit: string;
   packId?: string;
@@ -182,9 +182,9 @@ export interface DraftCheck {
 }
 
 export const CATALOG_KINDS = ["precio", "producto_nuevo", "minimo", "archivar"] as const;
-export type CatalogKind = (typeof CATALOG_KINDS)[number];
+type CatalogKind = (typeof CATALOG_KINDS)[number];
 
-export interface DraftBase {
+interface DraftBase {
   draftId: string;
   kind: "merma" | "traspaso" | "recepcion" | "cierre_inventario" | "pedido" | "documento" | "conteo" | CatalogKind;
   title: string;
@@ -330,7 +330,7 @@ export interface ArchiveDraft extends DraftBase {
   baseUnit: BaseUnit;
 }
 
-export type CatalogDraft = PriceDraft | NewProductDraft | MinimumDraft | ArchiveDraft;
+type CatalogDraft = PriceDraft | NewProductDraft | MinimumDraft | ArchiveDraft;
 
 /** Pedidos a proveedor (uno por proveedor) que se crean en borrador al confirmar. */
 export interface OrderDraft extends DraftBase {

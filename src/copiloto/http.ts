@@ -1,5 +1,6 @@
 // Endpoints del asistente como funciones de la app (sin servidor aparte). Cada petición trabaja con el
 // JWT del usuario: RLS activo, sin service role. El contrato está en docs/copiloto/CONTRACT.md.
+import { reportError } from "../lib/report-error";
 import { formatStock } from "./entities/units";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -124,6 +125,7 @@ async function chat(request: Request, user: RequestUser): Promise<Response> {
       } catch (err) {
         // Lo que falla antes del bucle del agente (sesión, hábitos…) también llega al usuario como error.
         console.error("copiloto chat", err);
+        if (!(err instanceof DataError)) void reportError("assistant", err, { path: "/api/copiloto/chat", token: user.token });
         const error: ErrorEvent =
           err instanceof DataError
             ? { code: "data_unavailable", message: "No he podido leer los datos del inventario. Inténtalo de nuevo en un momento.", retryable: true }
@@ -364,6 +366,7 @@ export async function handleCopiloto(route: string, request: Request, user: Requ
     if (err instanceof AuthError) return fail(err.code === "unauthenticated" ? 401 : 403, { code: err.code, message: err.message, retryable: false });
     if (err instanceof DataError) return fail(503, { code: "data_unavailable", message: "No se pudieron leer los datos del inventario", retryable: true });
     console.error("copiloto", err);
+    await reportError("assistant", err, { path: `/api/copiloto/${route}`, token: user.token });
     return fail(500, { code: "internal", message: "Error interno del asistente", retryable: true });
   }
 }

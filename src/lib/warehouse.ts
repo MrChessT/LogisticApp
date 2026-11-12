@@ -17,7 +17,7 @@ export type WarehouseContext = {
   pending: number;
   oldest_pending: string | null;
 };
-export type CatalogPack = { id: string; name: string; qty: string; count: boolean; purchase: boolean; barcode: string | null };
+type CatalogPack = { id: string; name: string; qty: string; count: boolean; purchase: boolean; barcode: string | null };
 export type CatalogItem = {
   id: string;
   name: string;
@@ -56,7 +56,7 @@ export type MoveRow = {
 };
 
 /** Formatos del producto con la forma de countingPacks (cajas + sueltas). */
-export function packsOf(dimension: UnitDimension, packs: Array<{ name: string; qty: string; count: boolean; purchase: boolean }> | null): CountingPacks {
+function packsOf(dimension: UnitDimension, packs: Array<{ name: string; qty: string; count: boolean; purchase: boolean }> | null): CountingPacks {
   const rows: PackRow[] = (packs ?? []).map((k) => ({ name: k.name, qty_base: k.qty, is_count_default: k.count, is_purchase_default: k.purchase, active: true }));
   return countingPacks(dimension, rows);
 }
@@ -155,7 +155,7 @@ export function readQueue(store: Store | null = storage()): QueuedMove[] {
   }
 }
 
-export function writeQueue(list: QueuedMove[], store: Store | null = storage()): void {
+function writeQueue(list: QueuedMove[], store: Store | null = storage()): void {
   try {
     store?.setItem(KEY, JSON.stringify(list));
   } catch {

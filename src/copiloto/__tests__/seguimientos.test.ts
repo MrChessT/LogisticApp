@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SseEvent } from "../contract/index";
 import { fixtureContext } from "../dev/fixture";
-import { groundedProducts } from "../agent/loop";
+import { groundedProducts } from "../agent/comprehension";
 import { contextReference } from "../agent/routing";
 import { Metrics } from "../metrics/metrics";
 import { Assistant } from "../writer/assistant";
@@ -67,6 +67,13 @@ describe("reescritura de seguimientos antes de enrutar", () => {
     await run(agent, chat("¿cuánta coca-cola queda en el Vivero?"));
     await run(agent, chat("¿y en el Parador?"));
     expect(provider.prompts).toHaveLength(0);
+  });
+
+  it("una reescritura que enumera productos («A, B y 12 más») no se usa", async () => {
+    const provider = new FakeProvider([['{"tipo":"datos","consulta":"¿cuánto se gastó de Coca-Cola 20 cl y 12 más ayer?"}']]);
+    const { agent } = makeAgent(new FakeJev([STOCK]), null, { assistant: new Assistant(provider, new Metrics("0")) });
+    await run(agent, chat("¿cuánta coca-cola queda en el Vivero?"));
+    expect(text(await run(agent, chat("¿y cuánto se vendió de eso ayer?")))).not.toContain("Entiendo");
   });
 
   it("si la reescritura se inventa un producto, se usa el mensaje tal cual", async () => {

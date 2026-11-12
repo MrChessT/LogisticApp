@@ -3,7 +3,7 @@
 // al pulsarlo se ejecuta sin volver a llamar a Jev (respuesta inmediata y sin dudas que resolver).
 import type { ToolName } from "../tools/tools";
 import type { TareaPlan } from "../skills/tareas";
-import type { ActionPlan, CatalogPlan, QueryPlan } from "./interpret";
+import type { ActionPlan, CatalogPlan, QueryPlan } from "./plans";
 
 export interface FollowUp {
   id: string;

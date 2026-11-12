@@ -1,4 +1,4 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   public: {
@@ -902,6 +902,7 @@ export type Database = {
         }>;
       };
       remember_supplier_codes: { Args: { p_supplier: string; p_items: Json }; Returns: number };
+      report_app_error: { Args: { p_source: string; p_message: string; p_path?: string | null; p_digest?: string | null; p_detail?: Json }; Returns: boolean };
       link_sales_item: { Args: { p_item: string; p_recipe: string | null; p_product: string | null; p_qty: number | null; p_ignored?: boolean }; Returns: undefined };
       sales_report: {
         Args: { p_org: string; p_from: string; p_to: string; p_location?: string | null };

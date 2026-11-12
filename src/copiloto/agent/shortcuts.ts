@@ -4,7 +4,7 @@ import type { Product, SessionContext } from "../domain";
 import type { Retriever } from "../entities/retriever";
 import type { ToolName } from "../tools/tools";
 import type { TareaId } from "../skills/tareas";
-import type { ClarifyPlan, Plan, QueryPlan } from "./interpret";
+import type { ClarifyPlan, Plan, QueryPlan } from "./plans";
 
 const ROUTES: Record<string, AppRoute> = {
   inicio: "/",

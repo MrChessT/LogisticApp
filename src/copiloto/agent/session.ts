@@ -54,7 +54,7 @@ export interface Focus {
 }
 
 /** Pasado este tiempo sin hablar, lo anterior ya no se da por supuesto. */
-export const FOCUS_TTL_MS = 30 * 60 * 1000;
+const FOCUS_TTL_MS = 30 * 60 * 1000;
 
 export function activeFocus(session: Session, now: number): Focus | undefined {
   return session.focus && now - session.focus.at <= FOCUS_TTL_MS ? session.focus : undefined;
@@ -102,7 +102,7 @@ const MAX_CLARIFIES = 5;
 const MAX_FOLLOWUPS = 16;
 const TTL_MS = 2 * 60 * 60 * 1000;
 
-export function serializeSession(session: Session): SerializedSession {
+function serializeSession(session: Session): SerializedSession {
   return {
     userId: session.userId,
     turns: session.turns,
@@ -130,7 +130,7 @@ export function serializeSession(session: Session): SerializedSession {
   };
 }
 
-export function deserializeSession(data: SerializedSession): Session {
+function deserializeSession(data: SerializedSession): Session {
   return {
     userId: data.userId,
     turns: data.turns ?? [],

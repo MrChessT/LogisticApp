@@ -3,7 +3,7 @@ import type { Draft } from "../contract/index";
 import type { ConfirmResponse } from "./confirm";
 import { DRAFT_TTL_MS } from "./builder";
 
-export type DraftStatus = "pendiente" | "ejecutando" | "confirmado";
+type DraftStatus = "pendiente" | "ejecutando" | "confirmado";
 
 export interface StoredDraft {
   draft: Draft;

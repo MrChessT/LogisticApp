@@ -14,7 +14,7 @@ import { baseUnitOf, type Dimension, type NamedRef, type Pack, type Product, typ
 import { businessDay } from "../../lib/business-day";
 import { horizon } from "../tools/periods";
 import { computeReorder } from "../tools/tools";
-import type { CatalogPlan, ClarifyPlan } from "../agent/interpret";
+import type { CatalogPlan, ClarifyPlan } from "../agent/plans";
 import {
   asksHardDelete,
   containerFromText,
@@ -52,7 +52,7 @@ export interface Review {
   apply(answers: Record<string, JevAnswer>, thresholds: Thresholds): ReviewResult;
 }
 
-export type ReviewResult = { kind: "ok" } | { kind: "clarify"; plan: ClarifyPlan } | { kind: "error"; message: string; navigate?: NavigateEvent };
+type ReviewResult = { kind: "ok" } | { kind: "clarify"; plan: ClarifyPlan } | { kind: "error"; message: string; navigate?: NavigateEvent };
 
 export interface CatalogBuildInput {
   plan: CatalogPlan;

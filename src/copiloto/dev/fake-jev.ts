@@ -25,7 +25,7 @@ export function noulAnswer(value: number): NoulResponse {
   return { type: "noul", noul: value };
 }
 
-export function scoreAnswer(levels: number, value: number, confidence = 0.9): ScoreResponse {
+function scoreAnswer(levels: number, value: number, confidence = 0.9): ScoreResponse {
   const probabilities = Object.fromEntries(Array.from({ length: levels }, (_, i) => [String(i), i === Math.round(value) ? 1 : 0]));
   const legend = Object.fromEntries(Array.from({ length: levels }, (_, i) => [String(i), `nivel ${i}`]));
   return { type: "score", score: value, confidence, probabilities, legend } as ScoreResponse;

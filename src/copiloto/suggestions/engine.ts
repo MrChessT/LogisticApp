@@ -62,7 +62,7 @@ const SOURCES: ToolName[] = ["query_reorder", "query_pending_transfers", "query_
 const COUNT_STALE_DAYS = 14;
 
 /** Línea determinista por tipo; solo usa cifras de `data`. */
-export function suggestionTemplate(kind: EvalKind, d: Record<string, string>): string {
+function suggestionTemplate(kind: EvalKind, d: Record<string, string>): string {
   switch (kind) {
     case "reponer":
       return `${d.product} en ${d.venue}: quedan ${d.stock} (mínimo ${d.minimum}); conviene pedir ${d.suggested}.`;

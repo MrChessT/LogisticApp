@@ -19,7 +19,7 @@ export const ConfirmRequest = z.object({
 });
 export type ConfirmRequest = z.infer<typeof ConfirmRequest>;
 
-export type ConfirmErrorCode = "draft_not_found" | "draft_expired" | "invalid_edit" | RpcErrorCode;
+type ConfirmErrorCode = "draft_not_found" | "draft_expired" | "invalid_edit" | RpcErrorCode;
 
 export type ConfirmResponse =
   | { ok: true; kind: Draft["kind"]; documentId: string | null; movementIds: string[]; message: string; navigate?: NavigateEvent }

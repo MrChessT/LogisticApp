@@ -48,7 +48,7 @@ export type FeedbackRow = {
 };
 
 /** Cuántos mensajes se adjuntan como máximo (la base de datos admite 60). */
-export const MAX_TRANSCRIPT = 40;
+const MAX_TRANSCRIPT = 40;
 const MAX_TEXT = 1500;
 
 const clip = (text: string, max = MAX_TEXT) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);

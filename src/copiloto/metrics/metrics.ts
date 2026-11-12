@@ -1,7 +1,7 @@
 import Decimal from "decimal.js";
 import type { GateOutcome } from "../contract/index";
 
-export const STAGES = ["contexto", "jev1", "entidades", "herramientas", "jev2", "redaccion", "comprension", "total"] as const;
+const STAGES = ["contexto", "jev1", "entidades", "herramientas", "jev2", "redaccion", "comprension", "total"] as const;
 export type Stage = (typeof STAGES)[number];
 
 const WINDOW = 1000;

@@ -9,9 +9,9 @@ import { EXIT_KIND_LABEL } from "../../lib/exit-kinds";
 import { addDays, daysInclusive, formatDay } from "./periods";
 import type { EvalItem, InventoryDataSource, MovementRaw, MovementType, ToolParams, ToolResult, ToolRow } from "./types";
 
-export const MAX_ROWS = 12;
+const MAX_ROWS = 12;
 /** Días de historial para el consumo medio diario. */
-export const CONSUMPTION_WINDOW_DAYS = 28;
+const CONSUMPTION_WINDOW_DAYS = 28;
 /** Días de historial para precios y desvíos si el usuario no indica periodo. */
 const DEFAULT_LOOKBACK_DAYS = 90;
 /** Hasta dónde se busca el último precio de un producto concreto. */
@@ -81,7 +81,7 @@ function countUnit(product: Product): { label: string; qtyBase: Decimal } {
 }
 
 /** «11,50 € / Botella 70 cl»: el precio de un formato llevado a la unidad con la que se cuenta. */
-export function unitPriceText(product: Product, packQtyBase: Decimal.Value, packPrice: Decimal.Value): string {
+function unitPriceText(product: Product, packQtyBase: Decimal.Value, packPrice: Decimal.Value): string {
   const unit = countUnit(product);
   const qty = new Decimal(packQtyBase);
   return qty.isZero() ? formatMoney(packPrice) : `${formatMoney(new Decimal(packPrice).mul(unit.qtyBase).div(qty))} / ${unit.label}`;

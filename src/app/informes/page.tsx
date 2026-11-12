@@ -89,6 +89,7 @@ export default function InformesPage() {
       await load(initial);
     }
     void bootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al entrar: después manda `change`
   }, []);
 
   const current = VIEWS.find((v) => v.id === view)!;

@@ -8,7 +8,7 @@ import type { Accion } from "../jev/catalog";
 import type { ToolName } from "../tools/tools";
 import type { GateSpec, Thresholds } from "./thresholds";
 
-export type Risk = "lectura" | "escritura" | "critica";
+type Risk = "lectura" | "escritura" | "critica";
 export type Need = "requerido" | "opcional" | "irrelevante";
 export type Slot = "local" | "local_destino" | "espacio" | "producto" | "cantidad" | "periodo" | "motivo";
 export type ContextKey = `consulta:${ToolName}` | `accion:${Exclude<Accion, "ninguna">}` | "info";

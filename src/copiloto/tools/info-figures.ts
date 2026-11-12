@@ -44,7 +44,7 @@ function naturalUnit(product: Product): { label: string; qtyBase: Decimal } {
 }
 
 /** ¿Pregunta por lo más barato en vez de lo más caro? */
-export const asksCheapest = (message: string) => /\b(mas|menos) barat|\bmenos car/.test(normalize(message));
+const asksCheapest = (message: string) => /\b(mas|menos) barat|\bmenos car/.test(normalize(message));
 
 export async function priceRanking(
   source: FiguresSource,

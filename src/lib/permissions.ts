@@ -9,7 +9,7 @@ export type Permissions = { role: string; seesCosts: boolean };
 
 let cache: { userId: string; value: Permissions } | null = null;
 
-export function seesCostsFor(role: string, canSeeCosts: boolean): boolean {
+function seesCostsFor(role: string, canSeeCosts: boolean): boolean {
   return role === "owner" || role === "admin" || role === "manager" || (role === "staff" && canSeeCosts);
 }
 

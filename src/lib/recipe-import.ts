@@ -8,7 +8,7 @@ import { ALLERGENS } from "./recipes";
 
 export type IngredientDimension = "mass" | "volume" | "count";
 
-export type ImportLine = {
+type ImportLine = {
   ingredient: string;
   /** Nombre sin el corte o la preparación: «Limón (Piel)» → «Limón». Es el producto. */
   product: string;

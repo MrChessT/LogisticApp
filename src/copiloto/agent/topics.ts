@@ -2,7 +2,7 @@
 // (consumo): respuesta fija, sin Jev. Antes caían en «¿Qué quieres consultar?» y acababan en algo sin
 // relación («que equipo hay» → stock del «Equilibrio»; «cuánto se espera ganar» → stock de especias).
 import type { AppRoute } from "../contract/index";
-import { normalize } from "../entities/normalize";
+import { normalize, tokenize } from "../entities/normalize";
 import { QUERY_PAY } from "../tools/info";
 
 export interface TopicReply {
@@ -98,4 +98,15 @@ export function screenHelp(message: string, locationNames: string[] = []): Topic
   const screen = SCREENS.find((s) => s.re.test(text));
   if (!screen) return { text: "No te llevo a las pantallas, pero te digo dónde está cada cosa: en el menú de la izquierda, «Operativa» (stock, pedidos, recepciones, traspasos, almacén, inventarios y mermas) y «Gestión» (productos, proveedores, escandallos, facturas, informes, equipo y zonas). ¿Qué buscas?" };
   return { text: `Lo tienes en el menú: ${screen.path}${screen.tip ? `, ${screen.tip}` : ""}. Te dejo el enlace.`, route: screen.route };
+}
+
+/** Saludo, agradecimiento o despedida corta («gracias!», «buenas», «hasta luego»). */
+export function smallTalk(message: string): "hola" | "gracias" | "adios" | undefined {
+  const words = tokenize(message);
+  if (words.length === 0 || words.length > 5) return undefined;
+  const text = words.join(" ");
+  if (/^(muchas |mil )?gracias\b|^(genial|perfecto|vale|ok|estupendo)( muchas)? gracias\b|^thanks?\b/.test(text)) return "gracias";
+  if (/^(adios|hasta luego|hasta manana|chao|nos vemos|bye)\b/.test(text)) return "adios";
+  if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|ey)\b/.test(text)) return "hola";
+  return undefined;
 }

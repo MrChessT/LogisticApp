@@ -13,7 +13,7 @@ export type MenuClass = "estrella" | "caballo" | "puzle" | "perro";
 
 export type MenuInput = { id: string; name: string; qty: number; amount: number; cost: number | null };
 
-export type MenuRow = MenuInput & { cost: number; unitPrice: number; unitCost: number; unitMargin: number; mix: number; cls: MenuClass };
+type MenuRow = MenuInput & { cost: number; unitPrice: number; unitCost: number; unitMargin: number; mix: number; cls: MenuClass };
 
 export type MenuAnalysis = {
   rows: MenuRow[];

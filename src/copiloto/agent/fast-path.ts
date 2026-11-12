@@ -8,7 +8,7 @@ import { familyOf } from "../entities/family";
 import { parseQuantities } from "../entities/quantity-parser";
 import type { Retriever } from "../entities/retriever";
 import { mentionsArea } from "./routing";
-import type { QueryPlan } from "./interpret";
+import type { QueryPlan } from "./plans";
 
 /** Palabras que caben en una pregunta de stock pura. */
 const STOCK_WORDS = new Set([
