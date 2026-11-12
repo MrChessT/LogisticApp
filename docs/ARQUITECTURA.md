@@ -55,10 +55,12 @@ Un mensaje recorre este camino (`agent/loop.ts` lo orquesta):
    mensaje nuevo.
 2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado («¿y sus
    proveedores?»), la IA lo reescribe como petición completa. Se descarta si inventa productos o locales.
-3. **Atajos sin Jev**: comandos `/…` (`shortcuts.ts`), respuestas ya escritas (`fixed-replies.ts`: temas
-   que no lleva, ir a una pantalla, consumo dicho a mano, «sí» suelto sin nada pendiente, categoría de un
-   producto), temas claros de gestión (`tools/info.ts`: ventas, facturas, escandallos…) y la vía rápida
-   de stock (`fast-path.ts`).
+3. **Atajos sin Jev**: comandos `/…` (`shortcuts.ts`); órdenes de oficina (`office-actions.ts`: pagar
+   una factura, validar las salidas de almacén → borrador en `drafts/office-builder.ts`); respuestas ya
+   escritas (`fixed-replies.ts`: temas que no lleva, ir a una pantalla, consumo dicho a mano, «sí» suelto
+   sin nada pendiente, datos de la ficha de varios productos en `product-facts.ts`, cuándo se pidió o
+   llegó algo en `last-time.ts`); temas claros de gestión (`tools/info.ts`: ventas, facturas,
+   escandallos, cola del almacén…) y la vía rápida de stock (`fast-path.ts`).
 4. **Jev** (`routing.ts` construye las preguntas, `jev/catalog.ts` las define): devuelve probabilidades.
    `interpret.ts` aplica los umbrales (`gates/`) y produce un **plan** (`plans.ts`) o una aclaración.
    Si no llega al umbral, se pregunta: nunca se adivina.

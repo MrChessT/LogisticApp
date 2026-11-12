@@ -215,14 +215,14 @@ const HELP: Array<{ title: string; icon: Icon; text: string; examples: string[] 
   {
     title: "Consultar",
     icon: Boxes,
-    text: "Stock, consumo, mermas, precios y su evolución, proveedores, pedidos, gasto, ventas y márgenes, facturas, escandallos y alérgenos, zonas, inventarios y equipo.",
-    examples: ["¿Cuánta tónica queda en el Vivero?", "¿Qué precios han subido últimamente?", "¿Cuál es el plato estrella?"],
+    text: "Stock, consumo, mermas, precios y su evolución, proveedores, pedidos y cuándo se pidió algo, gasto, ventas y márgenes, facturas, escandallos y alérgenos, zonas, salidas de almacén sin validar, inventarios y equipo.",
+    examples: ["¿Cuánta tónica queda en el Vivero?", "¿Cuándo pedimos coca por última vez?", "¿Hay salidas de almacén sin validar?", "¿Cuál es el plato estrella?"],
   },
   {
     title: "Registrar",
     icon: PencilLine,
-    text: "Escríbelo como lo dirías: preparo el borrador y no se guarda nada hasta que lo confirmas.",
-    examples: ["Se han roto 2 botellas de Larios en barra", "Pasa 2 cajas de tónica del Parador a Pickles", "El Barceló ahora cuesta 15 €"],
+    text: "Escríbelo como lo dirías: preparo el borrador y no se guarda nada hasta que lo confirmas. También validar salidas de almacén y marcar facturas como pagadas.",
+    examples: ["Se han roto 2 botellas de Larios en barra", "Pasa 2 cajas de tónica del Parador a Pickles", "Marca como pagada la factura de Makro"],
   },
   {
     title: "Tareas",

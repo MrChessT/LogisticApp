@@ -2,6 +2,7 @@
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
 import type { SalesDayRaw, SalesItemRaw } from "../tools/info-sales";
+import type { AreaMoveRaw } from "../tools/info-warehouse";
 import { AREAS, LOCATIONS, PRODUCTS } from "./fixture";
 
 const [PARADOR, PICKELS, VIVERO] = LOCATIONS.map((l) => l.id) as [string, string, string, string];
@@ -16,10 +17,20 @@ export class FixtureInfoSource implements InfoSource {
 
   async invoices(): Promise<InvoiceRaw[]> {
     return [
-      { supplierName: "Makro", number: "MK-1001", code: "FAC-2026-0001", date: this.day(-40), due: this.day(-10), total: "1210.00", status: "pendiente", paidAt: null, receipts: 3, difference: "0.00", overdue: true },
-      { supplierName: "Distribuciones Canarias", number: "DC-77", code: "FAC-2026-0002", date: this.day(-10), due: this.day(3), total: "484.00", status: "pendiente", paidAt: null, receipts: 2, difference: "18.00", overdue: false },
-      { supplierName: "Bebidas del Sur", number: "BS-5", code: "FAC-2026-0003", date: this.day(-60), due: this.day(-30), total: "300.00", status: "pagada", paidAt: this.day(-31), receipts: 1, difference: "0.00", overdue: false },
+      { id: "f0000000-0000-4000-8000-000000000001", supplierName: "Makro", number: "MK-1001", code: "FAC-2026-0001", date: this.day(-40), due: this.day(-10), total: "1210.00", status: "pendiente", paidAt: null, receipts: 3, difference: "0.00", overdue: true },
+      { id: "f0000000-0000-4000-8000-000000000002", supplierName: "Distribuciones Canarias", number: "DC-77", code: "FAC-2026-0002", date: this.day(-10), due: this.day(3), total: "484.00", status: "pendiente", paidAt: null, receipts: 2, difference: "18.00", overdue: false },
+      { id: "f0000000-0000-4000-8000-000000000003", supplierName: "Bebidas del Sur", number: "BS-5", code: "FAC-2026-0003", date: this.day(-60), due: this.day(-30), total: "300.00", status: "pagada", paidAt: this.day(-31), receipts: 1, difference: "0.00", overdue: false },
     ];
+  }
+
+  /** Dos salidas del almacén del Parador a la barra sin validar (una de hace 3 horas). */
+  async areaMoves(locationIds: string[]): Promise<AreaMoveRaw[]> {
+    const at = (hours: number) => new Date(this.now.getTime() - hours * 3_600_000).toISOString();
+    const moves: AreaMoveRaw[] = [
+      { id: "a0000000-0000-4000-8000-000000000001", locationId: PARADOR, kind: "salida", productId: PRODUCTS[3]!.id, productName: PRODUCTS[3]!.name, qty: "48", fromArea: "Almacén", toArea: "Barra 1", createdBy: "Luis Encargado", createdAt: at(3) },
+      { id: "a0000000-0000-4000-8000-000000000002", locationId: PARADOR, kind: "salida", productId: PRODUCTS[0]!.id, productName: PRODUCTS[0]!.name, qty: "1400", fromArea: "Almacén", toArea: "Barra 2", createdBy: "Pantalla", createdAt: at(1) },
+    ];
+    return moves.filter((m) => locationIds.includes(m.locationId));
   }
 
   async unbilled(): Promise<UnbilledRaw[]> {

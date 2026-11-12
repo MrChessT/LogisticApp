@@ -55,6 +55,11 @@ const RPC_MESSAGES: Record<RpcErrorCode, string> = {
   internal: "No se ha podido completar la operación. Inténtalo de nuevo.",
 };
 
+/** Fecha de hoy en España (YYYY-MM-DD): pasada la medianoche UTC sigue siendo «hoy» en Madrid. */
+function madridDay(at: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
+}
+
 export class ConfirmService {
   readonly #results = new LruCache<ConfirmResponse>(10_000, 24 * 60 * 60 * 1000);
 
@@ -264,7 +269,7 @@ export class ConfirmService {
         return { ok: true, kind: "conteo", documentId: draft.countId, movementIds: [], message: `Apuntado en el inventario de ${draft.locationName}.`, navigate: navigate({ locationId: draft.locationId }) };
       }
       case "documento": {
-        const route: AppRoute = draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
+        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" ? "/almacen" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
         const done = (message: string, documentId: string = draft.documentId): ConfirmResponse => ({ ok: true, kind: "documento", documentId, movementIds: [], message, navigate: { route, filters: { locationId: draft.locationId }, auto: false } });
         switch (draft.operation) {
           case "recibir_traspaso":
@@ -283,6 +288,14 @@ export class ConfirmService {
           case "cancelar_pedido":
             await writer.cancelOrder(draft.documentId);
             return done("Pedido cancelado.");
+          case "pagar_factura":
+            await writer.markInvoicePaid(draft.documentId, madridDay(this.now()));
+            return done("Factura marcada como pagada hoy.");
+          case "validar_salidas": {
+            const { validated, skipped } = await writer.validateAreaMoves(draft.moveIds ?? []);
+            const already = skipped > 0 ? ` ${skipped === 1 ? "Otra ya estaba decidida" : `${skipped} ya estaban decididas`} (no se ha tocado).` : "";
+            return done(`${validated === 1 ? "Validada 1 salida" : `Validadas ${validated} salidas`}: el stock ya está movido de zona.${already}`);
+          }
         }
         break;
       }

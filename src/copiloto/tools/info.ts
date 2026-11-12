@@ -12,10 +12,12 @@ import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
 import { overview, priceRanking, type FiguresSource } from "./info-figures";
 import { MENU_RE, sales, type SalesSource } from "./info-sales";
+import { warehouseQueue, type WarehouseSource } from "./info-warehouse";
 
 // Datos crudos (cifras como texto) ---------------------------------------------------------
 
 export interface InvoiceRaw {
+  id: string;
   supplierName: string;
   number: string;
   code: string;
@@ -59,7 +61,7 @@ export interface SupplierRaw {
 }
 
 /** Lecturas que necesita cada consulta (Supabase en producción, datos de prueba en los tests). */
-export interface InfoSource extends FiguresSource, SalesSource {
+export interface InfoSource extends FiguresSource, SalesSource, WarehouseSource {
   invoices(orgId: string): Promise<InvoiceRaw[]>;
   unbilled(orgId: string): Promise<UnbilledRaw[]>;
   team(): Promise<TeamRaw[]>;
@@ -86,6 +88,8 @@ export interface InfoResult {
   /** Pantalla donde se ve entero (enlace, nunca se abre sola). */
   route: AppRoute;
   rows: number;
+  /** Botones que envían una frase completa («Validarlas»). */
+  actions?: Array<{ label: string; say: string }>;
 }
 
 const MAX_ROWS = 12;
@@ -514,6 +518,8 @@ export async function runInfo(source: InfoSource, ctx: SessionContext, p: InfoPa
       return { ...(await priceRanking(source, ctx, p)), route: "/productos" };
     case "query_overview":
       return { ...(await overview(source, ctx, p)), route: "/informes" };
+    case "query_warehouse":
+      return { ...(await warehouseQueue(source, ctx, p.locationIds, p.now)), route: "/almacen" };
   }
 }
 
@@ -532,6 +538,8 @@ const TOPICS: Array<[InfoTool, RegExp]> = [
   ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
   ["query_areas", /\b(zonas?|secciones|seccion|almacenes)\b/],
+  // «¿qué hay pendiente de validar en el almacén?», «salidas sin validar»: la cola de la pantalla de almacén.
+  ["query_warehouse", /\b(salidas?|movimientos?|devoluciones?)\b.*\b(pendientes?|sin validar|por validar|validar)\b|\bpendientes? de validar\b|\b(cola|pendientes?) (del|de|en el) almacen\b|\balmacen\b.*\b(pendientes?|sin validar|por validar)\b/],
   ["query_counts", /\binventarios? (abiertos?|pendientes?|en curso|sin cerrar)\b|\bcuando (fue el ultimo inventario|se conto|contamos|contaron|hicimos el (ultimo )?inventario)\b|\bque inventarios\b|\bhay (algun )?inventario abierto\b/],
   ["query_suppliers", /\b(proveedores|condiciones de pago|dias de pedido|hora limite|pedido minimo)\b/],
   // «¿cuál es el producto más caro?», «lo más barato que tenemos». No «¿qué está más caro que antes?» (subidas).

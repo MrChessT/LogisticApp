@@ -13,6 +13,7 @@ import { label } from "../jev/catalog";
 import { businessDay } from "../../lib/business-day";
 import { EXIT_KIND_LABEL, type ExitKind } from "../../lib/exit-kinds";
 import type { InventoryDataSource } from "../tools/types";
+import type { InfoSource } from "../tools/info";
 import { validateDraft } from "./schemas";
 
 export const DRAFT_TTL_MS = 15 * 60 * 1000;
@@ -114,6 +115,8 @@ export interface BuildInput {
   message?: string;
   ctx: SessionContext;
   source: InventoryDataSource;
+  /** Facturas y cola del almacén, para los borradores de oficina. */
+  info?: InfoSource;
   overrides: Record<string, string>;
   now: Date;
 }

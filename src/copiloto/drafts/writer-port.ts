@@ -98,6 +98,10 @@ export interface InventoryWriter {
   receiveOrder(orderId: string, lines: Array<{ packId: string; packsQty: string; packPrice: string | null }>): Promise<{ receiptId: string | null }>;
   cancelOrder(orderId: string): Promise<void>;
   archiveProduct(productId: string): Promise<void>;
+  /** Factura pendiente → pagada en esa fecha (YYYY-MM-DD). Como el botón de Facturas. */
+  markInvoicePaid(invoiceId: string, day: string): Promise<void>;
+  /** Validar movimientos de almacén pendientes, tal cual (como en Almacén, con la sesión del usuario). */
+  validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
   /** Pedido a proveedor en borrador (no se envía: eso es de un encargado desde /pedidos). */
   createOrder(args: {
     orgId: string;
@@ -324,5 +328,20 @@ export class SupabaseInventoryWriter implements InventoryWriter {
     const { data, error } = await this.db.from("products").update({ active: false }).eq("id", productId).select("id");
     if (error) raise("products", error);
     if (!data?.length) raise("products", { code: "42501", message: "forbidden" });
+  }
+
+  async markInvoicePaid(invoiceId: string, day: string): Promise<void> {
+    // Solo si sigue pendiente: si otra persona ya la pagó (o la borró), no se pisa.
+    const { data, error } = await this.db.from("invoices").update({ status: "pagada", paid_at: day }).eq("id", invoiceId).eq("status", "pendiente").select("id");
+    if (error) raise("invoices", error);
+    if (!data?.length) raise("invoices", { message: "invalid_status" });
+  }
+
+  async validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }> {
+    const { data, error } = await this.db.rpc("area_moves_decide", { p_decisions: moveIds.map((id) => ({ id, action: "validate" })) });
+    if (error) raise("area_moves_decide", error);
+    const result = (data ?? {}) as { ok?: boolean; validated?: number; skipped?: number };
+    if (result.ok === false) raise("area_moves_decide", { code: "42501", message: "forbidden" });
+    return { validated: Number(result.validated ?? 0), skipped: Number(result.skipped ?? 0) };
   }
 }

@@ -370,10 +370,13 @@ export interface CountDraft extends DraftBase {
   lines: Array<{ productId: string; productName: string; qtyBase: string; baseUnit: BaseUnit; input: QuantityInput; text: string }>;
 }
 
-/** Recibir, enviar o cancelar un traspaso o un pedido que ya existe. */
+/**
+ * Algo sobre un documento que ya existe: recibir, enviar o cancelar un traspaso o un pedido; marcar una
+ * factura como pagada; validar las salidas de almacén pendientes de un local.
+ */
 export interface DocumentDraft extends DraftBase {
   kind: "documento";
-  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido";
+  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas";
   documentId: string;
   /** Local para enlazar la pantalla al terminar. */
   locationId: string;
@@ -383,6 +386,8 @@ export interface DocumentDraft extends DraftBase {
   lines: Array<{ label: string; qty: string }>;
   /** Recibir un pedido: lo pendiente de cada formato, al último precio. */
   receive?: Array<{ packId: string; packsQty: string; packPrice: string | null }>;
+  /** Validar salidas: los movimientos de almacén que se validan (los que se enseñaron, ni uno más). */
+  moveIds?: string[];
 }
 
 export type Draft = WasteDraft | TransferDraft | ReceiptDraft | CountCloseDraft | OrderDraft | CatalogDraft | DocumentDraft | CountDraft;

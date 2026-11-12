@@ -91,9 +91,12 @@ export interface CatalogPlan {
 export const DOCUMENT_ACCIONES = ["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido"] as const;
 export type DocumentAccion = (typeof DOCUMENT_ACCIONES)[number];
 
+/** Operaciones de documento que se reconocen sin Jev (office-actions.ts): no están en su catálogo. */
+type OfficeAccion = "pagar_factura" | "validar_salidas";
+
 export interface DocumentPlan {
   type: "documento";
-  accion: DocumentAccion;
+  accion: DocumentAccion | OfficeAccion;
   /** Locales donde buscar el documento (el nombrado o, si no, todos los del usuario). */
   locationIds: string[];
   /** Traspasos: de dónde salió y a dónde llega, si la frase lo dice («lo que mandó Pickles al Parador»). */
@@ -141,7 +144,7 @@ export interface AvisoPlan {
 export function shortcutIntent(plan: Plan): Intent {
   return plan.type === "conversar" || plan.type === "aviso"
     ? "conversar"
-    : plan.type === "catalogo" || plan.type === "accion"
+    : plan.type === "catalogo" || plan.type === "accion" || plan.type === "documento"
       ? "proponer_accion"
       : plan.type === "tarea"
         ? "pedir_sugerencias"
