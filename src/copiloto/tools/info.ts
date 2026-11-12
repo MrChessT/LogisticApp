@@ -304,9 +304,11 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
   }
   // Lo pedido por su nombre («margen de la croqueta de cecina», «receta de los macarrones con queso»).
   // También «¿qué alérgenos tiene el rodaballo…?», «¿qué lleva la tarta…?».
-  const asked =
+  // «del plato rodaballo…», «de la receta de croquetas»: «plato» o «receta» no forman parte del nombre.
+  const asked = (
     /\b(?:receta|escandallo|ficha(?: tecnica)?|coste|alergenos?|margen|food ?cost|pvp|precio)\s+(?:de\s+(?:la|las|los)|del|de)\s+(.+?)\s*\??$/.exec(text)?.[1] ??
-    /\b(?:tiene|tienen|lleva|llevan)\s+(?:el|la|los|las)\s+(.+?)\s*\??$/.exec(text)?.[1];
+    /\b(?:tiene|tienen|lleva|llevan)\s+(?:el|la|los|las)\s+(.+?)\s*\??$/.exec(text)?.[1]
+  )?.replace(/^(?:plato|receta|escandallo|elaboracion)\s+(?:de\s+(?:la|las|los|el)\s+|del\s+|de\s+)?/, "");
   const words = asked ? asked.split(" ").filter((w) => w.length >= 4) : [];
   const stem = (w: string) => w.slice(0, Math.max(4, w.length - 1));
   const full = all.filter((r) => { const n = normalize(r.name); return words.length > 0 && words.every((w) => n.includes(stem(w))); });

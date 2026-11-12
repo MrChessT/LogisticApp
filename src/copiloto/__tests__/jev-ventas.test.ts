@@ -173,6 +173,8 @@ describe("escandallos por nombre con muchas coincidencias sueltas (medido en pro
     expect(await recipe("coste de las croquetas de boletus")).toMatch(/^Croquetas de boletus \(Entrantes\)/);
     // Medido en producción: el nombre a medias («…de Wagyu» falta) y «margen» daban el resumen general.
     expect(await recipe("margen de la croqueta de cecina")).toMatch(/^Croqueta de cecina de Wagyu \(Entrantes\)/);
+    // Medido en producción (reescritura de «¿y el food cost de ese plato?»): «plato» no es parte del nombre.
+    expect(await recipe("¿cuál es el food cost del plato croqueta de cecina?")).toMatch(/^Croqueta de cecina de Wagyu \(Entrantes\)/);
     expect(await recipe("food cost de los platos")).not.toMatch(/^No hay/);
     // La reescritura de un seguimiento («¿qué alérgenos tiene?» tras hablar de un plato).
     expect(await recipe("¿qué alérgenos tiene la croqueta de cecina?")).toMatch(/^Croqueta de cecina de Wagyu \(Entrantes\)/);
