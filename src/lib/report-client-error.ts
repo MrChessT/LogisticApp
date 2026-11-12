@@ -3,8 +3,9 @@
 const sent = new Set<string>();
 const MAX_PER_PAGE = 5;
 
-// Ruido que no es un fallo de la app: avisos del navegador, extensiones, cortes de red del usuario.
-const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|Load failed|Failed to fetch|NetworkError|AbortError|The operation was aborted/i;
+// Ruido que no es un fallo de la app: avisos del navegador, extensiones (también las de monederos de
+// criptomonedas, que lanzan errores en cualquier web), cortes de red del usuario.
+const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-web-extension:|MetaMask|ethereum|web3|Load failed|Failed to fetch|NetworkError|AbortError|The operation was aborted/i;
 
 export function reportClientError(err: unknown, digest?: string): void {
   const message = err instanceof Error ? `${err.name}: ${err.message}` : typeof err === "string" ? err : "";
