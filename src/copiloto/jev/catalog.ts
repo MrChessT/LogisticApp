@@ -50,7 +50,7 @@ const HERRAMIENTAS = {
 export type Herramienta = keyof typeof HERRAMIENTAS;
 
 /** Consultas de información de gestión (facturas, equipo, escandallos…): las resuelve tools/info.ts. */
-const INFO_TOOLS = ["query_sales", "query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview"] as const;
+const INFO_TOOLS = ["query_sales", "query_invoices", "query_team", "query_recipes", "query_areas", "query_counts", "query_suppliers", "query_price_ranking", "query_overview", "query_warehouse"] as const;
 export type InfoTool = (typeof INFO_TOOLS)[number];
 export function isInfoTool(tool: string): tool is InfoTool {
   return (INFO_TOOLS as readonly string[]).includes(tool);

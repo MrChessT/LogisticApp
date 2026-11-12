@@ -35,6 +35,7 @@ import { tokenize } from "../entities/normalize";
 import { fastStockPlan } from "./fast-path";
 import { smallTalk } from "./topics";
 import { fixedReply } from "./fixed-replies";
+import { officeAction } from "./office-actions";
 import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
@@ -168,10 +169,16 @@ export class Agent {
         shortcut = plan !== null;
       }
 
+      // Pagar una factura o validar las salidas de almacén: borrador sin pasar por Jev (office-actions.ts).
+      if (!plan && !reuse && !byButton) {
+        plan = officeAction(message, ctx, pageContext?.locationId);
+        shortcut = plan !== null;
+      }
+
       // Respuestas ya escritas (ver fixed-replies.ts): temas que no lleva, pantallas, «sí» suelto…
       if (!plan && !reuse && !byButton) {
         const waiting = Boolean(activeFocus(session, this.now().getTime())?.draftId) || session.clarifies.size > 0;
-        const topic = await fixedReply(message, session, ctx, deps.retriever, waiting);
+        const topic = await fixedReply(message, session, ctx, { retriever: deps.retriever, source: toolset.source, now: this.now() }, waiting);
         if (topic) {
           plan = { type: "aviso", ...topic };
           shortcut = true;
@@ -399,7 +406,7 @@ export class Agent {
   private async draft(plan: ActionPlan | CatalogPlan | DocumentPlan, env: ExecEnv): Promise<ReportOutcome> {
     const { deps } = this;
     const built = await env.timer.time("herramientas", () =>
-      deps.builder.build({ plan, message: env.message, ctx: env.ctx, source: env.tools.source, overrides: env.overrides, now: this.now() } as Parameters<DraftBuilder["build"]>[0]),
+      deps.builder.build({ plan, message: env.message, ctx: env.ctx, source: env.tools.source, ...(env.info ? { info: env.info } : {}), overrides: env.overrides, now: this.now() } as Parameters<DraftBuilder["build"]>[0]),
     );
     if (built.kind === "clarify") return this.clarify(built.plan, env);
     if (built.kind === "error") {
@@ -503,11 +510,7 @@ export class Agent {
       }
       case "aviso":
         if (plan.route) await emit({ event: "navigate", data: { route: plan.route, filters: plan.filters ?? {}, auto: plan.go ?? false } });
-        if (plan.actions?.length) {
-          const followUps = plan.actions.map((a) => ({ id: randomUUID().slice(0, 12), label: a.label, say: a.say }));
-          this.deps.sessions.setFollowUps(env.session, followUps);
-          await emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
-        }
+        await this.offerPhrases(plan.actions, env);
         return { kind: "tarea", tarea: "aviso", text: plan.text, rows: 0 };
       case "bloqueado":
         return { kind: "bloqueado" };
@@ -541,7 +544,16 @@ export class Agent {
     );
     if (result.table) await env.emit({ event: "table", data: result.table });
     await env.emit({ event: "navigate", data: { route: result.route, filters: {}, auto: false } });
+    await this.offerPhrases(result.actions, env);
     return { kind: "tarea", tarea: plan.tool, text: result.text, rows: result.rows };
+  }
+
+  /** Botones que envían una frase ya escrita («Registrar como merma», «Validarlas»). */
+  private async offerPhrases(actions: Array<{ label: string; say: string }> | undefined, env: ExecEnv): Promise<void> {
+    if (!actions?.length) return;
+    const followUps = actions.map((a) => ({ id: randomUUID().slice(0, 12), label: a.label, say: a.say }));
+    this.deps.sessions.setFollowUps(env.session, followUps);
+    await env.emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
   }
 
   /** Tarea de varios pasos: tabla, botones que preparan los borradores y enlace a su pantalla. */

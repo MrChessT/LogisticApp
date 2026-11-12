@@ -219,12 +219,13 @@ const OrderDraftSchema = base.extend({
 
 const DocumentDraftSchema = base.extend({
   kind: z.literal("documento"),
-  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido"]),
+  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas"]),
   documentId: id,
   locationId: id,
   summary: z.string().min(1).max(200),
   lines: z.array(z.object({ label: z.string().min(1).max(120), qty: z.string().max(80) })).max(40),
   receive: z.array(z.object({ packId: id, packsQty: positive, packPrice: DecimalString.nullable() })).max(40).optional(),
+  moveIds: z.array(id).min(1).max(100).optional(),
 });
 
 const CountDraftSchema = base.extend({

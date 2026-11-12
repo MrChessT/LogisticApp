@@ -7,6 +7,7 @@ import type { Retriever } from "../entities/retriever";
 import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, readFreeText, type FreeTextAnswer } from "./free-text";
 import type { ClarifyPlan, Plan } from "./plans";
 import type { PendingClarify, Session } from "./session";
+import { officeAction } from "./office-actions";
 import { resolveShortcut } from "./shortcuts";
 
 /** Estado del mensaje que se está procesando: lo que cambia al retomar una aclaración. */
@@ -95,6 +96,14 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       overrides = { ...rest, nombre: text };
       answers = answered(text);
       reuse = pending.routing;
+    } else if (option !== null && pending.fromShortcut && pending.field === "documento" && officeAction(pending.message, ctx, pending.pageContext?.locationId)) {
+      // «¿Qué factura marco como pagada?» → la elegida: misma orden de oficina con ese documento.
+      message = pending.message;
+      page = pending.page;
+      pageContext = pending.pageContext;
+      plan = officeAction(pending.message, ctx, pending.pageContext?.locationId);
+      overrides = { documento: option };
+      shortcut = true;
     } else if (option !== null && pending.fromShortcut) {
       message = pending.message;
       page = pending.page;

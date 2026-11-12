@@ -102,4 +102,13 @@ export class FixtureWriter implements InventoryWriter {
   async archiveProduct(productId: string) {
     this.record("archiveProduct", { productId });
   }
+
+  async markInvoicePaid(invoiceId: string, day: string) {
+    this.record("markInvoicePaid", { invoiceId, day });
+  }
+
+  async validateAreaMoves(moveIds: string[]) {
+    this.record("validateAreaMoves", { moveIds });
+    return { validated: moveIds.length, skipped: 0 };
+  }
 }

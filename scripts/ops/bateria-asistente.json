@@ -79,5 +79,15 @@
       { "usuario": "si", "espera": "enlace|nada pendiente", "sinAclarar": true },
       { "usuario": "llévame a pedidos", "espera": "Te llevo a Operativa › Pedidos", "sinAclarar": true }
     ]
+  },
+  {
+    "nombre": "Almacén, facturas y ficha sin pantalla",
+    "turnos": [
+      { "usuario": "¿hay salidas de almacén pendientes de validar?", "espera": "almacén pendientes? de validar", "sinAclarar": true },
+      { "usuario": "¿cuándo pedimos tónica por última vez?", "espera": "último pedido|No consta|Último pedido", "sinAclarar": true },
+      { "usuario": "¿quién nos trae la ginebra?", "espera": "trae|proveedor", "sinAclarar": true },
+      { "usuario": "paga la factura", "espera": "¿Qué factura marco como pagada\\?|Marcar pagada|No hay facturas pendientes" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
   }
 ]

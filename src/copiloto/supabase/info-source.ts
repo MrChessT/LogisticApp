@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
 import type { SalesDayRaw, SalesItemRaw } from "../tools/info-sales";
+import type { AreaMoveRaw } from "../tools/info-warehouse";
 import { DataError, readAll } from "./client";
 
 type Row = Record<string, unknown>;
@@ -20,8 +21,9 @@ export class SupabaseInfoSource implements InfoSource {
   constructor(private readonly db: SupabaseClient) {}
 
   async invoices(orgId: string): Promise<InvoiceRaw[]> {
-    const data = rows("las facturas", await this.db.from("v_invoices").select("supplier_name, number, code, invoice_date, due_date, total, status, paid_at, receipts, difference, overdue").eq("org_id", orgId).limit(500));
+    const data = rows("las facturas", await this.db.from("v_invoices").select("id, supplier_name, number, code, invoice_date, due_date, total, status, paid_at, receipts, difference, overdue").eq("org_id", orgId).limit(500));
     return data.map((r) => ({
+      id: String(r.id),
       supplierName: String(r.supplier_name ?? ""),
       number: String(r.number ?? ""),
       code: String(r.code ?? ""),
@@ -34,6 +36,25 @@ export class SupabaseInfoSource implements InfoSource {
       difference: text(r.difference),
       overdue: r.overdue === true,
     }));
+  }
+
+  /** La cola de cada local por su función (comprueba el acceso al local; sin acceso, error). */
+  async areaMoves(locationIds: string[]): Promise<AreaMoveRaw[]> {
+    const lists = await Promise.all(locationIds.map(async (locationId) => ({ locationId, data: rows("las salidas de almacén", await this.db.rpc("area_moves_list", { p_location: locationId, p_status: "pending" })) })));
+    return lists.flatMap(({ locationId, data }) =>
+      data.map((r) => ({
+        id: String(r.id),
+        locationId,
+        kind: r.kind === "devolucion" ? ("devolucion" as const) : ("salida" as const),
+        productId: String(r.product_id),
+        productName: String(r.product_name ?? "Producto"),
+        qty: text(r.qty),
+        fromArea: String(r.from_area ?? ""),
+        toArea: String(r.to_area ?? ""),
+        createdBy: String(r.created_by_name ?? "Alguien"),
+        createdAt: String(r.created_at),
+      })),
+    );
   }
 
   async unbilled(orgId: string): Promise<UnbilledRaw[]> {
