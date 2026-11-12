@@ -156,3 +156,15 @@ describe("condiciones de un proveedor", () => {
     expect(find(events, "done")!.text).toContain("pago: Transferencia a 30 días");
   });
 });
+
+describe("condiciones de un proveedor que no existe (batería en producción)", () => {
+  it("dice que no lo encuentra en vez de listar los proveedores", async () => {
+    const events = await run(makeAgent(new FakeJev()).agent, chat("el pedido mínimo de Proveedor Inventado ahora es 200 €"));
+    expect(find(events, "draft")).toBeUndefined();
+    expect(JSON.stringify(events)).toContain("No encuentro ese proveedor");
+  });
+
+  it("preguntar por el pedido mínimo sigue siendo una consulta", () => {
+    expect(officeAction("pedido mínimo de Makro", fixtureContext())).toBeNull();
+  });
+});

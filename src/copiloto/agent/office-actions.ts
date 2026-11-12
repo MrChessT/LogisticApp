@@ -20,6 +20,14 @@ const PAY_INVOICE =
  */
 const DISH_PRICE = /\b(pvp|precio de venta|precio en carta|precio de carta|se vende a|vendemos a|lo vendemos a|la vendemos a|los vendemos a|las vendemos a|cobramos|cobrar|cobra)\b/;
 
+/**
+ * Condiciones dichas como cambio («ahora es 200», «pon…», «se le pide…»): es una orden aunque el
+ * proveedor no se reconozca (el borrador dirá que no lo encuentra, en vez de listar los proveedores).
+ */
+const CHANGE_TERMS = /\b(ahora|pon|poner|cambia|cambiar|cambialo|sube|baja|se le pide|le pedimos|se le paga|le pagamos|pasa a ser|pasa a)\b/;
+/** Sin proveedor reconocido, solo cuenta si habla de un proveedor («pon el mínimo del ron» es stock). */
+const SUPPLIER_TERMS = /\b(proveedor|pedido minimo|minimo de pedido|se le pide|le pedimos|se le paga|le pagamos|forma de pago|condiciones de pago|dias de pedido|hora limite)\b/;
+
 const VALIDATE_MOVES =
   /\b(valida|validar|validame|validalas|validalo|aprueba|aprobar|apruebalas|acepta|aceptar|confirma|confirmar|confirmalas|da por buenas)\b.*\b(salidas?|movimientos?|devoluciones?|almacen)\b/;
 
@@ -32,7 +40,7 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
       ? "validar_salidas"
       : DISH_PRICE.test(text) && /\d/.test(text)
         ? "precio_venta"
-        : mentionedSupplier(message, ctx.suppliers) && parseTermChanges(message).length > 0
+        : parseTermChanges(message).length > 0 && (mentionedSupplier(message, ctx.suppliers) || (CHANGE_TERMS.test(text) && SUPPLIER_TERMS.test(text)))
           ? "condiciones_proveedor"
           : null;
   if (!accion) return null;
