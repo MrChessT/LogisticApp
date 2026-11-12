@@ -89,5 +89,14 @@
       { "usuario": "paga la factura", "espera": "¿Qué factura marco como pagada\\?|Marcar pagada|No hay facturas pendientes" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
+  },
+  {
+    "nombre": "Gestión desde el chat (solo borradores, sin confirmar)",
+    "turnos": [
+      { "usuario": "pon el PVP de las croquetas a 10 €", "espera": "Cambiar PVP|¿De qué plato cambio el PVP\\?|No encuentro ese plato" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
+      { "usuario": "el pedido mínimo de Makro ahora es 200 €", "espera": "Condiciones de|Dime el proveedor|pedido mínimo", "no": "Stock de" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
   }
 ]

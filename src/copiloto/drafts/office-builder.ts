@@ -12,6 +12,7 @@ import { normalize } from "../entities/normalize";
 import { formatMoney } from "../entities/units";
 import type { InfoSource, InvoiceRaw } from "../tools/info";
 import { moveLabel } from "../tools/info-warehouse";
+import { parseTermChanges, TERM_LABEL, termText, type TermField } from "../agent/supplier-terms";
 import { draftBase, type BuildResult } from "./builder";
 import { validateDraft } from "./schemas";
 
@@ -122,5 +123,110 @@ export async function warehouseValidation({ plan, ctx, info, overrides, now }: O
       moveIds: shown.map((m) => m.id),
     },
     "validate the pending storeroom exits of a venue (move the stock from the storeroom to the bar or kitchen)",
+  );
+}
+
+// PVP de un plato ------------------------------------------------------------------------------
+
+/** Palabras con peso de un nombre («croquetas», «jamon»), para encontrar el plato en la frase. */
+const nameWords = (name: string) => normalize(name).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !["con", "del", "las", "los", "para"].includes(w));
+
+/** El último importe de la frase: «pon el PVP de las croquetas a 9,50 €» → 9.50. */
+function priceIn(message: string): Decimal | null {
+  const all = [...message.matchAll(/(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?|eur)?/gi)];
+  const last = all.at(-1)?.[1];
+  if (!last) return null;
+  const value = new Decimal(last.replace(",", "."));
+  return value.gt(0) && value.lt(1000) ? value : null;
+}
+
+export async function dishPrice({ message, ctx, info, overrides, now }: OfficeInput): Promise<BuildResult> {
+  if (!info) return { kind: "error", message: "Los escandallos no están disponibles ahora mismo." };
+  if (!hasRole(ctx.role, "manager")) return { kind: "error", message: "El PVP de los platos lo cambian los encargados y la administración." };
+  const price = priceIn(message);
+  if (!price) return { kind: "error", message: "Dime el precio nuevo con IVA, por ejemplo «pon el PVP de las croquetas a 9,50 €»." };
+  const dishes = (await info.recipes(ctx.orgId)).filter((r) => r.active && r.kind === "plato" && r.id);
+  const said = new Set(normalize(message).split(/[^a-z0-9]+/));
+  // El plato cuyo nombre se dice entero; si ninguno, los que comparten más palabras (y se pregunta).
+  const scored = dishes
+    .map((r) => {
+      const words = nameWords(r.name);
+      const hits = words.filter((w) => [...said].some((s) => s.length >= 4 && (s.startsWith(w.slice(0, 5)) || w.startsWith(s.slice(0, 5))))).length;
+      return { r, score: words.length ? hits / words.length : 0 };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  // Si ninguno se dice entero pero solo uno encaja a medias («las croquetas» → Croquetas de jamón), es ese.
+  const full = scored.filter((x) => x.score === 1).map((x) => x.r);
+  const partial = scored.filter((x) => x.score >= 0.5).map((x) => x.r);
+  const chosen = overrides.documento ? dishes.filter((r) => r.id === overrides.documento) : full.length > 0 ? full : partial.length === 1 ? partial : [];
+  if (chosen.length !== 1) {
+    const options = (chosen.length > 1 ? chosen : scored.filter((x) => x.score >= 0.5).map((x) => x.r)).slice(0, 5);
+    if (options.length === 0) return { kind: "error", message: "No encuentro ese plato en los escandallos. Dime su nombre como sale en Escandallos.", navigate: nav("/escandallos") };
+    return clarify("¿De qué plato cambio el PVP?", options.map((r) => ({ id: r.id!, label: `${r.name}${r.salePrice ? ` · ahora ${money(r.salePrice)}` : " · sin PVP"}` })));
+  }
+  const dish = chosen[0]!;
+  const old = dish.salePrice ? new Decimal(dish.salePrice) : null;
+  const warnings: string[] = [];
+  if (old && price.minus(old).abs().div(old).gt(0.3)) warnings.push(`Cambio grande (${price.gt(old) ? "+" : ""}${price.minus(old).div(old).mul(100).toFixed(0)} %): revisa la cifra.`);
+  const lines = [{ label: "PVP con IVA", qty: `${old ? `${money(old.toString())} → ` : ""}${money(price.toString())}` }];
+  // Lo que importa al decidir un precio: cómo queda el food cost (coste de la ración sobre el PVP sin IVA).
+  if (ctx.seesCosts && dish.portionCost) {
+    const net = (p: Decimal) => p.div(new Decimal(1).plus(new Decimal(dish.vatRate ?? "10").div(100)));
+    const pct = (p: Decimal) => new Decimal(dish.portionCost!).div(net(p)).mul(100).toFixed(1).replace(".", ",");
+    lines.push({ label: "Food cost", qty: `${old ? `${pct(old)} % → ` : ""}${pct(price)} % (objetivo ${dish.target} %)` });
+  }
+  const base = draftBase("documento", `Cambiar PVP: ${dish.name} a ${money(price.toString())}`, ctx, warnings, now);
+  return finish(
+    {
+      ...base,
+      requiredRole: "manager",
+      canConfirm: hasRole(ctx.role, "manager"),
+      kind: "documento",
+      operation: "precio_venta",
+      documentId: dish.id!,
+      // Un plato no es de un local; el enlace de después es a Escandallos.
+      locationId: ctx.locations[0]!.id,
+      summary: `${dish.name}${dish.category ? ` · ${dish.category}` : ""}`,
+      lines,
+      price: price.toString(),
+    },
+    "change the menu sale price of a dish",
+  );
+}
+
+// Condiciones de un proveedor ------------------------------------------------------------------
+
+export async function supplierTerms({ message, ctx, info, now }: OfficeInput): Promise<BuildResult> {
+  if (!info) return { kind: "error", message: "Los proveedores no están disponibles ahora mismo." };
+  if (!hasRole(ctx.role, "manager")) return { kind: "error", message: "Las condiciones de los proveedores las cambian los encargados y la administración." };
+  const named = mentionedSupplier(message, ctx.suppliers);
+  const changes = parseTermChanges(message);
+  if (!named || changes.length === 0) return { kind: "error", message: "Dime el proveedor y lo que cambia, por ejemplo «el pedido mínimo de Makro es 200 €»." };
+  const current = (await info.suppliers(ctx.orgId)).find((s) => s.name === named.name);
+  const before: Record<TermField, string | number[] | number | null> = {
+    min_order: current?.minOrder ?? null,
+    order_days: current?.orderDays ?? null,
+    order_cutoff: current?.cutoff ?? null,
+    lead_time_hours: current?.leadHours ?? null,
+    payment_terms: current?.paymentTerms ?? null,
+  };
+  const lines = changes.map((c) => ({ label: TERM_LABEL[c.field], qty: `${termText(c.field, before[c.field], money)} → ${termText(c.field, c.value, money)}` }));
+  const base = draftBase("documento", `Condiciones de ${named.name}: ${changes.map((c) => TERM_LABEL[c.field].toLowerCase()).join(", ")}`, ctx, [], now);
+  return finish(
+    {
+      ...base,
+      requiredRole: "manager",
+      canConfirm: hasRole(ctx.role, "manager"),
+      kind: "documento",
+      operation: "condiciones_proveedor",
+      documentId: named.id,
+      // Un proveedor no es de un local; el enlace de después es a Proveedores.
+      locationId: ctx.locations[0]!.id,
+      summary: named.name,
+      lines,
+      terms: changes,
+    },
+    "change a supplier's ordering or payment terms",
   );
 }

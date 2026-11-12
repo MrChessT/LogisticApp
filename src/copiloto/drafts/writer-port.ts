@@ -102,6 +102,10 @@ export interface InventoryWriter {
   markInvoicePaid(invoiceId: string, day: string): Promise<void>;
   /** Validar movimientos de almacén pendientes, tal cual (como en Almacén, con la sesión del usuario). */
   validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
+  /** PVP (con IVA) de un plato, como al editar el escandallo. */
+  setRecipePrice(recipeId: string, price: string): Promise<void>;
+  /** Condiciones de un proveedor (pedido mínimo, días, hora límite, plazo, pago), como en Proveedores. */
+  setSupplierTerms(supplierId: string, terms: Array<{ field: string; value: string }>): Promise<void>;
   /** Pedido a proveedor en borrador (no se envía: eso es de un encargado desde /pedidos). */
   createOrder(args: {
     orgId: string;
@@ -335,6 +339,26 @@ export class SupabaseInventoryWriter implements InventoryWriter {
     const { data, error } = await this.db.from("invoices").update({ status: "pagada", paid_at: day }).eq("id", invoiceId).eq("status", "pendiente").select("id");
     if (error) raise("invoices", error);
     if (!data?.length) raise("invoices", { message: "invalid_status" });
+  }
+
+  async setRecipePrice(recipeId: string, price: string): Promise<void> {
+    const { data, error } = await this.db.from("recipes").update({ sale_price: price }).eq("id", recipeId).select("id");
+    if (error) raise("recipes", error);
+    if (!data?.length) raise("recipes", { code: "42501", message: "forbidden" });
+  }
+
+  async setSupplierTerms(supplierId: string, terms: Array<{ field: string; value: string }>): Promise<void> {
+    const COLUMN: Record<string, (v: string) => [string, unknown]> = {
+      min_order: (v) => ["min_order", v],
+      order_days: (v) => ["order_days", v.split(",").map(Number)],
+      order_cutoff: (v) => ["order_cutoff", v],
+      lead_time_hours: (v) => ["lead_time_hours", Number(v)],
+      payment_terms: (v) => ["payment_terms", v],
+    };
+    const patch = Object.fromEntries(terms.filter((t) => COLUMN[t.field]).map((t) => COLUMN[t.field]!(t.value)));
+    const { data, error } = await this.db.from("suppliers").update(patch).eq("id", supplierId).select("id");
+    if (error) raise("suppliers", error);
+    if (!data?.length) raise("suppliers", { code: "42501", message: "forbidden" });
   }
 
   async validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }> {

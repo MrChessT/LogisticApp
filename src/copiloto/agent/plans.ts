@@ -92,7 +92,7 @@ export const DOCUMENT_ACCIONES = ["recibir_traspaso", "cancelar_traspaso", "envi
 export type DocumentAccion = (typeof DOCUMENT_ACCIONES)[number];
 
 /** Operaciones de documento que se reconocen sin Jev (office-actions.ts): no están en su catálogo. */
-type OfficeAccion = "pagar_factura" | "validar_salidas";
+type OfficeAccion = "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor";
 
 export interface DocumentPlan {
   type: "documento";

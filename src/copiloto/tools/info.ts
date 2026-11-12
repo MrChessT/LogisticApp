@@ -33,11 +33,16 @@ export interface InvoiceRaw {
 export interface UnbilledRaw { supplierName: string; date: string; total: string; locationName: string }
 export interface TeamRaw { name: string; role: string; allLocations: boolean; locationIds: string[]; pending: boolean }
 export interface RecipeRaw {
+  /** Para cambiar su PVP desde el chat. */
+  id?: string;
   name: string;
   kind: "plato" | "elaboracion";
   category: string | null;
   active: boolean;
+  /** PVP con IVA. */
   salePrice: string | null;
+  /** IVA del plato en % (para pasar el PVP a importe sin IVA). */
+  vatRate?: string;
   target: string;
   portionCost: string | null;
   foodCostPct: string | null;

@@ -6,6 +6,7 @@ import type { AuditSink } from "../audit/audit";
 import type { AppRoute, Draft, NavigateEvent } from "../contract/index";
 import { hasRole, type SessionContext } from "../domain";
 import { LruCache } from "../cache/lru";
+import { formatMoney } from "../entities/units";
 import { EXIT_KIND_LABEL } from "../../lib/exit-kinds";
 import { applyEdits, EditError } from "./schemas";
 import type { DraftStore } from "./store";
@@ -269,7 +270,7 @@ export class ConfirmService {
         return { ok: true, kind: "conteo", documentId: draft.countId, movementIds: [], message: `Apuntado en el inventario de ${draft.locationName}.`, navigate: navigate({ locationId: draft.locationId }) };
       }
       case "documento": {
-        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" ? "/almacen" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
+        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" ? "/almacen" : draft.operation === "precio_venta" ? "/escandallos" : draft.operation === "condiciones_proveedor" ? "/proveedores" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
         const done = (message: string, documentId: string = draft.documentId): ConfirmResponse => ({ ok: true, kind: "documento", documentId, movementIds: [], message, navigate: { route, filters: { locationId: draft.locationId }, auto: false } });
         switch (draft.operation) {
           case "recibir_traspaso":
@@ -291,6 +292,12 @@ export class ConfirmService {
           case "pagar_factura":
             await writer.markInvoicePaid(draft.documentId, madridDay(this.now()));
             return done("Factura marcada como pagada hoy.");
+          case "precio_venta":
+            await writer.setRecipePrice(draft.documentId, draft.price!);
+            return done(`PVP actualizado a ${formatMoney(draft.price!)}.`);
+          case "condiciones_proveedor":
+            await writer.setSupplierTerms(draft.documentId, draft.terms ?? []);
+            return done("Condiciones del proveedor actualizadas.");
           case "validar_salidas": {
             const { validated, skipped } = await writer.validateAreaMoves(draft.moveIds ?? []);
             const already = skipped > 0 ? ` ${skipped === 1 ? "Otra ya estaba decidida" : `${skipped} ya estaban decididas`} (no se ha tocado).` : "";

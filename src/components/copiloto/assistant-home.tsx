@@ -221,7 +221,7 @@ const HELP: Array<{ title: string; icon: Icon; text: string; examples: string[] 
   {
     title: "Registrar",
     icon: PencilLine,
-    text: "Escríbelo como lo dirías: preparo el borrador y no se guarda nada hasta que lo confirmas. También validar salidas de almacén y marcar facturas como pagadas.",
+    text: "Escríbelo como lo dirías: preparo el borrador y no se guarda nada hasta que lo confirmas. También validar salidas de almacén, marcar facturas como pagadas, el PVP de un plato y las condiciones de un proveedor.",
     examples: ["Se han roto 2 botellas de Larios en barra", "Pasa 2 cajas de tónica del Parador a Pickles", "Marca como pagada la factura de Makro"],
   },
   {

@@ -77,6 +77,11 @@ export async function lastTime(message: string, ctx: SessionContext, retriever: 
     ];
     return { text: `${p.name}${where}: ${parts.join("; ")}.`, route };
   }
-  const lines = products.map((p) => `• ${p.name}: pedido ${orderText(p)} · llegada ${arrivalText(p)}`);
+  // Solo los que tienen algo; del resto, cuántos son (una lista de «—» no dice nada).
+  const known = products.filter((p) => lastOrder.has(p.id) || lastArrival.has(p.id));
+  const rest = products.length - known.length;
+  if (known.length === 0) return { text: `No consta ningún pedido ni ninguna entrada de estos ${products.length} productos${where} en el último año: ${products.slice(0, 6).map((p) => p.name).join(", ")}${products.length > 6 ? "…" : ""}.`, route };
+  const lines = known.map((p) => `• ${p.name}: pedido ${orderText(p)} · llegada ${arrivalText(p)}`);
+  if (rest > 0) lines.push(`• ${rest === 1 ? "Otro, sin pedidos ni entradas" : `Otros ${rest}, sin pedidos ni entradas`} en el último año.`);
   return { text: `Último pedido y última llegada${where}:\n${lines.join("\n")}`, route };
 }

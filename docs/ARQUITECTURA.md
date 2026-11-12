@@ -49,6 +49,8 @@ docs/                   Este documento, el contrato y el catálogo del asistente
 
 ## Asistente (`src/copiloto`)
 
+Qué consulta y qué hace, pantalla por pantalla: [copiloto/capacidades.md](copiloto/capacidades.md).
+
 Un mensaje recorre este camino (`agent/loop.ts` lo orquesta):
 
 1. **Estado del mensaje**: botón de seguimiento, respuesta a una aclaración (`clarify-answer.ts`) o
@@ -56,7 +58,8 @@ Un mensaje recorre este camino (`agent/loop.ts` lo orquesta):
 2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado («¿y sus
    proveedores?»), la IA lo reescribe como petición completa. Se descarta si inventa productos o locales.
 3. **Atajos sin Jev**: comandos `/…` (`shortcuts.ts`); órdenes de oficina (`office-actions.ts`: pagar
-   una factura, validar las salidas de almacén → borrador en `drafts/office-builder.ts`); respuestas ya
+   una factura, validar las salidas de almacén, PVP de un plato, condiciones de un proveedor con
+   `supplier-terms.ts` → borrador en `drafts/office-builder.ts`); respuestas ya
    escritas (`fixed-replies.ts`: temas que no lleva, ir a una pantalla, consumo dicho a mano, «sí» suelto
    sin nada pendiente, datos de la ficha de varios productos en `product-facts.ts`, cuándo se pidió o
    llegó algo en `last-time.ts`); temas claros de gestión (`tools/info.ts`: ventas, facturas,
