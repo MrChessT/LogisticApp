@@ -26,6 +26,11 @@ export function nextFocus(plan: Plan, outcome: ReportOutcome, previous: Focus | 
       at: now,
     };
   }
+  // Un tema de información (lista de proveedores, ventas…) deja su herramienta: la pregunta siguiente («¿cuál es
+  // el que menos información tiene?») se refiere a ella.
+  if (outcome.kind === "tarea" && plan.type === "info") {
+    return { kind: "consulta", tool: plan.tool, locationIds: [], productIds: [], periodo: "no_indicado", at: now };
+  }
   if (outcome.kind === "resuelto") {
     // El borrador ya no está pendiente; el tema sigue siendo lo que trataba.
     if (!previous) return undefined;

@@ -10,6 +10,7 @@ import type { ClarifyPlan, Plan } from "./plans";
 import type { PendingClarify, Session } from "./session";
 import { officeAction } from "./office-actions";
 import { resolveShortcut } from "./shortcuts";
+import { productsNamed } from "./product-facts";
 
 /** Estado del mensaje que se está procesando: lo que cambia al retomar una aclaración. */
 export interface MessageState {
@@ -85,6 +86,16 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       page = pending.page;
       pageContext = pending.pageContext;
       overrides = { ...pending.overrides, precio: price };
+      answers = answered(text);
+      reuse = pending.routing;
+    } else if (option === null && !typed && pending.field === "producto" && pending.routing && !changes && !isNewQuestion(text)) {
+      // «¿Qué producto quieres archivar?» → «Coca-Cola 20 cl»: el nombre escrito (exacto, o el único que encaja).
+      const exact = ctx.products.filter((p) => tokenize(p.name).join(" ") === tokenize(text).join(" "));
+      const found = exact.length > 0 ? exact : await productsNamed(text, ctx, retriever, 6);
+      message = pending.message;
+      page = pending.page;
+      pageContext = pending.pageContext;
+      overrides = found.length === 1 ? { ...pending.overrides, producto_elegido: found[0]!.id } : { ...pending.overrides, producto_nombre: text };
       answers = answered(text);
       reuse = pending.routing;
     } else if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text) && !isGenericName(text)) {

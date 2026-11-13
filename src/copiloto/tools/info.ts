@@ -11,6 +11,7 @@ import { formatDecimal, formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
 import { overview, priceRanking, type FiguresSource } from "./info-figures";
+import { supplierDataAnswer } from "./info-suppliers";
 import { sales, type SalesSource } from "./info-sales";
 import { warehouseQueue, type WarehouseSource } from "./info-warehouse";
 
@@ -63,6 +64,8 @@ export interface SupplierRaw {
   minOrder: string | null;
   paymentTerms: string | null;
   locationIds: string[];
+  /** Fecha de alta (ISO): para «el último proveedor que se dio de alta». */
+  createdAt: string;
 }
 
 /** Lecturas que necesita cada consulta (Supabase en producción, datos de prueba en los tests). */
@@ -477,6 +480,8 @@ async function suppliers(source: InfoSource, ctx: SessionContext, p: InfoParams)
       s.paymentTerms ? `pago: ${s.paymentTerms}` : null,
     ].filter(Boolean).join(" · ");
   const named = all.filter((s) => names(p.message, s.name));
+  const datos = supplierDataAnswer(all, p.message, route);
+  if (datos) return datos;
   if (named.length === 1) {
     const s = named[0]!;
     const contact = [s.contact, s.phone, s.email].filter(Boolean).join(" · ");
@@ -556,6 +561,16 @@ const TOPICS: Array<[InfoTool, RegExp]> = [
  * El tema de gestión que pregunta el mensaje, si es una consulta clara («¿qué facturas hay?», «cuánto
  * personal hay»). Con un verbo de acción o una cantidad no: eso es una operación.
  */
+/**
+ * Pregunta de seguimiento sobre la herramienta del turno anterior: «¿cuál es el que menos información tiene?»
+ * después de una lista de proveedores. Solo las preguntas que piden el mejor, el peor o el último de esa lista.
+ */
+export function infoFollowUp(message: string, previousTool: string | undefined): InfoTool | null {
+  if (previousTool !== "query_suppliers") return null;
+  const text = normalize(message).replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ").trim();
+  return /^(cual|cuales|quien|de (esos|ellos|estos))\b.*\b(menos|mas|ultim[oa]|primer[oa]|peor|mejor|incomplet[oa]s?|falta|faltan|cread[oa]|alta|nuev[oa])\b/.test(text) ? "query_suppliers" : null;
+}
+
 export function infoTopicOf(message: string): InfoTool | null {
   const text = normalize(message).replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ").trim();
   // «pendientes de pagar», «hay que pagar», «sin pagar»: es una pregunta, no la orden de pagar.
