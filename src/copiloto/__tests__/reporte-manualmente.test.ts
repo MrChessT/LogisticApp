@@ -77,3 +77,12 @@ describe("transparencia", () => {
     expect(JSON.stringify(find(events, "decision") ?? {})).not.toContain("nuevo_producto");
   });
 });
+
+describe("petición genérica con cualquier operación de Jev", () => {
+  it("«Preparar una operación» no se convierte en un pedido aunque Jev lo proponga", async () => {
+    const { agent } = makeAgent(new FakeJev([{ intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "preparar_pedido" }]));
+    const events = await run(agent, chat("Preparar una operación", { page: "/ventas" }));
+    expect(find(events, "clarify")?.field).toBe("tipo_accion");
+    expect(find(events, "clarify")?.question).toBe("¿Qué operación quieres registrar?");
+  });
+});
