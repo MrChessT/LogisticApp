@@ -412,7 +412,7 @@ export interface CountDraft extends DraftBase {
  */
 export interface DocumentDraft extends DraftBase {
   kind: "documento";
-  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona";
+  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona" | "formato_producto";
   documentId: string;
   /** Local para enlazar la pantalla al terminar. */
   locationId: string;
@@ -428,6 +428,8 @@ export interface DocumentDraft extends DraftBase {
   price?: string;
   /** Salida de almacén: lo que se apunta (queda pendiente de validar, como en la pantalla de Almacén). */
   move?: { productId: string; qtyBase: string; fromAreaId: string; toAreaId: string; kind: "salida" | "devolucion"; input: QuantityInput };
+  /** Formato nuevo de un producto: nombre y cantidad en unidad base. */
+  pack?: { productId: string; name: string; qtyBase: string };
   /** Zona nueva en un local: nombre y tipo (almacén: se guarda; servicio: barra, cocina). */
   zone?: { name: string; kind: "almacen" | "servicio" };
   /** Ficha de producto: categoría nueva y alérgenos que se añaden o quitan, en esos productos. */

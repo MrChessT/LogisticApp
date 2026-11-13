@@ -16,7 +16,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Almacén | sí (salidas sin validar) | apuntar una salida o devolución; validar las de un local | «saca 2 cajas de coca a la barra 1» |
 | Inventarios | sí (abiertos, último por local, desvíos) | abrir, apuntar lo contado, cerrar | «empieza el inventario del Vivero» |
 | Mermas | sí (por local, periodo, producto) | registrar | «se han roto 2 botellas de Larios en barra» |
-| Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría y alérgenos | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
+| Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría, alérgenos y formatos | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
 | Proveedores | sí (condiciones, qué nos trae cada uno) | condiciones (mínimo, días, hora límite, plazo, pago) | «el pedido mínimo de Makro es 200 €» |
 | Escandallos | sí (coste, food cost, margen, alérgenos) | PVP de un plato | «pon el PVP de las croquetas a 10 €» |
 | Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | — | «¿cuánto vendimos este mes?» |
@@ -29,7 +29,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 
 ## Pendiente, por orden de utilidad
 
-1. Formatos de un producto («la coca también viene en caja de 12») y crear un escandallo.
+1. Crear un escandallo desde el chat (hoy se consulta y se cambia su PVP).
 2. Registrar una factura desde el PDF arrastrado al chat.
 
 Lo que no se hará desde el chat: invitar personas o cambiar permisos (riesgo alto por un malentendido).

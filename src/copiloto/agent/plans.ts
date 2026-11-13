@@ -92,7 +92,7 @@ export const DOCUMENT_ACCIONES = ["recibir_traspaso", "cancelar_traspaso", "envi
 export type DocumentAccion = (typeof DOCUMENT_ACCIONES)[number];
 
 /** Operaciones de documento que se reconocen sin Jev (office-actions.ts): no están en su catálogo. */
-const OFFICE_ACCIONES = ["pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona"] as const;
+const OFFICE_ACCIONES = ["pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto"] as const;
 type OfficeAccion = (typeof OFFICE_ACCIONES)[number];
 
 /**

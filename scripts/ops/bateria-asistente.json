@@ -125,5 +125,12 @@
       { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Zona nueva en|ya tiene una zona|¿En qué local\\?" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
+  },
+  {
+    "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
   }
 ]

@@ -104,6 +104,8 @@ export interface InventoryWriter {
   validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
   /** PVP (con IVA) de un plato, como al editar el escandallo. */
   setRecipePrice(recipeId: string, price: string): Promise<void>;
+  /** Formato nuevo de un producto (como en su ficha). */
+  addPack(args: { productId: string; name: string; qtyBase: string }): Promise<void>;
   /** Zona nueva en un local, la última del orden (como «Añadir zona» en Zonas). */
   createArea(args: { locationId: string; name: string; kind: "almacen" | "servicio" }): Promise<void>;
   /** Ficha de productos: categoría y alérgenos (como en la ficha de Productos). */
@@ -383,6 +385,11 @@ export class SupabaseInventoryWriter implements InventoryWriter {
     const sortOrder = Number((last?.[0] as { sort_order?: number } | undefined)?.sort_order ?? 0) + 1;
     const { error } = await this.db.from("storage_areas").insert({ location_id: args.locationId, name: args.name, kind: args.kind, sort_order: sortOrder });
     if (error) raise("storage_areas", error);
+  }
+
+  async addPack(args: Parameters<InventoryWriter["addPack"]>[0]): Promise<void> {
+    const { error } = await this.db.from("product_packs").insert({ product_id: args.productId, name: args.name, qty_base: args.qtyBase });
+    if (error) raise("product_packs", error);
   }
 
   async setRecipePrice(recipeId: string, price: string): Promise<void> {
