@@ -11,6 +11,7 @@ import { formatDecimal, formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
 import { overview, priceRanking, type FiguresSource } from "./info-figures";
+import { supplierDataAnswer } from "./info-suppliers";
 import { sales, type SalesSource } from "./info-sales";
 import { warehouseQueue, type WarehouseSource } from "./info-warehouse";
 
@@ -467,17 +468,6 @@ async function counts(source: InfoSource, ctx: SessionContext, p: InfoParams): P
 
 // Proveedores --------------------------------------------------------------------------------
 
-/** Datos básicos que le faltan a un proveedor (lo que se pide para pedirle y pagarle). */
-function supplierMissing(s: SupplierRaw): string[] {
-  return [
-    !s.contact && !s.phone && !s.email ? "contacto" : null,
-    s.orderDays.length === 0 ? "días de pedido" : null,
-    s.leadHours === null ? "plazo de entrega" : null,
-    !s.minOrder ? "pedido mínimo" : null,
-    !s.paymentTerms ? "forma de pago" : null,
-  ].filter((x): x is string => x !== null);
-}
-
 async function suppliers(source: InfoSource, ctx: SessionContext, p: InfoParams): Promise<InfoResult> {
   const route: AppRoute = "/proveedores";
   let all = await source.suppliers(ctx.orgId);
@@ -490,21 +480,8 @@ async function suppliers(source: InfoSource, ctx: SessionContext, p: InfoParams)
       s.paymentTerms ? `pago: ${s.paymentTerms}` : null,
     ].filter(Boolean).join(" · ");
   const named = all.filter((s) => names(p.message, s.name));
-  const text = normalize(p.message);
-  // «¿Cuál tiene menos información?», «¿qué proveedor está incompleto?»: los datos que no tiene apuntados.
-  if (/\b(menos (informacion|datos)|incomplet[oa]s?|le falta|les falta|faltan|sin (datos|informacion)|peor informado)\b/.test(text)) {
-    const scored = all.map((s) => ({ s, missing: supplierMissing(s) })).sort((a, b) => b.missing.length - a.missing.length || a.s.name.localeCompare(b.s.name));
-    const worst = scored[0]?.missing.length ?? 0;
-    if (worst === 0) return { text: "Todos los proveedores tienen los datos básicos apuntados.", route, rows: 0 };
-    const top = scored.filter((x) => x.missing.length === worst);
-    const list = top.slice(0, 5).map((x) => `${x.s.name} (le falta: ${x.missing.join(", ")})`).join("; ");
-    return { text: top.length === 1 ? `${top[0]!.s.name}: le falta ${top[0]!.missing.join(", ")}.` : `Empatan ${top.length} proveedores con ${worst} datos sin apuntar: ${list}.`, route, rows: top.length };
-  }
-  // «¿cuál es el último en ser creado?»: el de fecha de alta más reciente.
-  if (/\b(ultim[oa]|reciente|mas nuevo|nueva?|acaba de)\b.*\b(cread[oa]|dad[oa] de alta|alta|anadid[oa])\b|\b(cread[oa]|dad[oa] de alta|anadid[oa]) (el )?(ultim|mas reciente)/.test(text) && all.length > 0) {
-    const newest = [...all].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]!;
-    return { text: `El último dado de alta es ${newest.name}, el ${newest.createdAt.slice(8, 10)}/${newest.createdAt.slice(5, 7)}/${newest.createdAt.slice(0, 4)}.`, route, rows: 1 };
-  }
+  const datos = supplierDataAnswer(all, p.message, route);
+  if (datos) return datos;
   if (named.length === 1) {
     const s = named[0]!;
     const contact = [s.contact, s.phone, s.email].filter(Boolean).join(" · ");
