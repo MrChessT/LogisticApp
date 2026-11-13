@@ -11,14 +11,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EntryType } from "@typesafe-ai/sdk";
-import { Interpreter } from "../agent/interpret";
+import { Interpreter } from "../jev/interpret";
 import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, type Plan } from "../agent/plans";
-import { buildRouting } from "../agent/routing";
+import { buildRouting } from "../jev/request";
 import { loadConfig } from "../config";
 import { fixtureContext } from "../dev/fixture";
 import { LexicalRetriever } from "../entities/retriever";
-import { asChoice, asNoul } from "../gates/gate";
-import { loadThresholds, type GateKey } from "../gates/thresholds";
+import { asChoice, asNoul } from "../jev/gates/gate";
+import { loadThresholds, type GateKey } from "../jev/gates/thresholds";
 import { CATALOG_VERSION } from "../jev/catalog";
 import { JevError, type JevAnswer, type JevClient, type JevResult } from "../jev/client";
 import { Metrics } from "../metrics/metrics";

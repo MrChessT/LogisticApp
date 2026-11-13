@@ -4,8 +4,8 @@
 //   · qué datos son requeridos, opcionales o irrelevantes (lo irrelevante ni se evalúa ni se enseña);
 //   · el riesgo (lectura, escritura o crítica), que fija el umbral de cada dato;
 //   · cuánto se relaja el umbral cuando el mensaje nombra el dato tal cual (evidencia literal).
-import type { Accion } from "../jev/catalog";
-import type { ToolName } from "../tools/tools";
+import type { Accion } from "../catalog";
+import type { ToolName } from "../../tools/tools";
 import type { GateSpec, Thresholds } from "./thresholds";
 
 type Risk = "lectura" | "escritura" | "critica";

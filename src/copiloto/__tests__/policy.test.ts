@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Decision, TransferDraft, WasteDraft } from "../contract/index";
 import { fixtureContext, LOCATIONS, PRODUCTS } from "../dev/fixture";
-import { POLICIES, slotSpec } from "../gates/policy";
-import { DEFAULT_THRESHOLDS } from "../gates/thresholds";
+import { POLICIES, slotSpec } from "../jev/gates/policy";
+import { DEFAULT_THRESHOLDS } from "../jev/gates/thresholds";
 import { chat, FakeJev, find, makeAgent, run, type Script } from "./helpers";
 
 const [PARADOR, , VIVERO] = LOCATIONS;

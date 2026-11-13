@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FixtureDataSource, fixtureContext } from "../dev/fixture";
-import { DEFAULT_THRESHOLDS } from "../gates/thresholds";
+import { DEFAULT_THRESHOLDS } from "../jev/gates/thresholds";
 import { Metrics } from "../metrics/metrics";
 import { SuggestionEngine } from "../suggestions/engine";
 import { InventoryTools } from "../tools/tools";

@@ -2,7 +2,7 @@ import { LruCache } from "../cache/lru";
 import type { AppRoute, ClarifyField } from "../contract/index";
 import type { Product } from "../domain";
 import type { JevResult } from "../jev/client";
-import type { RoutingMeta } from "./routing";
+import type { RoutingMeta } from "../jev/request";
 import type { FollowUp } from "./followups";
 
 export interface Turn {

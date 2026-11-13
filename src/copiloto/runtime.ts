@@ -13,7 +13,7 @@ import { ConfirmService } from "./drafts/confirm";
 import { DraftStore } from "./drafts/store";
 import { HybridRetriever, OllamaEmbeddings, OpenAIEmbeddings, type EmbeddingProvider } from "./entities/embeddings";
 import { LexicalRetriever, type Retriever } from "./entities/retriever";
-import { loadThresholds, type Thresholds } from "./gates/thresholds";
+import { loadThresholds, type Thresholds } from "./jev/gates/thresholds";
 import { JevClient, type ApiKeySource, type JevResult } from "./jev/client";
 import { Metrics } from "./metrics/metrics";
 import { RateLimiter } from "./security/rate-limit";

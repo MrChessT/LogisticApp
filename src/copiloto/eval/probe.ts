@@ -1,10 +1,10 @@
 // Sonda puntual: probabilidades de intent y tipo_accion para unas frases (no forma parte del set).
 import type { EntryType } from "@typesafe-ai/sdk";
-import { buildRouting } from "../agent/routing";
+import { buildRouting } from "../jev/request";
 import { loadConfig } from "../config";
 import { fixtureContext } from "../dev/fixture";
 import { LexicalRetriever } from "../entities/retriever";
-import { asChoice } from "../gates/gate";
+import { asChoice } from "../jev/gates/gate";
 import { Metrics } from "../metrics/metrics";
 import { evalJev } from "./jev";
 

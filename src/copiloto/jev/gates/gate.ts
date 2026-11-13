@@ -1,6 +1,6 @@
 import type { ChoiceResponse, NoulResponse, ScoreResponse } from "@typesafe-ai/sdk";
-import type { GateOutcome } from "../contract/index";
-import type { JevAnswer } from "../jev/client";
+import type { GateOutcome } from "../../contract/index";
+import type { JevAnswer } from "../client";
 import type { GateSpec } from "./thresholds";
 
 export interface RankedOption {

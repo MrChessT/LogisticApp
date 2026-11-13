@@ -30,8 +30,8 @@ import {
 import { normalize } from "../entities/normalize";
 import { lexicalScore } from "../entities/retriever";
 import { formatDecimal, formatMoney, formatStock } from "../entities/units";
-import { asChoice, asNoul, gateChoice, gateNoulNo, gateNoulYes } from "../gates/gate";
-import type { Thresholds } from "../gates/thresholds";
+import { asChoice, asNoul, gateChoice, gateNoulNo, gateNoulYes } from "../jev/gates/gate";
+import type { Thresholds } from "../jev/gates/thresholds";
 import { minimumQuestions, newProductQuestions, NINGUNO, priceChangeQuestions, type Medida } from "../jev/catalog";
 import type { JevAnswer } from "../jev/client";
 import type { InventoryDataSource } from "../tools/types";

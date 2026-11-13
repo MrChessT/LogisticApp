@@ -3,7 +3,7 @@
 import type { ClarifyField } from "../contract/index";
 import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
-import { asChoice } from "../gates/gate";
+import { asChoice } from "../jev/gates/gate";
 import { canonicalUnit, parseNumber } from "../entities/quantity-parser";
 import { tokenSimilarity } from "../entities/retriever";
 import { packMatchesUnit } from "../entities/units";

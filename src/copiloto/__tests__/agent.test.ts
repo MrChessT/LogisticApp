@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LOCATIONS } from "../dev/fixture";
 import { JevError } from "../jev/client";
-import { asksSameAgain, mentionsWaste, venueRoles } from "../agent/routing";
+import { asksSameAgain, mentionsWaste, venueRoles } from "../entities/signals";
 import { chat, FakeJev, FakeProvider, find, makeAgent, run } from "./helpers";
 
 const BARCELO = "Ron Barceló Añejo 70 cl";

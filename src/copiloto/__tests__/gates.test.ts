@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { gateChoice, gateNoulNo, gateNoulYes, worst } from "../gates/gate";
-import { DEFAULT_THRESHOLDS, loadThresholds } from "../gates/thresholds";
+import { gateChoice, gateNoulNo, gateNoulYes, worst } from "../jev/gates/gate";
+import { DEFAULT_THRESHOLDS, loadThresholds } from "../jev/gates/thresholds";
 import { choiceAnswer, choiceDist, noulAnswer } from "./helpers";
 
 describe("compuertas de confianza", () => {

@@ -15,7 +15,7 @@ import type { StageTimer } from "../metrics/metrics";
 import { infoTopicOf } from "../tools/info";
 import type { Assistant } from "../writer/assistant";
 import type { Plan } from "./plans";
-import { contextReference, namedLocations } from "./routing";
+import { contextReference, namedLocations } from "../entities/signals";
 import type { Focus, Session } from "./session";
 import { tareaTopicOf } from "./shortcuts";
 import { consumptionByHand, screenHelp, smallTalk, topicReply } from "./topics";

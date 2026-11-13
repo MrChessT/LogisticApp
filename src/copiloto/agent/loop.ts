@@ -5,8 +5,8 @@ import type { AuditSink } from "../audit/audit";
 import type { AppRoute, ChatRequest, ClarifyEvent, Decision, Emit, ErrorEvent } from "../contract/index";
 import type { SessionContext } from "../domain";
 import type { Retriever } from "../entities/retriever";
-import { asNoul, gateNoulYes } from "../gates/gate";
-import type { Thresholds } from "../gates/thresholds";
+import { asNoul, gateNoulYes } from "../jev/gates/gate";
+import type { Thresholds } from "../jev/gates/thresholds";
 import { CATALOG_VERSION, evaluationQuestions, label, type Intent } from "../jev/catalog";
 import { JevError, type JevPort, type JevResult } from "../jev/client";
 import { runTarea, type TareaPlan } from "../skills/tareas";
@@ -15,28 +15,25 @@ import { DataError } from "../supabase/client";
 import type { Tools } from "../tools/tools";
 import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
-import { Interpreter } from "./interpret";
+import { Interpreter } from "../jev/interpret";
 import { shortcutIntent, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type InfoPlan, type Plan } from "./plans";
 import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
 import type { DecisionReport, ReportOutcome } from "./report";
-import { buildRouting, namedLocations, type RoutingMeta } from "./routing";
+import { buildRouting, type RoutingMeta } from "../jev/request";
 import { activeFocus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
 import type { ConfirmResponse } from "../drafts/confirm";
-import { isShortcut, resolveShortcut, tareaTopicOf } from "./shortcuts";
 import { CANCEL_OPTION, operationOnly } from "./free-text";
 import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
 import { describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
 import { runQuery } from "./run-query";
 import { tokenize } from "../entities/normalize";
-import { fastStockPlan } from "./fast-path";
 import { smallTalk } from "./topics";
-import { fixedReply } from "./fixed-replies";
-import { officeAction } from "./office-actions";
-import { infoTopicOf, runInfo, type InfoSource } from "../tools/info";
+import { runInfo, type InfoSource } from "../tools/info";
+import { preroute } from "./preroute";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
@@ -164,48 +161,21 @@ export class Agent {
       const onlyOperation = !plan && !reuse ? operationOnly(message) : null;
       if (onlyOperation) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: onlyOperation };
 
-      if (!plan && !reuse && isShortcut(message)) {
-        plan = await resolveShortcut(message, ctx, deps.retriever, pageContext?.locationId);
-        shortcut = plan !== null;
-      }
-
-      // Pagar una factura o validar las salidas de almacén: borrador sin pasar por Jev (office-actions.ts).
-      if (!plan && !reuse && !byButton) {
-        plan = officeAction(message, ctx, pageContext?.locationId);
-        shortcut = plan !== null;
-      }
-
-      // Respuestas ya escritas (ver fixed-replies.ts): temas que no lleva, pantallas, «sí» suelto…
-      if (!plan && !reuse && !byButton) {
-        const waiting = Boolean(activeFocus(session, this.now().getTime())?.draftId) || session.clarifies.size > 0;
-        const topic = await fixedReply(message, session, ctx, { retriever: deps.retriever, source: toolset.source, now: this.now() }, waiting);
-        if (topic) {
-          plan = { type: "aviso", ...topic };
-          shortcut = true;
-          session.clarifies.clear();
-        }
-      }
-
-      // Facturas, equipo, escandallos, zonas, inventarios o proveedores dichos claramente: sin Jev (solo lectura).
-      if (!plan && !reuse && !req.clarification && !activeFocus(session, this.now().getTime())?.draftId) {
-        const tarea = tareaTopicOf(message);
-        const infoTool = tarea ? null : infoTopicOf(message);
-        if (tarea) {
-          const named = namedLocations(ctx.locations, message);
-          plan = { type: "tarea", tarea, locationIds: named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id) };
-          shortcut = true;
-        } else if (infoTool) {
-          const named = namedLocations(ctx.locations, message);
-          const ids = named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id);
-          plan = { type: "info", tool: infoTool, locationIds: ids, locationsDefaulted: named.length === 0 && !pageContext?.locationId, products: [], periodo: "no_indicado" };
-          shortcut = true;
-        }
-      }
-
-      // Vía rápida: «¿cuántas cocas quedan en el Vivero?» sin llamar a Jev (solo lectura, solo si el
-      // mensaje no dice nada más). Con un borrador esperando respuesta decide Jev.
-      if (this.deps.fastPath !== false && !plan && !reuse && !req.clarification && !activeFocus(session, this.now().getTime())?.draftId) {
-        plan = await fastStockPlan(message, ctx, deps.retriever);
+      // Lo que se resuelve sin Jev (comandos, órdenes de oficina, respuestas escritas, temas claros, vía
+      // rápida de stock): ver preroute.ts, con el orden de prioridad.
+      if (!plan && !reuse) {
+        const now = this.now();
+        plan = await preroute(message, {
+          ctx,
+          session,
+          retriever: deps.retriever,
+          source: toolset.source,
+          pageLocationId: pageContext?.locationId,
+          now,
+          draftPending: Boolean(activeFocus(session, now.getTime())?.draftId),
+          answeringClarification: Boolean(req.clarification),
+          fastPath: this.deps.fastPath !== false,
+        });
         shortcut = plan !== null;
       }
 
@@ -242,7 +212,7 @@ export class Agent {
           intent = "conversar";
           decisions = [];
         } else if (understanding?.tipo === "datos" && tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") && groundedLocations(understanding.consulta, message, session, focusNow, ctx)) {
-          const again = await this.replan(understanding.consulta, page, pageContext, session, ctx, deps, timer, habits);
+          const again = await this.replan(understanding.consulta, page, pageContext, session, ctx, deps, timer, habits, toolset);
           if (resolves(again.plan)) {
             ({ plan, intent, decisions, routing, shortcut } = again);
             understoodAs = understanding.consulta;
@@ -334,21 +304,22 @@ export class Agent {
     deps: AgentDeps & { retriever: Retriever },
     timer: StageTimer,
     habits: Awaited<ReturnType<HabitsStore["get"]>>,
+    toolset: Tools,
   ): Promise<{ plan: Plan; intent: Intent; decisions: Decision[]; routing: { meta: RoutingMeta; jev: JevResult } | undefined; shortcut: boolean }> {
-    const tarea = tareaTopicOf(message);
-    const infoTool = tarea ? null : infoTopicOf(message);
-    if (tarea || infoTool) {
-      const named = namedLocations(ctx.locations, message);
-      const ids = named.length > 0 ? named.map((l) => l.id) : pageContext?.locationId ? [pageContext.locationId] : ctx.locations.map((l) => l.id);
-      const plan: Plan = tarea
-        ? { type: "tarea", tarea, locationIds: ids }
-        : { type: "info", tool: infoTool!, locationIds: ids, locationsDefaulted: named.length === 0 && !pageContext?.locationId, products: [], periodo: "no_indicado" };
-      return { plan, intent: shortcutIntent(plan), decisions: [], routing: undefined, shortcut: true };
-    }
-    if (this.deps.fastPath !== false) {
-      const fast = await fastStockPlan(message, ctx, deps.retriever);
-      if (fast) return { plan: fast, intent: shortcutIntent(fast), decisions: [], routing: undefined, shortcut: true };
-    }
+    const now = this.now();
+    const quick = await preroute(message, {
+      ctx,
+      session,
+      retriever: deps.retriever,
+      source: toolset.source,
+      pageLocationId: pageContext?.locationId,
+      now,
+      draftPending: false,
+      answeringClarification: false,
+      fastPath: this.deps.fastPath !== false,
+      onlyQueries: true,
+    });
+    if (quick) return { plan: quick, intent: shortcutIntent(quick), decisions: [], routing: undefined, shortcut: true };
     const focus = activeFocus(session, this.now().getTime());
     const built = await timer.time("entidades", () => buildRouting(message, page, pageContext?.locationId, session.turns, ctx, deps.retriever, deps.selfConsistency, focus?.draftTitle));
     const jev = await timer.time("jev1", () => deps.jev.evaluate(built.state as unknown as EntryType, built.questions));

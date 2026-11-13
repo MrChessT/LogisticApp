@@ -146,7 +146,7 @@ describe("frases medidas con Jev real (10/11)", () => {
 
 describe("locales nombrados en la vía rápida", () => {
   it("«la» de «La Oliva» no es nombrar La Oliva", async () => {
-    const { namedLocations } = await import("../agent/routing");
+    const { namedLocations } = await import("../entities/signals");
     expect(namedLocations(LOCATIONS, "qué tal fue la caja de ayer")).toEqual([]);
     expect(namedLocations(LOCATIONS, "facturas de la oliva").map((l) => l.name)).toEqual(["La Oliva"]);
     expect(namedLocations(LOCATIONS, "ventas del parador").map((l) => l.name)).toEqual(["Parador"]);
