@@ -20,6 +20,8 @@ export type Item =
       draft?: Draft;
       /** El borrador se confirmó o descartó después, desde el chat. */
       resolved?: ResolvedEvent;
+      /** Varias órdenes en un mensaje: los borradores que siguen al primero, cada uno con su estado. */
+      moreDrafts?: Array<{ draft: Draft; resolved?: ResolvedEvent }>;
       charts?: ChartSpec[];
       table?: TableEvent;
       actions?: ActionsEvent["actions"];
@@ -81,6 +83,7 @@ export function toEntry(item: Item, flagged: boolean): TranscriptEntry {
   if (item.role === "user") return { role: "user", text: item.text, ...(flagged ? { flagged } : {}) };
   const detail = [
     item.draft && `Borrador: ${item.draft.title}`,
+    ...(item.moreDrafts ?? []).map((m) => `Borrador: ${m.draft.title}`),
     item.resolved && `Borrador ${item.resolved.status}`,
     item.clarify && item.clarify.options.length > 0 && `Opciones: ${item.clarify.options.map((o) => o.label).join(" / ")}`,
     item.form && `Formulario: ${item.form.fields.map((f) => f.label).join(", ")}`,
