@@ -51,26 +51,23 @@ docs/                   Este documento, el contrato y el catálogo del asistente
 
 Qué consulta y qué hace, pantalla por pantalla: [copiloto/capacidades.md](copiloto/capacidades.md).
 
-Un mensaje recorre este camino (`agent/loop.ts` lo orquesta):
+Un mensaje recorre este camino (`agent/loop.ts` lo orquesta; el detalle, con cómo ampliar cada parte,
+en [copiloto/JEV.md](copiloto/JEV.md)):
 
-1. **Estado del mensaje**: botón de seguimiento, respuesta a una aclaración (`clarify-answer.ts`) o
-   mensaje nuevo.
-2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado («¿y sus
-   proveedores?»), la IA lo reescribe como petición completa. Se descarta si inventa productos o locales.
-3. **Atajos sin Jev**: comandos `/…` (`shortcuts.ts`); órdenes de oficina (`office-actions.ts`: pagar
-   una factura, validar las salidas de almacén, PVP de un plato, condiciones de un proveedor con
-   `supplier-terms.ts` → borrador en `drafts/office-builder.ts`); respuestas ya
-   escritas (`fixed-replies.ts`: temas que no lleva, ir a una pantalla, consumo dicho a mano, «sí» suelto
-   sin nada pendiente, datos de la ficha de varios productos en `product-facts.ts`, cuándo se pidió o
-   llegó algo en `last-time.ts`); temas claros de gestión (`tools/info.ts`: ventas, facturas,
-   escandallos, cola del almacén…) y la vía rápida de stock (`fast-path.ts`).
-4. **Jev** (`routing.ts` construye las preguntas, `jev/catalog.ts` las define): devuelve probabilidades.
-   `interpret.ts` aplica los umbrales (`gates/`) y produce un **plan** (`plans.ts`) o una aclaración.
-   Si no llega al umbral, se pregunta: nunca se adivina.
-5. **Rescate**: si Jev no entendió un mensaje nuevo, la IA lo reescribe o da una respuesta general, y
-   la reescritura vuelve a pasar por Jev. Solo se adopta si ahora se entiende.
-6. **Ejecución**: consulta (`run-query.ts` + `tools/`), información de gestión (`tools/info*.ts`),
-   tarea (`skills/tareas.ts`) o borrador (`drafts/`). **Las cifras salen siempre del código.**
+1. **Estado del mensaje**: botón de seguimiento, formulario enviado, respuesta a una aclaración
+   (`clarify-answer.ts`) o mensaje nuevo.
+2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado, la IA lo
+   reescribe como petición completa. Se descarta si inventa productos o locales.
+3. **Sin Jev** (`preroute.ts`, en orden): comandos `/…`, órdenes de oficina (`office-actions.ts`),
+   respuestas ya escritas (`fixed-replies.ts`), temas de gestión claros (`tools/info.ts`) y vía rápida de
+   stock (`fast-path.ts`).
+4. **Jev** (`jev/`): `request.ts` prepara la llamada, `catalog/` define las preguntas, `interpret/` aplica
+   los umbrales (`gates/`) y produce un **plan** (`agent/plans.ts`) o una aclaración. Si la operación está
+   clara pero faltan dos datos o más, un miniformulario (`action-form.ts`). Nunca se adivina.
+5. **Rescate**: si Jev no entendió un mensaje nuevo, la IA lo reescribe o da una respuesta general, y la
+   reescritura vuelve a pasar por Jev. Solo se adopta si ahora se entiende.
+6. **Ejecución**: consulta (`run-query.ts` + `tools/`), información de gestión (`tools/info*.ts`), tarea
+   (`skills/tareas.ts`) o borrador (`drafts/`). **Las cifras salen siempre del código.**
 7. **Respuesta** (`writer/`): plantillas con las cifras exactas. Un borrador no se guarda hasta que el
    usuario lo confirma (`drafts/confirm.ts`, con las mismas funciones de la base que las pantallas).
 
@@ -79,7 +76,7 @@ Reglas que no se rompen:
 - La IA de apoyo (`writer/assistant.ts`, Vercel AI Gateway) **no decide ni da cifras**: reescribe,
   resume informes (cada número se verifica contra el informe) o responde preguntas generales marcadas
   como tales. Si falla o no está, todo funciona igual que sin ella.
-- Cambiar un texto de `jev/catalog.ts` sube `CATALOG_VERSION`.
+- Cambiar un texto de `jev/catalog/` sube `CATALOG_VERSION` (en `jev/catalog/criteria.ts`).
 - El asistente trabaja con el JWT del usuario: ve y puede lo mismo que esa persona.
 - Solo cambia de pantalla cuando se le pide («llévame a…», `/stock`): `navigate` con `auto`. Si se
   pregunta dónde está algo, deja el enlace.
@@ -91,6 +88,7 @@ Reglas que no se rompen:
 | Fichero | Qué es |
 | --- | --- |
 | `copiloto.tsx` | El panel: conversación, envío (texto, comandos, fotos, voz) y pintado |
+| `form-card.tsx` | Miniformulario de una operación (varios datos a la vez) |
 | `use-file-drop.ts` | Archivos arrastrados al panel o pegados (Ctrl+V); fotos → `photo.ts`, el resto dice dónde va |
 | `chat-model.ts`, `chat-stream.ts` | Mensajes de la conversación y lectura de la respuesta (SSE) |
 | `assistant-home.tsx` | Inicio según la pantalla, comandos «/» y guía de `/ayuda` |

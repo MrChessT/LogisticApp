@@ -7,7 +7,7 @@ import type { Retriever } from "../entities/retriever";
 import { formatStock } from "../entities/units";
 import type { InventoryDataSource, OrderRaw } from "../tools/types";
 import { productsNamed } from "./product-facts";
-import { namedLocations } from "./routing";
+import { namedLocations } from "../entities/signals";
 import type { TopicReply } from "./topics";
 
 const ASKS =

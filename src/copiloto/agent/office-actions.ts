@@ -5,7 +5,7 @@ import type { SessionContext } from "../domain";
 import { normalize } from "../entities/normalize";
 import { QUERY_PAY } from "../tools/info";
 import type { DocumentPlan } from "./plans";
-import { namedLocations } from "./routing";
+import { namedLocations } from "../entities/signals";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { parseTermChanges } from "./supplier-terms";
 

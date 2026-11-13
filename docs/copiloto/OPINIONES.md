@@ -19,7 +19,7 @@ haga con los pasos justos. Cada arreglo queda cubierto por una prueba para que n
    lo que se espera, no lo que hace hoy.
 3. **Encontrar la capa donde nace el fallo** y arreglarlo ahí:
    - Entender la petición y seguir la conversación: `agent/loop.ts` (aclaraciones, respuestas escritas),
-     `agent/free-text.ts`, `agent/routing.ts` (qué se pregunta a Jev), `agent/interpret.ts` (umbrales).
+     `agent/free-text.ts`, `jev/request.ts` (qué se pregunta a Jev), `jev/interpret/` (umbrales); guía en `docs/copiloto/JEV.md`.
    - Productos, cantidades, locales, nombres: `entities/` (`quantity-parser.ts`, `mentions.ts`,
      `catalog-parser.ts`, `retriever.ts`).
    - Cálculos: `tools/`, `analytics/`, `skills/`.

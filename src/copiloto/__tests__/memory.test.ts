@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LOCATIONS, PRODUCTS } from "../dev/fixture";
-import { referencesPrevious } from "../agent/routing";
+import { referencesPrevious } from "../entities/signals";
 import { chat, FakeJev, find, makeAgent, run, type Script } from "./helpers";
 
 const BARCELO = PRODUCTS[0]!;

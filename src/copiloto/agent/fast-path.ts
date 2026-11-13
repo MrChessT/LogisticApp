@@ -7,7 +7,7 @@ import { tokenize } from "../entities/normalize";
 import { familyOf } from "../entities/family";
 import { parseQuantities } from "../entities/quantity-parser";
 import type { Retriever } from "../entities/retriever";
-import { mentionsArea } from "./routing";
+import { mentionsArea } from "../entities/signals";
 import type { QueryPlan } from "./plans";
 
 /** Palabras que caben en una pregunta de stock pura. */

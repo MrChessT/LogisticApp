@@ -27,7 +27,7 @@ import { DraftBuilder } from "../drafts/builder";
 import { ConfirmService } from "../drafts/confirm";
 import { DraftStore } from "../drafts/store";
 import { LexicalRetriever } from "../entities/retriever";
-import { loadThresholds } from "../gates/thresholds";
+import { loadThresholds } from "../jev/gates/thresholds";
 import { CATALOG_VERSION } from "../jev/catalog";
 import type { JevPort, JevResult } from "../jev/client";
 import { Metrics } from "../metrics/metrics";

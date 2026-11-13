@@ -6,7 +6,7 @@ import { MemoryAuditSink } from "../audit/audit";
 import type { ChatRequest, SseEvent } from "../contract/index";
 import { FixtureDataSource, fixtureContext, ORG_ID } from "../dev/fixture";
 import { LexicalRetriever } from "../entities/retriever";
-import { DEFAULT_THRESHOLDS } from "../gates/thresholds";
+import { DEFAULT_THRESHOLDS } from "../jev/gates/thresholds";
 import type { JevPort } from "../jev/client";
 import { Metrics } from "../metrics/metrics";
 import { InventoryTools } from "../tools/tools";

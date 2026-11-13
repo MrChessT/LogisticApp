@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SseEvent } from "../contract/index";
 import { fixtureContext } from "../dev/fixture";
 import { groundedProducts } from "../agent/comprehension";
-import { contextReference } from "../agent/routing";
+import { contextReference } from "../entities/signals";
 import { Metrics } from "../metrics/metrics";
 import { Assistant } from "../writer/assistant";
 import { chat, FakeJev, FakeProvider, makeAgent, run } from "./helpers";

@@ -168,3 +168,13 @@ describe("condiciones de un proveedor que no existe (batería en producción)", 
     expect(officeAction("pedido mínimo de Makro", fixtureContext())).toBeNull();
   });
 });
+
+describe("sin llamadas a Jev que no aportan", () => {
+  it("las órdenes de oficina preparan el borrador sin ninguna llamada a Jev", async () => {
+    const jev = new FakeJev();
+    const draft = find(await run(makeAgent(jev).agent, chat("marca como pagada la factura de Makro")), "draft") as DocumentDraft;
+    expect(draft.operation).toBe("pagar_factura");
+    expect(jev.calls).toHaveLength(0);
+    expect(draft.warnings.join(" ")).not.toContain("No he podido comprobar");
+  });
+});

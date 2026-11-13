@@ -1,6 +1,8 @@
 # Catálogo de preguntas Jev y umbrales
 
-La fuente de verdad es `src/jev/catalog.ts` (`CATALOG_VERSION = "2026-09-24.2"`) y `src/gates/thresholds.ts`. Las preguntas y los umbrales solo se cambian en esos dos archivos. Este documento recoge la propuesta original de la fase 1 más los cambios que se hicieron al probar con Jev real.
+Registro histórico de las mediciones con Jev real. La guía de cómo está montado y cómo se amplía es
+[JEV.md](JEV.md). Las preguntas viven en `src/copiloto/jev/catalog/` (versión en `criteria.ts`) y los
+umbrales en `src/copiloto/jev/gates/thresholds.ts`; solo se cambian ahí.
 
 ## Cambios tras las pruebas con Jev real (23/09/2026)
 
