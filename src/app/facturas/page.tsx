@@ -5,6 +5,7 @@ import { CirclePlus, FileText, Paperclip, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { usePermissions } from "@/lib/permissions";
+import { onPendingFile, takePendingFile } from "@/lib/pending-file";
 import { daysUntil, invoiceMatch } from "@/lib/invoices";
 import { InvoiceEditor, type InvoiceRow, type SupplierOption, type UnbilledReceipt } from "./invoice-editor";
 import "../productos/productos.css";
@@ -28,9 +29,20 @@ export default function InvoicesPage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("pendientes");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<{ invoice: InvoiceRow | null; preset: { supplierId: string; receiptIds: string[] } | null } | null>(null);
+  // `file`: el PDF que llega del asistente; la factura nueva se abre con él adjunto.
+  const [open, setOpen] = useState<{ invoice: InvoiceRow | null; preset: { supplierId: string; receiptIds: string[] } | null; file?: File } | null>(null);
   const perms = usePermissions();
   const allowed = perms ? ["owner", "admin", "manager"].includes(perms.role) && perms.seesCosts : null;
+
+  // El asistente deja aquí un PDF arrastrado («Registrar la factura con este PDF»): se abre la factura nueva con él.
+  useEffect(() => {
+    const take = () => {
+      const file = takePendingFile("factura");
+      if (file) setOpen({ invoice: null, preset: null, file });
+    };
+    take();
+    return onPendingFile("factura", take);
+  }, []);
 
   async function reload() {
     const supabase = createClient();
@@ -190,6 +202,7 @@ export default function InvoicesPage() {
         <InvoiceEditor
           invoice={open.invoice}
           preset={open.preset}
+          initialFile={open.file}
           orgId={orgId}
           suppliers={suppliers}
           unbilled={unbilled}

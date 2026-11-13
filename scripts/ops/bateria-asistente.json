@@ -115,14 +115,21 @@
   {
     "nombre": "Ficha de producto desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "la tónica lleva sulfitos", "espera": "Ficha:|¿A cuál de estos productos\\?|No encuentro" },
+      { "usuario": "la tónica lleva sulfitos", "espera": "Revísalo y confírmalo|Ficha:|¿A cuál de estos productos\\?|No encuentro" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Zona nueva desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Zona nueva en|ya tiene una zona|¿En qué local\\?" },
+      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Revísalo y confírmalo|Zona nueva en|ya tiene una zona|¿En qué local\\?" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
+    "nombre": "Escandallo nuevo desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "crea el plato Sangría de prueba con PVP 6,50: 1 l de Ron Barceló Añejo 70 cl", "espera": "Revísalo y confírmalo|Ya hay un escandallo|No encuentro" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },

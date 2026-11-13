@@ -18,7 +18,7 @@ export function fileKind(file: File): FileKind {
 export function otherFileReply(file: File, kind: Exclude<FileKind, "imagen">): string {
   const name = file.name || "el archivo";
   if (kind === "pdf") {
-    return `«${name}» es un PDF. Aquí leo fotos de albaranes; si es una factura, se registra en Gestión › Facturas («Registrar factura»), donde se adjunta el PDF y se cuadra con sus albaranes. Si es un albarán, hazle una foto o una captura y arrástrala aquí.`;
+    return `«${name}» es un PDF. Si es una factura, ábrela en Facturas con el PDF ya adjunto: pon el proveedor y los importes y márcale sus albaranes para cuadrarla. Si es un albarán, hazle una foto o una captura y arrástrala aquí.`;
   }
   if (kind === "hoja") {
     return `«${name}» es una hoja de cálculo. Productos, ventas del TPV y escandallos se cargan desde Gestión › Importar, que revisa cada fila antes de guardar nada.`;

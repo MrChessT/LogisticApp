@@ -11,6 +11,7 @@ import { mentionsWaste, namedLocations } from "../entities/signals";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { parseTermChanges } from "./supplier-terms";
 import { parseSheet } from "./product-sheet";
+import { NEW_RECIPE } from "./recipe-chat";
 import { PACK_RE } from "../drafts/pack-builder";
 
 const QUESTION = /^(que|cual|cuales|cuant[oa]s?|hay|esta|estan|tengo|tenemos|cuando|donde|quien|como|se ha|se han|me dices|dime si)\b/;
@@ -62,6 +63,8 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
     ? "pagar_factura"
     : VALIDATE_MOVES.test(text)
       ? "validar_salidas"
+      : NEW_RECIPE.test(text)
+        ? "crear_escandallo"
       : DISH_PRICE.test(text) && /\d/.test(text)
         ? "precio_venta"
         : parseTermChanges(message).length > 0 && (mentionedSupplier(message, ctx.suppliers) || (CHANGE_TERMS.test(text) && SUPPLIER_TERMS.test(text)))

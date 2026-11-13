@@ -18,18 +18,17 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Mermas | sí (por local, periodo, producto) | registrar | «se han roto 2 botellas de Larios en barra» |
 | Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría, alérgenos y formatos | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
 | Proveedores | sí (condiciones, qué nos trae cada uno) | condiciones (mínimo, días, hora límite, plazo, pago) | «el pedido mínimo de Makro es 200 €» |
-| Escandallos | sí (coste, food cost, margen, alérgenos) | PVP de un plato | «pon el PVP de las croquetas a 10 €» |
+| Escandallos | sí (coste, food cost, margen, alérgenos) | crear un plato o una elaboración con sus ingredientes; PVP de un plato | «crea el escandallo de croquetas con PVP 9,50» · «pon el PVP de las croquetas a 10 €» |
 | Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | — | «¿cuánto vendimos este mes?» |
-| Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada | «marca como pagada la factura de Makro» |
+| Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada; registrar una factura desde su PDF arrastrado (abre Nueva factura con el PDF) | «marca como pagada la factura de Makro» |
 | Informes | sí (las mismas cifras, resumidas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
 | Equipo | sí (quién, puesto, locales) | no: invitar y cambiar permisos solo en la pantalla, a propósito | «dame los nombres del personal» |
 | Zonas | sí (zonas de cada local, qué hay en cada una) | crear una zona (almacén o servicio) | «crea la zona Terraza en el Vivero» |
 | Importar | — | enlace (arrastrar un Excel o CSV al chat dice dónde va) | — |
 | Opiniones del asistente | — | no (pantalla de administración) | — |
 
-## Pendiente, por orden de utilidad
+## Pendiente
 
-1. Crear un escandallo desde el chat (hoy se consulta y se cambia su PVP).
-2. Registrar una factura desde el PDF arrastrado al chat.
-
-Lo que no se hará desde el chat: invitar personas o cambiar permisos (riesgo alto por un malentendido).
+Nada del mapa está sin hacer desde el chat. Lo que no se hará desde el chat: invitar personas o cambiar
+permisos (riesgo alto por un malentendido). En escandallos, desde el chat no se editan las líneas de un
+escandallo existente ni se usan elaboraciones como ingrediente: eso se hace en la pantalla de Escandallos.

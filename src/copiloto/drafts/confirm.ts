@@ -270,7 +270,7 @@ export class ConfirmService {
         return { ok: true, kind: "conteo", documentId: draft.countId, movementIds: [], message: `Apuntado en el inventario de ${draft.locationName}.`, navigate: navigate({ locationId: draft.locationId }) };
       }
       case "documento": {
-        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" || draft.operation === "salida_almacen" ? "/almacen" : draft.operation === "precio_venta" ? "/escandallos" : draft.operation === "condiciones_proveedor" ? "/proveedores" : draft.operation === "ficha_producto" || draft.operation === "formato_producto" ? "/productos" : draft.operation === "crear_zona" ? "/zonas" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
+        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" || draft.operation === "salida_almacen" ? "/almacen" : draft.operation === "precio_venta" ? "/escandallos" : draft.operation === "condiciones_proveedor" ? "/proveedores" : draft.operation === "ficha_producto" || draft.operation === "formato_producto" ? "/productos" : draft.operation === "crear_zona" ? "/zonas" : draft.operation === "crear_escandallo" ? "/escandallos" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
         const done = (message: string, documentId: string = draft.documentId): ConfirmResponse => ({ ok: true, kind: "documento", documentId, movementIds: [], message, navigate: { route, filters: { locationId: draft.locationId }, auto: false } });
         switch (draft.operation) {
           case "recibir_traspaso":
@@ -304,6 +304,12 @@ export class ConfirmService {
           case "crear_zona":
             await writer.createArea({ locationId: draft.locationId, ...draft.zone! });
             return done(`Zona «${draft.zone!.name}» creada.`);
+          case "crear_escandallo": {
+            const recipe = draft.recipe!;
+            await writer.createRecipe({ orgId: ctx.orgId, ...recipe });
+            const count = recipe.lines.length;
+            return done(`Escandallo «${recipe.name}» creado${count ? ` con ${count} ${count === 1 ? "ingrediente" : "ingredientes"}` : ""}. El coste se calcula en Escandallos.`);
+          }
           case "ficha_producto": {
             const sheet = draft.sheet!;
             await writer.updateProductSheet(sheet);

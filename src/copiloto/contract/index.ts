@@ -412,7 +412,7 @@ export interface CountDraft extends DraftBase {
  */
 export interface DocumentDraft extends DraftBase {
   kind: "documento";
-  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona" | "formato_producto";
+  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona" | "formato_producto" | "crear_escandallo";
   documentId: string;
   /** Local para enlazar la pantalla al terminar. */
   locationId: string;
@@ -432,6 +432,8 @@ export interface DocumentDraft extends DraftBase {
   pack?: { productId: string; name: string; qtyBase: string };
   /** Zona nueva en un local: nombre y tipo (almacén: se guarda; servicio: barra, cocina). */
   zone?: { name: string; kind: "almacen" | "servicio" };
+  /** Escandallo nuevo: plato (con PVP) o elaboración (rendimiento = suma de ingredientes), con sus líneas en unidad base. */
+  recipe?: { name: string; kind: "plato" | "elaboracion"; salePrice: string | null; yieldQty: string; yieldUnit: "racion" | "g" | "ml" | "ud"; lines: Array<{ productId: string; qtyBase: string }> };
   /** Ficha de producto: categoría nueva y alérgenos que se añaden o quitan, en esos productos. */
   sheet?: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] };
   /** Condiciones de proveedor: los campos que cambian, con su valor nuevo. */
