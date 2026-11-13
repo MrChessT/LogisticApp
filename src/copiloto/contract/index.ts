@@ -412,7 +412,7 @@ export interface CountDraft extends DraftBase {
  */
 export interface DocumentDraft extends DraftBase {
   kind: "documento";
-  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen";
+  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona";
   documentId: string;
   /** Local para enlazar la pantalla al terminar. */
   locationId: string;
@@ -428,6 +428,10 @@ export interface DocumentDraft extends DraftBase {
   price?: string;
   /** Salida de almacén: lo que se apunta (queda pendiente de validar, como en la pantalla de Almacén). */
   move?: { productId: string; qtyBase: string; fromAreaId: string; toAreaId: string; kind: "salida" | "devolucion"; input: QuantityInput };
+  /** Zona nueva en un local: nombre y tipo (almacén: se guarda; servicio: barra, cocina). */
+  zone?: { name: string; kind: "almacen" | "servicio" };
+  /** Ficha de producto: categoría nueva y alérgenos que se añaden o quitan, en esos productos. */
+  sheet?: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] };
   /** Condiciones de proveedor: los campos que cambian, con su valor nuevo. */
   terms?: Array<{ field: "min_order" | "order_days" | "order_cutoff" | "lead_time_hours" | "payment_terms"; value: string }>;
 }
