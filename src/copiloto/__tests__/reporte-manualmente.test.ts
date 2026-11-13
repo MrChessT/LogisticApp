@@ -68,3 +68,12 @@ describe("sin bucles", () => {
     expect(find(events, "clarify")?.field).not.toBe("tipo_accion");
   });
 });
+
+describe("transparencia", () => {
+  it("la operación que Jev propuso y no se usó no aparece en «Entendido»", async () => {
+    const { agent } = makeAgent(new FakeJev([route("nuevo_producto")]));
+    const events = await run(agent, chat("Preparar una operación"));
+    expect(find(events, "clarify")?.field).toBe("tipo_accion");
+    expect(JSON.stringify(find(events, "decision") ?? {})).not.toContain("nuevo_producto");
+  });
+});
