@@ -219,7 +219,7 @@ const OrderDraftSchema = base.extend({
 
 const DocumentDraftSchema = base.extend({
   kind: z.literal("documento"),
-  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo"]),
+  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo", "asociar_proveedor"]),
   documentId: id,
   locationId: id,
   summary: z.string().min(1).max(200),
@@ -229,6 +229,7 @@ const DocumentDraftSchema = base.extend({
   price: positive.optional(),
   pack: z.object({ productId: id, name: z.string().trim().min(1).max(60), qtyBase: positive }).optional(),
   zone: z.object({ name: z.string().trim().min(1).max(60), kind: z.enum(["almacen", "servicio"]) }).optional(),
+  supplier: z.object({ supplierId: id, packId: id, supplierName: z.string().min(1).max(120), productName: z.string().min(1).max(120) }).optional(),
   recipe: z
     .object({
       name: z.string().trim().min(1).max(120),

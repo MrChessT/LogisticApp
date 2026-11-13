@@ -74,6 +74,8 @@ export interface InventoryWriter {
   deleteOpenReceipt(receiptId: string): Promise<void>;
   closeCount(countId: string, zeroUncounted: boolean, asConsumption: boolean): Promise<void>;
   setSupplierPrice(args: { supplierId: string; packId: string; price: string }): Promise<void>;
+  /** Proveedor asociado a un formato de compra, sin precio (como añadirlo en la ficha del producto). */
+  linkSupplier(args: { supplierId: string; packId: string }): Promise<void>;
   createProduct(args: {
     orgId: string;
     name: string;
@@ -265,6 +267,12 @@ export class SupabaseInventoryWriter implements InventoryWriter {
   async closeCount(countId: string, zeroUncounted: boolean, asConsumption: boolean): Promise<void> {
     const { error } = await this.db.rpc("close_count", { p_count: countId, p_zero_uncounted: zeroUncounted, p_as_consumption: asConsumption });
     if (error) raise("close_count", error);
+  }
+
+  async linkSupplier(args: Parameters<InventoryWriter["linkSupplier"]>[0]): Promise<void> {
+    const { data, error } = await this.db.from("supplier_prices").insert({ supplier_id: args.supplierId, pack_id: args.packId }).select("pack_id");
+    if (error) raise("supplier_prices", error);
+    if (!data?.length) raise("supplier_prices", { code: "42501", message: "forbidden" });
   }
 
   async setSupplierPrice(args: Parameters<InventoryWriter["setSupplierPrice"]>[0]): Promise<void> {

@@ -140,6 +140,13 @@
     ]
   },
   {
+    "nombre": "Proveedor asociado a un producto desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "el proveedor de Coca-Cola 20 cl es Makro", "espera": "Revísalo y confírmalo|No encuentro|¿A cuál|¿En qué formato" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
     "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro" },
