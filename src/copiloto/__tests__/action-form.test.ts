@@ -61,3 +61,13 @@ describe("al enviarlo", () => {
     expect("overrides" in typed && typed.overrides.producto_0).toBeFalsy();
   });
 });
+
+describe("producto ambiguo sin preguntar aún por él (batería en producción)", () => {
+  it("«merma de 2 botellas de ron» sin local: desplegable con los rones y la cantidad ya puesta", async () => {
+    const form = find(await run(makeAgent(new FakeJev([route("merma", { producto_0: "varios" })])).agent, chat("merma de 2 botellas de ron")), "form")!;
+    const product = form.fields.find((f) => f.key === "producto")!;
+    expect(product.kind).toBe("select");
+    expect(product.options!.map((o) => o.label).sort()).toEqual(["Ron Barceló Añejo 70 cl", "Ron Brugal Añejo 70 cl"]);
+    expect(form.fields.find((f) => f.key === "cantidad")!.value).toBe("2 botellas");
+  });
+});

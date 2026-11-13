@@ -44,6 +44,13 @@ interface FormSource {
 /** Jev tiene claro un dato aunque aún no se haya decidido (la interpretación va en orden y se paró antes). */
 const CLEAR = 0.7;
 
+/** «2 botellas», «1 caja», «3 kg»: la unidad del analizador va en singular. */
+function quantityText(amount: string, unit: string | null): string {
+  if (!unit) return amount;
+  const plural = amount !== "1" && !/^(ud|kg|g|l|cl|ml)$/.test(unit) ? (/[aeiou]$/.test(unit) ? `${unit}s` : `${unit}es`) : unit;
+  return `${amount} ${plural}`;
+}
+
 /** Lo que ya se sabe de cada dato: decidido con seguridad por Jev, elegido por el usuario o dicho con cifra. */
 function known(source: FormSource) {
   const decided = (id: string, valid: (v: string) => boolean = () => true) => {
@@ -58,7 +65,7 @@ function known(source: FormSource) {
   const isProduct = (v: string) => !!source.meta?.segments[0]?.candidates.has(v);
   const segment = source.meta?.segments[0]?.segment;
   const typed = source.overrides.cantidad_0;
-  const amount = typed ? `${typed} ${source.overrides.unidad_texto_0 ?? ""}`.trim() : segment?.amount ? `${segment.amount} ${segment.unit ?? ""}`.trim() : undefined;
+  const amount = typed ? quantityText(typed, source.overrides.unidad_texto_0 ?? null) : segment?.amount ? quantityText(segment.amount, segment.unit) : undefined;
   const productKey = decided("producto_0", isProduct);
   return {
     accion: decided("tipo_accion"),
@@ -67,6 +74,22 @@ function known(source: FormSource) {
     producto: productKey ? source.meta?.segments[0]?.candidates.get(productKey)?.name : undefined,
     cantidad: amount,
   };
+}
+
+/** Hasta este número de candidatos se ofrecen en un desplegable (más, mejor escribir). */
+const MAX_CANDIDATES = 8;
+
+/** Los productos entre los que se duda: los de la pregunta de producto, o los que encontró la búsqueda. */
+function productCandidates(plan: ClarifyPlan, source: FormSource): string[] {
+  if (plan.field === "producto" && plan.options.length > 1) return plan.options.map((o) => o.label);
+  const rs = source.meta?.segments[0];
+  if (!rs || rs.candidates.size < 2 || rs.candidates.size > MAX_CANDIDATES * 2) return [];
+  const top = Math.max(0, ...rs.scores.values());
+  return [...rs.candidates.entries()]
+    .filter(([key]) => (rs.scores.get(key) ?? 0) >= top * 0.75)
+    .sort(([a], [b]) => (rs.scores.get(b) ?? 0) - (rs.scores.get(a) ?? 0))
+    .slice(0, MAX_CANDIDATES)
+    .map(([, product]) => product.name);
 }
 
 /** El formulario que sustituye a esta aclaración, o null si basta con la pregunta. */
@@ -80,12 +103,14 @@ export function formFor(plan: ClarifyPlan, source: FormSource): FormEvent | null
   if (missing.length < 2) return null;
 
   const locations = source.ctx.locations.map((l) => ({ id: l.name, label: l.name }));
+  const candidates = productCandidates(plan, source);
   const fields: FormField[] = [
     { key: "local", label: accion === "traspaso" ? "Sale de" : accion === "recepcion" ? "Llega a" : "Local", kind: "select", options: locations, required: true, ...(k.local ? { value: k.local } : {}) },
     ...(accion === "traspaso" ? [{ key: "destino" as const, label: "Va a", kind: "select" as const, options: locations, required: true, ...(k.destino ? { value: k.destino } : {}) }] : []),
-    // «ron» con varios rones: se elige entre esos (como los botones de la pregunta); si no, todo el catálogo.
-    plan.field === "producto" && plan.options.length > 1
-      ? { key: "producto", label: "Producto", kind: "select", options: plan.options.map((o) => ({ id: o.label, label: o.label })), required: true }
+    // «ron», «larios» con varios: se elige entre los que encajan (como los botones de la pregunta); si el
+    // mensaje no nombraba ninguno, todo el catálogo para escribir.
+    !k.producto && candidates.length > 1
+      ? { key: "producto", label: "Producto", kind: "select", options: candidates.map((name) => ({ id: name, label: name })), required: true }
       : {
           key: "producto",
           label: "Producto",
