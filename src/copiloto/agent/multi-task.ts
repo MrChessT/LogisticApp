@@ -82,6 +82,7 @@ export async function multiTaskTurn(input: MultiTaskTurn): Promise<boolean> {
   sessions.addTurn(session, { role: "user", text: req.message });
   sessions.addTurn(session, { role: "assistant", text });
   await sessions.save(req.sessionId, ctx.orgId, session).catch(() => undefined);
+  await emit({ event: "text", data: { delta: text, reset: true } });
   await emit({ event: "done", data: { messageId, text, textSource: "plantilla", latencyMs: input.elapsed, showText: true } });
   return true;
 }
