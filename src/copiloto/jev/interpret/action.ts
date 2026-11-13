@@ -10,7 +10,7 @@ import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, type CatalogAccion, type DocumentA
 import { locationLabel, type JevReading } from "./reading";
 import { catalogAction, documentAction } from "./documents";
 import { resolveProducts } from "./products";
-import { hasNewProductTrigger } from "../../entities/catalog-parser";
+import { hasNewProductTrigger, isGenericName } from "../../entities/catalog-parser";
 
 /** ¿Jev está seguro de una operación concreta (no «ninguna»)? Nunca para cerrar inventario. */
 export function actionCorroborates(r: JevReading): boolean {
@@ -59,6 +59,9 @@ export function action(r: JevReading): Plan {
   const accionAnswer = r.choice("tipo_accion");
   const spec = accionAnswer?.choice === "cierre_inventario" ? r.thresholds.cierre_inventario : r.thresholds.tipo_accion;
   const g = r.gate("tipo_accion", "Operación", spec);
+  // Una petición sin ningún dato concreto («Preparar una operación») no es ninguna operación, aunque Jev
+  // proponga una (preparar pedido): se pregunta cuál. Así no se pregunta el local de un pedido que nadie pidió.
+  if (r.meta.message && isGenericName(r.meta.message) && !hasNewProductTrigger(r.meta.message)) return askOperation(r, g?.ranked ?? []);
   let chosen = g && g.outcome === "actuar" && g.choice !== "ninguna" ? g.choice : null;
   // La frase nombra la operación y Jev la pone primera («prepárame el pedido para el parador»: pedido 0,55):
   // es esa. Solo prepara un borrador, que hay que confirmar. Nunca para cerrar inventario.
