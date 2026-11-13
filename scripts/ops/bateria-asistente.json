@@ -104,7 +104,7 @@
     "turnos": [
       { "usuario": "registra una merma", "espera": "Me faltan unos datos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
-      { "usuario": "merma de 2 botellas de larios", "espera": "¿En qué local\\?|Revísalo|Larios", "no": "Me faltan unos datos" },
+      { "usuario": "merma de 2 botellas de larios 12", "espera": "¿En qué local\\?|Revísalo", "no": "Me faltan unos datos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   }
