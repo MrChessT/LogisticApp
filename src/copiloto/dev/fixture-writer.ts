@@ -107,6 +107,10 @@ export class FixtureWriter implements InventoryWriter {
     this.record("markInvoicePaid", { invoiceId, day });
   }
 
+  async submitAreaMove(args: Parameters<InventoryWriter["submitAreaMove"]>[0]) {
+    this.record("submitAreaMove", args);
+  }
+
   async setRecipePrice(recipeId: string, price: string) {
     this.record("setRecipePrice", { recipeId, price });
   }

@@ -57,7 +57,7 @@ export class SupabaseContext implements ContextPort {
       ),
       db
         .from("storage_areas")
-        .select("id,location_id,name,location:locations!inner(org_id,active)")
+        .select("id,location_id,name,kind,location:locations!inner(org_id,active)")
         .eq("active", true)
         .eq("location.org_id", orgId)
         .eq("location.active", true)
@@ -107,7 +107,7 @@ export class SupabaseContext implements ContextPort {
         timezone: (l.timezone as string) ?? "Europe/Madrid",
         dayCutoff: ((l.day_cutoff as string) ?? "06:00").slice(0, 5),
       })),
-      areas: (areas.data ?? []).map((a) => ({ id: a.id as string, locationId: a.location_id as string, name: a.name as string })),
+      areas: (areas.data ?? []).map((a) => ({ id: a.id as string, locationId: a.location_id as string, name: a.name as string, kind: a.kind === "servicio" ? ("servicio" as const) : ("almacen" as const) })),
       products: productRows.map((p) => ({
         id: p.id,
         name: p.name,

@@ -181,27 +181,7 @@ describe("escandallos por nombre con muchas coincidencias sueltas (medido en pro
   });
 });
 
-describe("ingeniería de menú", () => {
-  it("«qué platos quito de la carta»: clasifica los platos con coste", async () => {
-    // Lenguado: 4 raciones, 9,50 € de margen (puzle). Croquetas: 10 raciones, 4,78 € (caballo de batalla).
-    const r = await ask("qué platos debería quitar de la carta");
-    expect(r.text).toContain("Ingeniería de menú en septiembre (2 platos con coste");
-    expect(r.text).toContain("Caballos de batalla (se venden mucho pero dejan poco: revisa ración o precio): Croquetas de jamón.");
-    expect(r.text).toContain("Puzles (dejan margen pero se venden poco: dales visibilidad): Lenguado a la menier.");
-    expect(r.text).toContain("Con 1 día de ventas es orientativo.");
-    // La tabla, por lo que aporta cada plato en total: croquetas 47,80 €, lenguado 38,00 €.
-    expect(r.table!.rows[0]).toMatchObject({ plato: "Croquetas de jamón", tipo: "Caballo de batalla" });
-  });
-
-  it.each(["ingeniería de menú", "qué platos funcionan", "cuáles son los caballos de batalla", "qué plato deja más margen", "cuál es el plato estrella", "los platos más rentables"])("«%s» → ventas", (m) => expect(infoTopicOf(m)).toBe("query_sales"));
-
-  // Medido en producción: «qué plato deja más margen» y «cuál es el plato estrella» daban el resumen de escandallos.
-  it("lo que se pregunta va primero: el que más deja, el que menos o las estrellas", async () => {
-    expect((await ask("qué plato deja más margen")).text).toMatch(/^El plato que más deja por ración en septiembre es Lenguado a la menier: 9,50 € de margen \(4 raciones\)\./);
-    expect((await ask("cuál es el plato menos rentable")).text).toMatch(/^El plato que menos deja por ración en septiembre es Croquetas de jamón: 4,78 €/);
-    expect((await ask("cuál es el plato estrella")).text).toMatch(/^En septiembre ningún plato es estrella/);
-  });
-
+describe("temas que no son listas de datos", () => {
   it("proveedor de un producto y preguntas generales no son listas de datos", () => {
     expect(infoTopicOf("q proveedores nos traen la cerveza")).toBeNull();
     expect(infoTopicOf("qué food cost es razonable para un restaurante")).toBeNull();

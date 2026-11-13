@@ -1,11 +1,12 @@
-// Órdenes de oficina que se reconocen sin Jev (no están en su catálogo): pagar una factura, validar las
-// salidas de almacén, cambiar el PVP de un plato y las condiciones de un proveedor. Solo la orden («marca pagada la factura de Makro», «valida las salidas del
-// Parador»); la pregunta («¿qué facturas hay por pagar?», «¿hay salidas sin validar?») es una consulta.
+// Órdenes de oficina que se reconocen sin Jev (no están en su catálogo): pagar una factura, apuntar y
+// validar salidas de almacén, cambiar el PVP de un plato y las condiciones de un proveedor. Solo la orden
+// («marca pagada la factura de Makro», «valida las salidas del Parador»); la pregunta («¿qué facturas hay
+// por pagar?», «¿hay salidas sin validar?») es una consulta.
 import type { SessionContext } from "../domain";
-import { normalize } from "../entities/normalize";
+import { normalize, tokenize } from "../entities/normalize";
 import { QUERY_PAY } from "../tools/info";
 import type { DocumentPlan } from "./plans";
-import { namedLocations } from "../entities/signals";
+import { mentionsWaste, namedLocations } from "../entities/signals";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { parseTermChanges } from "./supplier-terms";
 
@@ -28,6 +29,17 @@ const CHANGE_TERMS = /\b(ahora|pon|poner|cambia|cambiar|cambialo|sube|baja|se le
 /** Sin proveedor reconocido, solo cuenta si habla de un proveedor («pon el mínimo del ron» es stock). */
 const SUPPLIER_TERMS = /\b(proveedor|pedido minimo|minimo de pedido|se le pide|le pedimos|se le paga|le pagamos|forma de pago|condiciones de pago|dias de pedido|hora limite)\b/;
 
+/**
+ * Salida de almacén a una zona de servicio («saca 2 cajas de coca a la barra 1») o devolución. «Baja» no
+ * cuenta (también es «dar de baja») y una frase con palabras de merma es una merma.
+ */
+const MOVE_VERB = /\b(saca|sacar|sacame|sacamos|sube|subir|subeme|subimos|lleva|llevar|llevame|llevamos|pasa|pasar|pasame|mueve|mover|devuelve|devolver|devolvemos)\b|\b(apunta|registra) (una )?(salida|devolucion)\b/;
+
+function namesServiceArea(text: string, ctx: SessionContext): boolean {
+  const words = new Set(text.split(" "));
+  return ctx.areas.some((a) => a.kind === "servicio" && tokenize(a.name).some((t) => t.length >= 4 && !/^\d+$/.test(t) && words.has(t)));
+}
+
 const VALIDATE_MOVES =
   /\b(valida|validar|validame|validalas|validalo|aprueba|aprobar|apruebalas|acepta|aceptar|confirma|confirmar|confirmalas|da por buenas)\b.*\b(salidas?|movimientos?|devoluciones?|almacen)\b/;
 
@@ -42,7 +54,9 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
         ? "precio_venta"
         : parseTermChanges(message).length > 0 && (mentionedSupplier(message, ctx.suppliers) || (CHANGE_TERMS.test(text) && SUPPLIER_TERMS.test(text)))
           ? "condiciones_proveedor"
-          : null;
+          : MOVE_VERB.test(text) && /\d/.test(text) && namesServiceArea(text, ctx) && !mentionsWaste(message) && namedLocations(ctx.locations, message).length < 2
+            ? "salida_almacen"
+            : null;
   if (!accion) return null;
   const named = namedLocations(ctx.locations, message);
   const locationIds = named.length > 0 ? named.map((l) => l.id) : pageLocationId ? [pageLocationId] : ctx.locations.map((l) => l.id);

@@ -3,7 +3,7 @@
 // decisiones y obliga a medir otra vez con Jev real (npm run copiloto:eval).
 import { type ChoiceCriteria } from "@typesafe-ai/sdk";
 
-export const CATALOG_VERSION = "2026-11-11.1";
+export const CATALOG_VERSION = "2026-11-13.1";
 
 // Opciones fijas --------------------------------------------------------------
 
@@ -39,7 +39,7 @@ export const HERRAMIENTAS = {
   query_areas: "Storage areas or zones of a venue (zonas, secciones, almacenes, barras, cámaras, neveras): which ones there are and what they hold.",
   query_counts: "Physical stock counts (inventarios): which are open or in progress and when each venue was last counted.",
   query_suppliers: "The suppliers we buy from and their terms: order days, cut-off time, delivery lead time, minimum order, payment terms and contact.",
-  query_sales: "Sales registered at the till (TPV) over a period: how much was sold (\"¿cuánto vendimos ayer?\", \"ventas de octubre\", \"facturación del mes\"), best-selling dishes or drinks, food cost and gross margin of what was sold, how many of one dish were sold, items not yet linked to a recipe, and menu engineering (which dishes to keep, reprice, promote or drop from the menu: \"¿qué platos quito de la carta?\").",
+  query_sales: "Sales registered at the till (TPV) over a period: how much was sold (\"¿cuánto vendimos ayer?\", \"ventas de octubre\", \"facturación del mes\"), best-selling dishes or drinks, food cost and gross margin of what was sold, how many of one dish were sold and items not yet linked to a recipe.",
   query_price_ranking: "Ranking of products by purchase price, without naming one product: the most expensive or the cheapest things we buy (\"¿cuál es el producto más caro?\", \"lo más barato que tiene Pickles\", \"el vino más caro\").",
   query_overview: "How the business is going this month or this week overall: purchases, consumption and waste compared with the previous period, plus stock value and products below minimum (\"¿cómo voy este mes?\", \"¿cómo vamos esta semana?\", \"resumen del mes\").",
   query_product: "Details of a specific product: its formats (bottle, box), category, who supplies it and last purchase price, and its stock and minimum in each venue (\"what does the Beefeater cost us?\", \"who brings us the Tanqueray?\", \"ficha del Barceló\", \"stats del Larios\").",

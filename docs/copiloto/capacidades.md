@@ -13,13 +13,13 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Pedidos | sí (abiertos, retrasados, cuándo se pidió algo) | preparar, enviar, recibir, cancelar | «¿cuándo pedimos tónica por última vez?» |
 | Recepciones | sí (qué ha llegado) | registrar; foto del albarán (botón, arrastrar o pegar) | «han llegado 3 cajas de tónica al Parador» |
 | Traspasos | sí (pendientes de recibir) | preparar y enviar, recibir, cancelar | «pasa 2 cajas de coca del Parador al Vivero» |
-| Almacén | sí (salidas sin validar) | validar las salidas de un local | «valida las salidas del Parador» |
+| Almacén | sí (salidas sin validar) | apuntar una salida o devolución; validar las de un local | «saca 2 cajas de coca a la barra 1» |
 | Inventarios | sí (abiertos, último por local, desvíos) | abrir, apuntar lo contado, cerrar | «empieza el inventario del Vivero» |
 | Mermas | sí (por local, periodo, producto) | registrar | «se han roto 2 botellas de Larios en barra» |
 | Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar | «¿quién nos trae los vermuts?» |
 | Proveedores | sí (condiciones, qué nos trae cada uno) | condiciones (mínimo, días, hora límite, plazo, pago) | «el pedido mínimo de Makro es 200 €» |
 | Escandallos | sí (coste, food cost, margen, alérgenos) | PVP de un plato | «pon el PVP de las croquetas a 10 €» |
-| Ventas | sí (vendido, ingeniería de menú) | — | «¿cuál es el plato estrella?» |
+| Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | — | «¿cuánto vendimos este mes?» |
 | Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada | «marca como pagada la factura de Makro» |
 | Informes | sí (las mismas cifras, resumidas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
 | Equipo | sí (quién, puesto, locales) | no: invitar y cambiar permisos solo en la pantalla, a propósito | «dame los nombres del personal» |
@@ -29,10 +29,8 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 
 ## Pendiente, por orden de utilidad
 
-1. Apuntar una salida de almacén desde el chat («saca 2 cajas de coca a la barra»), como la pantalla de
-   almacén. Hoy solo se validan.
-2. Editar la ficha de un producto (formatos, alérgenos, categoría) y crear un escandallo.
-3. Registrar una factura desde el PDF arrastrado al chat.
-4. Crear zonas.
+1. Editar la ficha de un producto (formatos, alérgenos, categoría) y crear un escandallo.
+2. Registrar una factura desde el PDF arrastrado al chat.
+3. Crear zonas.
 
 Lo que no se hará desde el chat: invitar personas o cambiar permisos (riesgo alto por un malentendido).

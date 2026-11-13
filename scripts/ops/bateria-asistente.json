@@ -9,14 +9,11 @@
     ]
   },
   {
-    "nombre": "Ventas y carta",
+    "nombre": "Ventas",
     "turnos": [
       { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer |^No hay ventas importadas de ayer" },
       { "usuario": "¿y el sábado?", "espera": "^El sábado \\d" },
-      { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada" },
-      { "usuario": "qué plato deja más margen", "espera": "^El plato que más deja por ración" },
-      { "usuario": "cuál es el plato estrella", "espera": "estrella", "no": "platos y \\d+ elaboraciones" },
-      { "usuario": "¿y el food cost de ese plato?", "espera": "Entiendo: .*food cost", "no": "platos y \\d+ elaboraciones" }
+      { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada" }
     ]
   },
   {
@@ -105,6 +102,13 @@
       { "usuario": "registra una merma", "espera": "Me faltan unos datos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
       { "usuario": "merma de 2 botellas de larios 12", "espera": "¿En qué local\\?|Revísalo", "no": "Me faltan unos datos" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
+    "nombre": "Salida de almacén desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "saca 2 botellas de larios 12 a la barra del Parador", "espera": "Salida en|¿En qué local\\?|¿A qué zona va\\?|¿De qué almacén sale\\?|no tiene zonas" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   }

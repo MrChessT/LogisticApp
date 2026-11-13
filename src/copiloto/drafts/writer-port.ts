@@ -104,6 +104,8 @@ export interface InventoryWriter {
   validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
   /** PVP (con IVA) de un plato, como al editar el escandallo. */
   setRecipePrice(recipeId: string, price: string): Promise<void>;
+  /** Apuntar una salida (o devolución) de almacén: queda pendiente de validar, como en Almacén. */
+  submitAreaMove(args: { locationId: string; productId: string; qtyBase: string; fromAreaId: string; toAreaId: string; kind: "salida" | "devolucion"; input: { amount: string; unit: string; packId?: string }; clientRef: string }): Promise<void>;
   /** Condiciones de un proveedor (pedido mínimo, días, hora límite, plazo, pago), como en Proveedores. */
   setSupplierTerms(supplierId: string, terms: Array<{ field: string; value: string }>): Promise<void>;
   /** Pedido a proveedor en borrador (no se envía: eso es de un encargado desde /pedidos). */
@@ -339,6 +341,20 @@ export class SupabaseInventoryWriter implements InventoryWriter {
     const { data, error } = await this.db.from("invoices").update({ status: "pagada", paid_at: day }).eq("id", invoiceId).eq("status", "pendiente").select("id");
     if (error) raise("invoices", error);
     if (!data?.length) raise("invoices", { message: "invalid_status" });
+  }
+
+  async submitAreaMove(args: Parameters<InventoryWriter["submitAreaMove"]>[0]): Promise<void> {
+    const { error } = await this.db.rpc("area_move_submit", {
+      p_location: args.locationId,
+      p_from_area: args.fromAreaId,
+      p_to_area: args.toAreaId,
+      p_product: args.productId,
+      p_qty: args.qtyBase,
+      p_input: args.input,
+      p_kind: args.kind,
+      p_client_ref: args.clientRef,
+    });
+    if (error) raise("area_move_submit", error);
   }
 
   async setRecipePrice(recipeId: string, price: string): Promise<void> {
