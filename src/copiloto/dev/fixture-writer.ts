@@ -81,6 +81,10 @@ export class FixtureWriter implements InventoryWriter {
     this.record("closeCount", { countId, zeroUncounted, asConsumption });
   }
 
+  async linkSupplier(args: Parameters<InventoryWriter["linkSupplier"]>[0]) {
+    this.record("linkSupplier", args);
+  }
+
   async setSupplierPrice(args: Parameters<InventoryWriter["setSupplierPrice"]>[0]) {
     this.record("setSupplierPrice", args);
   }

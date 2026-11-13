@@ -16,7 +16,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Almacén | sí (salidas sin validar) | apuntar una salida o devolución; validar las de un local | «saca 2 cajas de coca a la barra 1» |
 | Inventarios | sí (abiertos, último por local, desvíos) | abrir, apuntar lo contado, cerrar | «empieza el inventario del Vivero» |
 | Mermas | sí (por local, periodo, producto) | registrar | «se han roto 2 botellas de Larios en barra» |
-| Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría, alérgenos y formatos | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
+| Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría, alérgenos, formatos y proveedor de compra (sin precio) | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
 | Proveedores | sí (condiciones, qué nos trae cada uno) | condiciones (mínimo, días, hora límite, plazo, pago) | «el pedido mínimo de Makro es 200 €» |
 | Escandallos | sí (coste, food cost, margen, alérgenos) | crear un plato o una elaboración con sus ingredientes; PVP de un plato | «crea el escandallo de croquetas con PVP 9,50» · «pon el PVP de las croquetas a 10 €» |
 | Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | — | «¿cuánto vendimos este mes?» |

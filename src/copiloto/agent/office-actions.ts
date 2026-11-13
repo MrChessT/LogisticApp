@@ -53,6 +53,17 @@ const NEW_PACK = /\b(viene|vienen|tambien viene|formato|formatos|se vende en|nos
 /** «Crea la zona Terraza…», «añade una sección…», «nueva zona…». */
 const NEW_ZONE = /\b(crea|crear|creame|anade|anadir|nueva|da de alta|dar de alta)\b.*\b(zona|seccion|espacio)\b|\bnueva (zona|seccion)\b/;
 
+/**
+ * «El proveedor de la tónica es Makro», «asocia Makro a la coca», «nos la trae Makro». Hace falta la palabra
+ * proveedor (o asociar) y un verbo de asignar; las preguntas («¿quién es el proveedor…?», «dime el proveedor…») no.
+ */
+const SUPPLIER_WORD = /\b(proveedor|proveedores|asocia|asociar|asocialo|asociala)\b/;
+const ASSIGN_VERB = /\b(es|son|sea|anade|anadir|agrega|agregar|pon|poner|asocia|asociar|asocialo|asociala)\b/;
+/** «Nos la trae Makro»: sin la palabra proveedor, pero sin cantidades (con cantidades sería un pedido). */
+const SUPPLY_VERB = /\b(nos lo trae|nos la trae|lo trae|la trae|lo compramos a|la compramos a|lo compramos|la compramos)\b/;
+const ASKS_FIRST = /^(quien|que|cual|cuales|cuanto|cuantos|donde|dime|dame|muestrame|ensename|cuantas)\b/;
+const supplierLinkMessage = (text: string) => ((SUPPLIER_WORD.test(text) && ASSIGN_VERB.test(text)) || (SUPPLY_VERB.test(text) && !QUANTITY.test(text))) && !ASKS_FIRST.test(text);
+
 const VALIDATE_MOVES =
   /\b(valida|validar|validame|validalas|validalo|aprueba|aprobar|apruebalas|acepta|aceptar|confirma|confirmar|confirmalas|da por buenas)\b.*\b(salidas?|movimientos?|devoluciones?|almacen)\b/;
 
@@ -65,6 +76,8 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
       ? "validar_salidas"
       : NEW_RECIPE.test(text)
         ? "crear_escandallo"
+      : supplierLinkMessage(text) && mentionedSupplier(message, ctx.suppliers)
+        ? "asociar_proveedor"
       : DISH_PRICE.test(text) && /\d/.test(text)
         ? "precio_venta"
         : parseTermChanges(message).length > 0 && (mentionedSupplier(message, ctx.suppliers) || (CHANGE_TERMS.test(text) && SUPPLIER_TERMS.test(text)))
