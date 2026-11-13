@@ -194,6 +194,8 @@ export interface DoneEvent {
   text: string;
   textSource: "llm" | "plantilla";
   latencyMs: number;
+  /** El texto va aunque haya borrador: lo dice todo (varios borradores y las partes que no se pudieron preparar). */
+  showText?: boolean;
 }
 
 // Borradores -----------------------------------------------------------------

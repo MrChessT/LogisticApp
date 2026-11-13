@@ -22,6 +22,8 @@ export type Item =
       resolved?: ResolvedEvent;
       /** Varias órdenes en un mensaje: los borradores que siguen al primero, cada uno con su estado. */
       moreDrafts?: Array<{ draft: Draft; resolved?: ResolvedEvent }>;
+      /** El texto final se enseña aunque haya borrador (varias órdenes, con notas). */
+      showText?: boolean;
       charts?: ChartSpec[];
       table?: TableEvent;
       actions?: ActionsEvent["actions"];

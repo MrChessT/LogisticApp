@@ -27,6 +27,7 @@ describe("varias órdenes de oficina dan varios borradores", () => {
     const drafts = events.filter((e) => e.event === "draft").map((e) => e.data as DocumentDraft);
     expect(drafts.map((d) => d.operation)).toEqual(["precio_venta", "asociar_proveedor"]);
     expect(find(events, "done")?.text).toBe("He preparado 2 borradores: confírmalos uno a uno.");
+    expect(find(events, "done")?.showText).toBe(true);
     expect(jev.calls).toHaveLength(0);
   });
 
