@@ -95,7 +95,7 @@ describe("contexto y autenticación con Supabase", () => {
     const { fn } = fakeFetch({
       memberships: () => [{ role: "staff" }],
       locations: () => [{ id: LOC, name: "Parador", timezone: "Europe/Madrid", day_cutoff: "06:00:00" }],
-      storage_areas: () => [{ id: "a1", location_id: LOC, name: "Barra 1" }],
+      storage_areas: () => [{ id: "a1", location_id: LOC, name: "Barra 1", kind: "servicio" }],
       products: () => [
         {
           id: "p1",
@@ -112,7 +112,7 @@ describe("contexto y autenticación con Supabase", () => {
     const ctx = await new SupabaseContext(settings(fn)).load({ userId: USER, token: JWT }, ORG);
     expect(ctx.role).toBe("staff");
     expect(ctx.locations).toEqual([{ id: LOC, name: "Parador", timezone: "Europe/Madrid", dayCutoff: "06:00" }]);
-    expect(ctx.areas).toEqual([{ id: "a1", locationId: LOC, name: "Barra 1" }]);
+    expect(ctx.areas).toEqual([{ id: "a1", locationId: LOC, name: "Barra 1", kind: "servicio" }]);
     expect(ctx.products[0]).toMatchObject({ baseUnit: "ml", category: "Destilados", packs: [{ id: "k1", qtyBase: "700.0000", isCountDefault: true }] });
     expect(ctx.catalogHash).toMatch(/^[0-9a-f]{16}$/);
   });

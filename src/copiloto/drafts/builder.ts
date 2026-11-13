@@ -14,6 +14,7 @@ import { businessDay } from "../../lib/business-day";
 import { EXIT_KIND_LABEL, type ExitKind } from "../../lib/exit-kinds";
 import type { InventoryDataSource } from "../tools/types";
 import type { InfoSource } from "../tools/info";
+import type { Retriever } from "../entities/retriever";
 import { validateDraft } from "./schemas";
 
 export const DRAFT_TTL_MS = 15 * 60 * 1000;
@@ -117,6 +118,7 @@ export interface BuildInput {
   source: InventoryDataSource;
   /** Facturas y cola del almacén, para los borradores de oficina. */
   info?: InfoSource;
+  retriever?: Retriever;
   overrides: Record<string, string>;
   now: Date;
 }

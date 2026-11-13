@@ -11,7 +11,9 @@ import type { InventoryDataSource, OrderRaw, TransferRaw } from "../tools/types"
 import { draftBase, type BuildResult } from "./builder";
 import { validateDraft } from "./schemas";
 import type { InfoSource } from "../tools/info";
+import type { Retriever } from "../entities/retriever";
 import { dishPrice, invoicePayment, supplierTerms, warehouseValidation } from "./office-builder";
+import { warehouseMove } from "./warehouse-move";
 
 export interface DocumentBuildInput {
   plan: DocumentPlan;
@@ -20,6 +22,8 @@ export interface DocumentBuildInput {
   source: InventoryDataSource;
   /** Facturas y cola del almacén (pagar una factura, validar salidas). */
   info?: InfoSource;
+  /** Búsqueda de productos (apuntar una salida de almacén). */
+  retriever?: Retriever;
   overrides: Record<string, string>;
   now: Date;
 }
@@ -34,6 +38,7 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   validar_salidas: "Validar salidas de almacén",
   precio_venta: "Cambiar PVP",
   condiciones_proveedor: "Condiciones de proveedor",
+  salida_almacen: "Salida de almacén",
 };
 
 /**
@@ -50,6 +55,7 @@ const FOR_JEV: Record<DocumentDraft["operation"], string> = {
   validar_salidas: "validate the pending storeroom exits of a venue",
   precio_venta: "change the menu sale price of a dish",
   condiciones_proveedor: "change a supplier's ordering or payment terms",
+  salida_almacen: "record a move from the storeroom to the bar or kitchen",
 };
 
 /** Solo un encargado envía pedidos o cancela; recibir lo puede hacer cualquiera del local. */
@@ -70,11 +76,12 @@ function shortDate(day: string | null): string {
 }
 
 export class DocumentDraftBuilder {
-  async build({ plan, message, ctx, source, info, overrides, now }: DocumentBuildInput): Promise<BuildResult> {
+  async build({ plan, message, ctx, source, info, retriever, overrides, now }: DocumentBuildInput): Promise<BuildResult> {
     if (plan.accion === "pagar_factura") return invoicePayment({ plan, message, ctx, info, overrides, now });
     if (plan.accion === "validar_salidas") return warehouseValidation({ plan, message, ctx, info, overrides, now });
     if (plan.accion === "precio_venta") return dishPrice({ plan, message, ctx, info, overrides, now });
     if (plan.accion === "condiciones_proveedor") return supplierTerms({ plan, message, ctx, info, overrides, now });
+    if (plan.accion === "salida_almacen") return warehouseMove({ plan, message, ctx, overrides, now, retriever });
     return plan.accion === "recibir_traspaso" || plan.accion === "cancelar_traspaso"
       ? this.transfer(plan, ctx, source, overrides, now)
       : this.order(plan, message, ctx, source, overrides, now);

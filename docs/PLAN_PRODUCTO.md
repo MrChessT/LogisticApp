@@ -76,7 +76,7 @@ dolor real, sin prometer nada que no funcione:
 
 ### Más adelante
 
-Envases retornables y fianzas, ingeniería de menú, APPCC (temperaturas), avisos por correo o WhatsApp.
+Envases retornables y fianzas, APPCC (temperaturas), avisos por correo o WhatsApp.
 
 ## Necesario del grupo
 

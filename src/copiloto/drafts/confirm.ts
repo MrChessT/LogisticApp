@@ -270,7 +270,7 @@ export class ConfirmService {
         return { ok: true, kind: "conteo", documentId: draft.countId, movementIds: [], message: `Apuntado en el inventario de ${draft.locationName}.`, navigate: navigate({ locationId: draft.locationId }) };
       }
       case "documento": {
-        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" ? "/almacen" : draft.operation === "precio_venta" ? "/escandallos" : draft.operation === "condiciones_proveedor" ? "/proveedores" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
+        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" || draft.operation === "salida_almacen" ? "/almacen" : draft.operation === "precio_venta" ? "/escandallos" : draft.operation === "condiciones_proveedor" ? "/proveedores" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
         const done = (message: string, documentId: string = draft.documentId): ConfirmResponse => ({ ok: true, kind: "documento", documentId, movementIds: [], message, navigate: { route, filters: { locationId: draft.locationId }, auto: false } });
         switch (draft.operation) {
           case "recibir_traspaso":
@@ -298,6 +298,11 @@ export class ConfirmService {
           case "condiciones_proveedor":
             await writer.setSupplierTerms(draft.documentId, draft.terms ?? []);
             return done("Condiciones del proveedor actualizadas.");
+          case "salida_almacen": {
+            const move = draft.move!;
+            await writer.submitAreaMove({ locationId: draft.locationId, ...move, clientRef: idempotencyKey });
+            return done(`${move.kind === "devolucion" ? "Devolución apuntada" : "Salida apuntada"}: queda pendiente de validar (el stock se mueve al validarla).`);
+          }
           case "validar_salidas": {
             const { validated, skipped } = await writer.validateAreaMoves(draft.moveIds ?? []);
             const already = skipped > 0 ? ` ${skipped === 1 ? "Otra ya estaba decidida" : `${skipped} ya estaban decididas`} (no se ha tocado).` : "";

@@ -24,7 +24,7 @@ src/
     shell/, ui/, charts/, product-picker/   Piezas comunes
   copiloto/             Motor del asistente. Solo servidor, sin React (ver «Asistente»)
   lib/                  Lógica compartida y pura: unidades, formatos, recetas, facturas, lector de
-                        albaranes, ingeniería de menú, clientes de Supabase, registro de errores
+                        albaranes, clientes de Supabase, registro de errores
   instrumentation.ts    Errores del servidor → registro de errores
   proxy.ts              Sesión en cada navegación (Next 16: sustituye a middleware)
 supabase/

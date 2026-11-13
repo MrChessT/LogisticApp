@@ -397,7 +397,7 @@ export class Agent {
   private async draft(plan: ActionPlan | CatalogPlan | DocumentPlan, env: ExecEnv): Promise<ReportOutcome> {
     const { deps } = this;
     const built = await env.timer.time("herramientas", () =>
-      deps.builder.build({ plan, message: env.message, ctx: env.ctx, source: env.tools.source, ...(env.info ? { info: env.info } : {}), overrides: env.overrides, now: this.now() } as Parameters<DraftBuilder["build"]>[0]),
+      deps.builder.build({ plan, message: env.message, ctx: env.ctx, source: env.tools.source, ...(env.info ? { info: env.info } : {}), retriever: deps.retriever, overrides: env.overrides, now: this.now() } as Parameters<DraftBuilder["build"]>[0]),
     );
     if (built.kind === "clarify") return this.clarify(built.plan, env);
     if (built.kind === "error") {

@@ -127,8 +127,8 @@ const STARTERS: Partial<Record<AppRoute, string[]>> & { default: string[] } = {
   "/mermas": ["¿Cuántas mermas llevamos este mes?", "¿Qué es lo que más se tira?", "¿Cómo reduzco las mermas de fruta?"],
   "/informes": ["¿Cómo voy este mes?", "¿Qué precios han subido últimamente?", "¿Qué es lo que más se gasta?"],
   "/proveedores": ["¿Qué condiciones tiene cada proveedor?", "¿Cuánto he gastado por proveedor?", "¿Qué pedidos tengo pendientes?"],
-  "/escandallos": ["¿Qué platos llevan gluten?", "¿Qué plato deja más margen?", "¿Qué platos tienen el food cost alto?"],
-  "/ventas": ["¿Cuánto se vendió ayer?", "¿Cuál es el plato estrella?", "¿Qué platos quito de la carta?"],
+  "/escandallos": ["¿Qué platos llevan gluten?", "¿Qué food cost tienen las croquetas?", "¿Qué platos tienen el food cost alto?"],
+  "/ventas": ["¿Cuánto se vendió ayer?", "¿Cuánto vendimos este mes?", "¿Qué artículos faltan por enlazar?"],
   "/facturas": ["¿Qué facturas vencen esta semana?", "¿Cuánto debemos a proveedores?", "¿Qué albaranes no tienen factura?"],
   "/equipo": ["¿Quién trabaja en cada local?", "¿Qué permisos tiene cada uno?", "/ayuda"],
   "/zonas": ["¿Qué hay en cada zona?", "¿Qué zonas tiene cada local?", "/ayuda"],
@@ -215,8 +215,8 @@ const HELP: Array<{ title: string; icon: Icon; text: string; examples: string[] 
   {
     title: "Consultar",
     icon: Boxes,
-    text: "Stock, consumo, mermas, precios y su evolución, proveedores, pedidos y cuándo se pidió algo, gasto, ventas y márgenes, facturas, escandallos y alérgenos, zonas, salidas de almacén sin validar, inventarios y equipo.",
-    examples: ["¿Cuánta tónica queda en el Vivero?", "¿Cuándo pedimos coca por última vez?", "¿Hay salidas de almacén sin validar?", "¿Cuál es el plato estrella?"],
+    text: "Stock, consumo, mermas, precios y su evolución, proveedores, pedidos y cuándo se pidió algo, gasto, ventas, facturas, escandallos y alérgenos, zonas, salidas de almacén sin validar, inventarios y equipo.",
+    examples: ["¿Cuánta tónica queda en el Vivero?", "¿Cuándo pedimos coca por última vez?", "¿Hay salidas de almacén sin validar?", "¿Cuánto vendimos este mes?"],
   },
   {
     title: "Registrar",

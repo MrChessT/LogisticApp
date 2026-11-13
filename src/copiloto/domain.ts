@@ -13,6 +13,8 @@ export interface Area {
   id: string;
   locationId: string;
   name: string;
+  /** almacen: se guarda (de aquí salen las salidas); servicio: se usa (barra, cocina). Migración 0022. */
+  kind?: "almacen" | "servicio";
 }
 
 export interface Pack {

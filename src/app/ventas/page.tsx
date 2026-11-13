@@ -7,7 +7,6 @@ import { euros, normalizeText } from "@/lib/format";
 import { usePermissions } from "@/lib/permissions";
 import { readXlsx } from "@/lib/xlsx";
 import { guessLocation, parseSalesBook, type ParsedSales } from "@/lib/sales-import";
-import { MenuMatrix } from "./menu-matrix";
 import { LocationTabs, type LocationOption } from "@/components/ui/location-tabs";
 import { LoadingRows } from "@/components/ui/loading-rows";
 import { SalesLinkEditor, type LinkTarget, type SalesItemRow } from "./sales-link-editor";
@@ -28,7 +27,7 @@ type Preview = {
 };
 type Upload = { file: string; parsed: ParsedSales; location: string; preview: Preview | null; busy: boolean };
 type DayRow = { id: string; date: string; location: string; total: number; file: string | null };
-type Filter = "todos" | "sin_enlazar" | "sin_coste" | "carta";
+type Filter = "todos" | "sin_enlazar" | "sin_coste";
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const monthRange = (ref: Date) => ({ from: iso(new Date(ref.getFullYear(), ref.getMonth(), 1)), to: iso(new Date(ref.getFullYear(), ref.getMonth() + 1, 0)) });
@@ -290,13 +289,7 @@ export default function SalesPage() {
               {([["todos", "Todos", all.length], ["sin_enlazar", "Sin enlazar", totals.unlinked.length], ["sin_coste", "Sin precio", totals.noCost.length]] as Array<[Filter, string, number]>).map(([f, label, n]) => (
                 <button key={f} className={filter === f ? "active" : undefined} onClick={() => setFilter(f)}>{label} <b>{n}</b></button>
               ))}
-              <button className={filter === "carta" ? "active" : undefined} onClick={() => setFilter("carta")}>Ingeniería de menú</button>
             </div>
-            {filter === "carta" ? (
-              <section className="catalog-panel">
-                {items ? <MenuMatrix items={all} days={days.length} /> : <LoadingRows label="Cargando ventas" />}
-              </section>
-            ) : (
             <section className="catalog-panel">
               <div className="catalog-toolbar">
                 <div className="catalog-search">
@@ -332,7 +325,6 @@ export default function SalesPage() {
                 )}
               </div>
             </section>
-            )}
 
             {days.length > 0 && (
               <section className="sales-days">

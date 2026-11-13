@@ -33,11 +33,11 @@ export const LOCATIONS: Location[] = [
 const [PARADOR, PICKELS, VIVERO] = LOCATIONS as [Location, Location, Location, Location];
 
 export const AREAS: Area[] = [
-  { id: id("bbbbbbbb", 1), locationId: PARADOR.id, name: "Barra 1" },
-  { id: id("bbbbbbbb", 2), locationId: PARADOR.id, name: "Barra 2" },
-  { id: id("bbbbbbbb", 3), locationId: PARADOR.id, name: "Almacén" },
-  { id: id("bbbbbbbb", 4), locationId: VIVERO.id, name: "Barra" },
-  { id: id("bbbbbbbb", 5), locationId: VIVERO.id, name: "Cámara" },
+  { id: id("bbbbbbbb", 1), locationId: PARADOR.id, name: "Barra 1", kind: "servicio" },
+  { id: id("bbbbbbbb", 2), locationId: PARADOR.id, name: "Barra 2", kind: "servicio" },
+  { id: id("bbbbbbbb", 3), locationId: PARADOR.id, name: "Almacén", kind: "almacen" },
+  { id: id("bbbbbbbb", 4), locationId: VIVERO.id, name: "Barra", kind: "servicio" },
+  { id: id("bbbbbbbb", 5), locationId: VIVERO.id, name: "Cámara", kind: "almacen" },
 ];
 
 function product(n: number, name: string, dimension: Product["dimension"], category: string, packs: Array<[string, string, boolean?, boolean?]>): Product {
