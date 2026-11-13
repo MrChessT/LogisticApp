@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { chat, FakeJev, find, makeAgent, run, type Script } from "./helpers";
 import { hasNewProductTrigger, isGenericName } from "../entities/catalog-parser";
+import { CANCEL_OPTION } from "../agent/free-text";
 
 /** Jev entiende una petición de operación y elige un tipo concreto (lo que hizo con la frase del reporte). */
 const route = (tipo: string): Script => ({ intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: tipo });
@@ -49,5 +50,21 @@ describe("criterios de nombre y de alta", () => {
 
   it.each(["Preparar una operación", "saca dos cajas de coca", "quiero hacer algo"])("«%s» no dice un alta", (text) => {
     expect(hasNewProductTrigger(text)).toBe(false);
+  });
+});
+
+describe("sin bucles", () => {
+  it("la misma frase genérica otra vez no repite la pregunta igual: ofrece «Déjalo»", async () => {
+    const { agent } = makeAgent(new FakeJev([route("nuevo_producto"), route("nuevo_producto")]));
+    const first = find(await run(agent, chat("Preparar una operación")), "clarify")!;
+    const second = find(await run(agent, chat("Preparar una operación")), "clarify")!;
+    expect(second.question).not.toBe(first.question);
+    expect(second.options.map((o) => o.id)).toContain(CANCEL_OPTION);
+  });
+
+  it("una alta real sigue creando su borrador (no cae en la pregunta de operación)", async () => {
+    const { agent } = makeAgent(new FakeJev([route("nuevo_producto"), { coherencia: 0.95, tiene_sentido: 0.97, categoria: "Refrescos", medida: "count" }]));
+    const events = await run(agent, chat("crea un producto Fanta Limón 33 cl"));
+    expect(find(events, "clarify")?.field).not.toBe("tipo_accion");
   });
 });
