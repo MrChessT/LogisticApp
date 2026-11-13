@@ -108,7 +108,7 @@
   {
     "nombre": "Salida de almacén desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "saca 2 botellas de larios 12 a la barra del Parador", "espera": "Salida en|¿En qué local\\?|¿A qué zona va\\?|¿De qué almacén sale\\?|no tiene zonas" },
+      { "usuario": "saca 2 botellas de larios 12 a la barra del Parador", "espera": "Salida en|¿En qué local\\?|¿A qué zona va\\?|¿De qué almacén sale\\?|¿Cuál de estos productos\\?|no tiene zonas" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
