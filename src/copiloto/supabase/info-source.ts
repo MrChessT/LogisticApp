@@ -122,7 +122,7 @@ export class SupabaseInfoSource implements InfoSource {
   }
 
   async suppliers(orgId: string): Promise<SupplierRaw[]> {
-    const data = rows("los proveedores", await this.db.from("suppliers").select("name, contact_name, phone, email, order_days, order_cutoff, lead_time_hours, min_order, payment_terms, location_ids").eq("org_id", orgId).eq("active", true).order("name"));
+    const data = rows("los proveedores", await this.db.from("suppliers").select("name, contact_name, phone, email, order_days, order_cutoff, lead_time_hours, min_order, payment_terms, location_ids, created_at").eq("org_id", orgId).eq("active", true).order("name"));
     return data.map((r) => ({
       name: String(r.name),
       contact: textOrNull(r.contact_name),
@@ -134,6 +134,7 @@ export class SupabaseInfoSource implements InfoSource {
       minOrder: textOrNull(r.min_order),
       paymentTerms: textOrNull(r.payment_terms),
       locationIds: (r.location_ids as string[] | null) ?? [],
+      createdAt: String(r.created_at),
     }));
   }
 

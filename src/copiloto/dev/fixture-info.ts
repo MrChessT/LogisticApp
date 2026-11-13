@@ -71,8 +71,8 @@ export class FixtureInfoSource implements InfoSource {
 
   async suppliers(): Promise<SupplierRaw[]> {
     return [
-      { name: "Makro", contact: "Pedro", phone: "+34 600 000 001", email: null, orderDays: [1, 4], cutoff: "12:00:00", leadHours: 24, minOrder: "150", paymentTerms: "Transferencia a 30 días", locationIds: [] },
-      { name: "Distribuciones Canarias", contact: null, phone: null, email: "pedidos@example.com", orderDays: [2], cutoff: null, leadHours: 48, minOrder: "0", paymentTerms: "Contado", locationIds: [PARADOR] },
+      { name: "Makro", contact: "Pedro", phone: "+34 600 000 001", email: null, orderDays: [1, 4], cutoff: "12:00:00", leadHours: 24, minOrder: "150", paymentTerms: "Transferencia a 30 días", locationIds: [], createdAt: "2026-03-01T10:00:00Z" },
+      { name: "Distribuciones Canarias", contact: null, phone: null, email: "pedidos@example.com", orderDays: [2], cutoff: null, leadHours: 48, minOrder: "0", paymentTerms: "Contado", locationIds: [PARADOR], createdAt: "2026-11-05T10:00:00Z" },
     ];
   }
 

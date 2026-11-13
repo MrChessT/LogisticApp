@@ -154,6 +154,22 @@
     ]
   },
   {
+    "nombre": "Seguimiento de proveedores: quién tiene menos datos y el último dado de alta (reporte /zonas 14/11)",
+    "turnos": [
+      { "usuario": "que proveedores hay", "espera": "proveedores activos" },
+      { "usuario": "cual es el que menos informacion tiene", "espera": "le falta|Empatan|Todos los proveedores", "no": "proveedores activos" },
+      { "usuario": "cual es el ultimo en ser creado", "espera": "El último dado de alta es", "no": "proveedores activos" }
+    ]
+  },
+  {
+    "nombre": "Archivar un producto: el nombre escrito a la pregunta (reporte /productos 13/11)",
+    "turnos": [
+      { "usuario": "quiero archivar un producto", "espera": "Qué producto quieres archivar" },
+      { "usuario": "Coca-Cola 20 cl", "espera": "Revísalo y confírmalo|Archivar|No encuentro", "no": "Qué quieres hacer|No estoy seguro" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
     "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro" },

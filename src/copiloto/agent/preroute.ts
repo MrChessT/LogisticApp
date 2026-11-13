@@ -15,7 +15,7 @@
 import type { SessionContext } from "../domain";
 import { namedLocations } from "../entities/signals";
 import type { Retriever } from "../entities/retriever";
-import { infoTopicOf } from "../tools/info";
+import { infoFollowUp, infoTopicOf } from "../tools/info";
 import type { InventoryDataSource } from "../tools/types";
 import { fastStockPlan } from "./fast-path";
 import { fixedReply } from "./fixed-replies";
@@ -69,7 +69,7 @@ export async function preroute(message: string, input: PrerouteInput): Promise<P
   const scope = named.length > 0 ? named.map((l) => l.id) : pageLocationId ? [pageLocationId] : ctx.locations.map((l) => l.id);
   const tarea = tareaTopicOf(message);
   if (tarea) return { type: "tarea", tarea, locationIds: scope };
-  const infoTool = infoTopicOf(message);
+  const infoTool = infoTopicOf(message) ?? infoFollowUp(message, session.focus?.tool);
   if (infoTool) return { type: "info", tool: infoTool, locationIds: scope, locationsDefaulted: named.length === 0 && !pageLocationId, products: [], periodo: "no_indicado" };
 
   return input.fastPath ? fastStockPlan(message, ctx, retriever) : null;

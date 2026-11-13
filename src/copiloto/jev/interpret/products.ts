@@ -41,6 +41,9 @@ function similarProducts(r: JevReading, segmentIndex: number): Product[] {
 export function resolveProducts(r: JevReading, context: ContextKey, forAction: boolean): ResolvedProduct[] | ClarifyPlan {
   const resolved: ResolvedProduct[] = [];
   if (!relevant(context, "producto")) return resolved;
+  // Al preguntar «¿qué producto?» la respuesta escrita ya es el producto (clarify-answer.ts): no se vuelve a extraer.
+  const typed = r.overrides.producto_elegido ? r.ctx.products.find((p) => p.id === r.overrides.producto_elegido) : undefined;
+  if (typed) return [{ product: typed, segmentIndex: 0, amount: null, unit: null, price: null, quantityOutcome: null, productOutcome: "actuar" }];
   for (const [i, rs] of r.meta.segments.entries()) {
     const id = `producto_${i}`;
     const answer = r.choice(id);
