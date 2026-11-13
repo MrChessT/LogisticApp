@@ -413,7 +413,8 @@ export class Agent {
     const review = built.review;
     let coherence: number | null = null;
     let answers: Awaited<ReturnType<JevPort["evaluate"]>>["answers"] = {};
-    const check = review !== undefined || needsCoherenceCheck(plan);
+    // Un producto que el usuario nombró al responder «¿qué producto?» ya es la decisión: no hace falta comprobarla.
+    const check = (review !== undefined || needsCoherenceCheck(plan)) && env.overrides.producto_elegido === undefined;
     if (check) {
       try {
         // La petición con lo respondido después: «pasa larios al Vivero» + «cantidad: 3» + «formato: Caja 6».
