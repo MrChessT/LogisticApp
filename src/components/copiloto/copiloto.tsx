@@ -203,7 +203,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
         else if (event === "table") update(assistantId, () => ({ table: data as TableEvent }));
         else if (event === "actions") update(assistantId, () => ({ actions: (data as ActionsEvent).actions }));
         else if (event === "error") update(assistantId, () => ({ error: (data as ErrorEvent).message }));
-        else if (event === "done") update(assistantId, () => ({ text: (data as DoneEvent).text, pending: false }));
+        else if (event === "done") update(assistantId, () => ({ text: (data as DoneEvent).text, pending: false, showText: (data as DoneEvent).showText }));
       }
       // La conexión se cerró sin respuesta final (despliegue, tiempo agotado…): mejor decirlo que dejar la burbuja vacía.
       if (!finished) update(assistantId, (item) => (item.text || item.draft || item.clarify ? {} : { error: "El asistente no ha terminado de responder. Inténtalo de nuevo." }));
@@ -411,7 +411,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                     {item.decision && <Understood decision={item.decision} asking={!!item.clarify} />}
                     {item.pending && !item.text && <p className="copiloto-muted"><Loader2 size={14} className="copiloto-spin" /> Pensando…</p>}
                     {/* Con borrador, la tarjeta ya lo dice todo: sin texto que la repita. */}
-                    {item.text && !(item.draft && !item.error && !item.moreDrafts?.length) && <AssistantText text={item.text} />}
+                    {item.text && !(item.draft && !item.error && !item.moreDrafts?.length && !item.showText) && <AssistantText text={item.text} />}
                     {item.error && <p className="copiloto-error"><AlertTriangle size={14} /> {item.error}</p>}
                     {item.clarify && item.clarify.options.length > 0 && (
                       <div className="copiloto-options">
