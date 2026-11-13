@@ -14,6 +14,7 @@ import type { InfoSource } from "../tools/info";
 import type { Retriever } from "../entities/retriever";
 import { dishPrice, invoicePayment, supplierTerms, warehouseValidation } from "./office-builder";
 import { warehouseMove } from "./warehouse-move";
+import { productSheet } from "./sheet-builder";
 
 export interface DocumentBuildInput {
   plan: DocumentPlan;
@@ -39,6 +40,7 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   precio_venta: "Cambiar PVP",
   condiciones_proveedor: "Condiciones de proveedor",
   salida_almacen: "Salida de almacén",
+  ficha_producto: "Ficha de producto",
 };
 
 /**
@@ -56,6 +58,7 @@ const FOR_JEV: Record<DocumentDraft["operation"], string> = {
   precio_venta: "change the menu sale price of a dish",
   condiciones_proveedor: "change a supplier's ordering or payment terms",
   salida_almacen: "record a move from the storeroom to the bar or kitchen",
+  ficha_producto: "change the category or allergens of products",
 };
 
 /** Solo un encargado envía pedidos o cancela; recibir lo puede hacer cualquiera del local. */
@@ -82,6 +85,7 @@ export class DocumentDraftBuilder {
     if (plan.accion === "precio_venta") return dishPrice({ plan, message, ctx, info, overrides, now });
     if (plan.accion === "condiciones_proveedor") return supplierTerms({ plan, message, ctx, info, overrides, now });
     if (plan.accion === "salida_almacen") return warehouseMove({ plan, message, ctx, overrides, now, retriever });
+    if (plan.accion === "ficha_producto") return productSheet({ message, ctx, overrides, now, retriever });
     return plan.accion === "recibir_traspaso" || plan.accion === "cancelar_traspaso"
       ? this.transfer(plan, ctx, source, overrides, now)
       : this.order(plan, message, ctx, source, overrides, now);

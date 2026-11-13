@@ -104,6 +104,8 @@ export interface InventoryWriter {
   validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
   /** PVP (con IVA) de un plato, como al editar el escandallo. */
   setRecipePrice(recipeId: string, price: string): Promise<void>;
+  /** Ficha de productos: categoría y alérgenos (como en la ficha de Productos). */
+  updateProductSheet(args: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] }): Promise<void>;
   /** Apuntar una salida (o devolución) de almacén: queda pendiente de validar, como en Almacén. */
   submitAreaMove(args: { locationId: string; productId: string; qtyBase: string; fromAreaId: string; toAreaId: string; kind: "salida" | "devolucion"; input: { amount: string; unit: string; packId?: string }; clientRef: string }): Promise<void>;
   /** Condiciones de un proveedor (pedido mínimo, días, hora límite, plazo, pago), como en Proveedores. */
@@ -355,6 +357,23 @@ export class SupabaseInventoryWriter implements InventoryWriter {
       p_client_ref: args.clientRef,
     });
     if (error) raise("area_move_submit", error);
+  }
+
+  async updateProductSheet(args: Parameters<InventoryWriter["updateProductSheet"]>[0]): Promise<void> {
+    if (args.categoryId) {
+      const { data, error } = await this.db.from("products").update({ category_id: args.categoryId }).in("id", args.productIds).select("id");
+      if (error) raise("products", error);
+      if ((data?.length ?? 0) < args.productIds.length) raise("products", { code: "42501", message: "forbidden" });
+    }
+    if (args.addAllergens.length > 0) {
+      const rows = args.productIds.flatMap((product_id) => args.addAllergens.map((allergen) => ({ product_id, allergen })));
+      const { error } = await this.db.from("product_allergens").upsert(rows, { onConflict: "product_id,allergen", ignoreDuplicates: true });
+      if (error) raise("product_allergens", error);
+    }
+    if (args.removeAllergens.length > 0) {
+      const { error } = await this.db.from("product_allergens").delete().in("product_id", args.productIds).in("allergen", args.removeAllergens);
+      if (error) raise("product_allergens", error);
+    }
   }
 
   async setRecipePrice(recipeId: string, price: string): Promise<void> {

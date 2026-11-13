@@ -1,5 +1,6 @@
 // Órdenes de oficina que se reconocen sin Jev (no están en su catálogo): pagar una factura, apuntar y
-// validar salidas de almacén, cambiar el PVP de un plato y las condiciones de un proveedor. Solo la orden
+// validar salidas de almacén, cambiar el PVP de un plato, las condiciones de un proveedor y la ficha
+// de un producto (categoría, alérgenos). Solo la orden
 // («marca pagada la factura de Makro», «valida las salidas del Parador»); la pregunta («¿qué facturas hay
 // por pagar?», «¿hay salidas sin validar?») es una consulta.
 import type { SessionContext } from "../domain";
@@ -9,6 +10,7 @@ import type { DocumentPlan } from "./plans";
 import { mentionsWaste, namedLocations } from "../entities/signals";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { parseTermChanges } from "./supplier-terms";
+import { parseSheet } from "./product-sheet";
 
 const QUESTION = /^(que|cual|cuales|cuant[oa]s?|hay|esta|estan|tengo|tenemos|cuando|donde|quien|como|se ha|se han|me dices|dime si)\b/;
 
@@ -40,6 +42,9 @@ function namesServiceArea(text: string, ctx: SessionContext): boolean {
   return ctx.areas.some((a) => a.kind === "servicio" && tokenize(a.name).some((t) => t.length >= 4 && !/^\d+$/.test(t) && words.has(t)));
 }
 
+/** Una cantidad de operación («2 cajas», «3 botellas»): no es un cambio de ficha (lo es «Larios 12»). */
+const QUANTITY = /\b\d+([.,]\d+)?\s*(cajas?|botellas?|ud|uds|unidades|packs?|kg|kilos?|latas?|bolsas?|barriles?|litros?)\b/;
+
 const VALIDATE_MOVES =
   /\b(valida|validar|validame|validalas|validalo|aprueba|aprobar|apruebalas|acepta|aceptar|confirma|confirmar|confirmalas|da por buenas)\b.*\b(salidas?|movimientos?|devoluciones?|almacen)\b/;
 
@@ -56,7 +61,9 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
           ? "condiciones_proveedor"
           : MOVE_VERB.test(text) && /\d/.test(text) && namesServiceArea(text, ctx) && !mentionsWaste(message) && namedLocations(ctx.locations, message).length < 2
             ? "salida_almacen"
-            : null;
+            : !QUANTITY.test(text) && parseSheet(message, ctx)
+              ? "ficha_producto"
+              : null;
   if (!accion) return null;
   const named = namedLocations(ctx.locations, message);
   const locationIds = named.length > 0 ? named.map((l) => l.id) : pageLocationId ? [pageLocationId] : ctx.locations.map((l) => l.id);
