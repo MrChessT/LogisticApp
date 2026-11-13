@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Camera, Check, Flag, FlaskConical, ImageUp, LayoutGrid, Loader2, Mic, MicOff, MessagesSquare, RotateCcw, Send, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import { createClient } from "@/lib/supabase/client";
-import { setPendingPhoto } from "@/lib/pending-photo";
+import { setPendingFile } from "@/lib/pending-file";
 import type { ActionsEvent, ChartSpec, ClarifyEvent, DecisionEvent, DoneEvent, Draft, ErrorEvent, FormEvent as AssistantForm, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
 import { QuickActions } from "./quick-actions";
@@ -139,16 +139,16 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   function handleFile(file: File) {
     const kind = fileKind(file);
     if (kind === "imagen") return void sendPhoto(file);
-    const navigate = kind === "pdf" ? { route: "/facturas" as const, filters: {}, auto: false } : undefined;
-    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Archivo: ${file.name}` }, { id: newId(), role: "assistant", text: otherFileReply(file, kind), pending: false, ...(navigate ? { navigate } : {}) }]);
+    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Archivo: ${file.name}` }, { id: newId(), role: "assistant", text: otherFileReply(file, kind), pending: false, ...(kind === "pdf" ? { invoiceFile: file } : {}) }]);
   }
   const drop = useFileDrop(handleFile, !busy);
 
-  function openPhotoInReceipts(file: File) {
-    // El panel se cierra para dejar a la vista Nueva recepción (la conversación sigue al volver a abrirlo).
+  /** El panel se cierra para dejar a la vista la pantalla (la conversación sigue al volver a abrirlo). */
+  function openFileIn(target: "recepcion" | "factura", file: File) {
     setOpen(false);
-    setPendingPhoto(file);
-    if (currentRoute(pathname) !== "/recepciones") router.push("/recepciones");
+    setPendingFile(target, file);
+    const route = target === "recepcion" ? "/recepciones" : "/facturas";
+    if (currentRoute(pathname) !== route) router.push(route);
   }
 
   /** `display`: lo que se enseña como mensaje del usuario (el menú de funciones manda un atajo). */
@@ -459,8 +459,15 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                     )}
                     {item.photo && (
                       <div className="copiloto-actions">
-                        <button type="button" onClick={() => item.photo && openPhotoInReceipts(item.photo.file)}>
+                        <button type="button" onClick={() => item.photo && openFileIn("recepcion", item.photo.file)}>
                           {item.photo.read ? "Revisar y registrar la recepción" : "Registrar en Recepciones"}
+                        </button>
+                      </div>
+                    )}
+                    {item.invoiceFile && (
+                      <div className="copiloto-actions">
+                        <button type="button" onClick={() => item.invoiceFile && openFileIn("factura", item.invoiceFile)}>
+                          Registrar la factura con este PDF
                         </button>
                       </div>
                     )}

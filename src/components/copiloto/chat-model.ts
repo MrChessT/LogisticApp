@@ -26,6 +26,8 @@ export type Item =
       error?: string;
       /** Foto de un albarán leída en el chat: se revisa y registra en Nueva recepción. */
       photo?: { file: File; read: boolean };
+      /** PDF arrastrado al chat: se registra como factura en Facturas, con el PDF ya adjunto. */
+      invoiceFile?: File;
       /** Guía de /ayuda. */
       help?: boolean;
       /** Lista de /avisos. */

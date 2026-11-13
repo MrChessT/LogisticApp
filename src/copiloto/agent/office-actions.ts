@@ -11,6 +11,8 @@ import { mentionsWaste, namedLocations } from "../entities/signals";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { parseTermChanges } from "./supplier-terms";
 import { parseSheet } from "./product-sheet";
+import { NEW_RECIPE } from "./recipe-chat";
+import { PACK_RE } from "../drafts/pack-builder";
 
 const QUESTION = /^(que|cual|cuales|cuant[oa]s?|hay|esta|estan|tengo|tenemos|cuando|donde|quien|como|se ha|se han|me dices|dime si)\b/;
 
@@ -45,6 +47,9 @@ function namesServiceArea(text: string, ctx: SessionContext): boolean {
 /** Una cantidad de operación («2 cajas», «3 botellas»): no es un cambio de ficha (lo es «Larios 12»). */
 const QUANTITY = /\b\d+([.,]\d+)?\s*(cajas?|botellas?|ud|uds|unidades|packs?|kg|kilos?|latas?|bolsas?|barriles?|litros?)\b/;
 
+/** «La coca también viene en caja de 12», «nuevo formato del Barceló: caja de 6 botellas». */
+const NEW_PACK = /\b(viene|vienen|tambien viene|formato|formatos|se vende en|nos lo traen|lo traen)\b/;
+
 /** «Crea la zona Terraza…», «añade una sección…», «nueva zona…». */
 const NEW_ZONE = /\b(crea|crear|creame|anade|anadir|nueva|da de alta|dar de alta)\b.*\b(zona|seccion|espacio)\b|\bnueva (zona|seccion)\b/;
 
@@ -58,6 +63,8 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
     ? "pagar_factura"
     : VALIDATE_MOVES.test(text)
       ? "validar_salidas"
+      : NEW_RECIPE.test(text)
+        ? "crear_escandallo"
       : DISH_PRICE.test(text) && /\d/.test(text)
         ? "precio_venta"
         : parseTermChanges(message).length > 0 && (mentionedSupplier(message, ctx.suppliers) || (CHANGE_TERMS.test(text) && SUPPLIER_TERMS.test(text)))
@@ -68,7 +75,9 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
               ? "ficha_producto"
               : NEW_ZONE.test(text)
                 ? "crear_zona"
-                : null;
+                : NEW_PACK.test(text) && PACK_RE.test(text)
+                  ? "formato_producto"
+                  : null;
   if (!accion) return null;
   const named = namedLocations(ctx.locations, message);
   const locationIds = named.length > 0 ? named.map((l) => l.id) : pageLocationId ? [pageLocationId] : ctx.locations.map((l) => l.id);

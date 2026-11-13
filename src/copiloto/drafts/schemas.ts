@@ -219,7 +219,7 @@ const OrderDraftSchema = base.extend({
 
 const DocumentDraftSchema = base.extend({
   kind: z.literal("documento"),
-  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona"]),
+  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo"]),
   documentId: id,
   locationId: id,
   summary: z.string().min(1).max(200),
@@ -227,7 +227,18 @@ const DocumentDraftSchema = base.extend({
   receive: z.array(z.object({ packId: id, packsQty: positive, packPrice: DecimalString.nullable() })).max(40).optional(),
   moveIds: z.array(id).min(1).max(100).optional(),
   price: positive.optional(),
+  pack: z.object({ productId: id, name: z.string().trim().min(1).max(60), qtyBase: positive }).optional(),
   zone: z.object({ name: z.string().trim().min(1).max(60), kind: z.enum(["almacen", "servicio"]) }).optional(),
+  recipe: z
+    .object({
+      name: z.string().trim().min(1).max(120),
+      kind: z.enum(["plato", "elaboracion"]),
+      salePrice: positive.nullable(),
+      yieldQty: positive,
+      yieldUnit: z.enum(["racion", "g", "ml", "ud"]),
+      lines: z.array(z.object({ productId: id, qtyBase: positive })).max(60),
+    })
+    .optional(),
   sheet: z.object({ productIds: z.array(id).min(1).max(12), categoryId: id.optional(), addAllergens: z.array(z.string().max(20)).max(14), removeAllergens: z.array(z.string().max(20)).max(14) }).optional(),
   move: z.object({ productId: id, qtyBase: positive, fromAreaId: id, toAreaId: id, kind: z.enum(["salida", "devolucion"]), input: quantityInput }).optional(),
   terms: z.array(z.object({ field: z.enum(["min_order", "order_days", "order_cutoff", "lead_time_hours", "payment_terms"]), value: z.string().min(1).max(120) })).min(1).max(5).optional(),

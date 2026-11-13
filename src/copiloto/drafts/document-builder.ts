@@ -16,6 +16,8 @@ import { dishPrice, invoicePayment, supplierTerms, warehouseValidation } from ".
 import { warehouseMove } from "./warehouse-move";
 import { productSheet } from "./sheet-builder";
 import { newZone } from "./zone-builder";
+import { newPack } from "./pack-builder";
+import { newRecipe } from "./recipe-builder";
 
 export interface DocumentBuildInput {
   plan: DocumentPlan;
@@ -43,6 +45,8 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   salida_almacen: "Salida de almacén",
   ficha_producto: "Ficha de producto",
   crear_zona: "Zona nueva",
+  formato_producto: "Formato nuevo",
+  crear_escandallo: "Escandallo nuevo",
 };
 
 /**
@@ -62,6 +66,8 @@ const FOR_JEV: Record<DocumentDraft["operation"], string> = {
   salida_almacen: "record a move from the storeroom to the bar or kitchen",
   ficha_producto: "change the category or allergens of products",
   crear_zona: "create a storage or service area in a venue",
+  formato_producto: "add a pack size to a product",
+  crear_escandallo: "create a dish or kitchen preparation (recipe) with its ingredients",
 };
 
 /** Solo un encargado envía pedidos o cancela; recibir lo puede hacer cualquiera del local. */
@@ -90,6 +96,8 @@ export class DocumentDraftBuilder {
     if (plan.accion === "salida_almacen") return warehouseMove({ plan, message, ctx, overrides, now, retriever });
     if (plan.accion === "ficha_producto") return productSheet({ message, ctx, overrides, now, retriever });
     if (plan.accion === "crear_zona") return newZone({ plan, message, ctx, overrides, now });
+    if (plan.accion === "formato_producto") return newPack({ message, ctx, overrides, now, retriever });
+    if (plan.accion === "crear_escandallo") return newRecipe({ message, ctx, info, retriever, now });
     return plan.accion === "recibir_traspaso" || plan.accion === "cancelar_traspaso"
       ? this.transfer(plan, ctx, source, overrides, now)
       : this.order(plan, message, ctx, source, overrides, now);

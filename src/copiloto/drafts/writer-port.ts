@@ -104,8 +104,12 @@ export interface InventoryWriter {
   validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
   /** PVP (con IVA) de un plato, como al editar el escandallo. */
   setRecipePrice(recipeId: string, price: string): Promise<void>;
+  /** Formato nuevo de un producto (como en su ficha). */
+  addPack(args: { productId: string; name: string; qtyBase: string }): Promise<void>;
   /** Zona nueva en un local, la última del orden (como «Añadir zona» en Zonas). */
   createArea(args: { locationId: string; name: string; kind: "almacen" | "servicio" }): Promise<void>;
+  /** Escandallo nuevo con sus ingredientes (como «Nuevo» en Escandallos; la base lo valida y lo calcula). */
+  createRecipe(args: { orgId: string; name: string; kind: "plato" | "elaboracion"; salePrice: string | null; yieldQty: string; yieldUnit: "racion" | "g" | "ml" | "ud"; lines: Array<{ productId: string; qtyBase: string }> }): Promise<void>;
   /** Ficha de productos: categoría y alérgenos (como en la ficha de Productos). */
   updateProductSheet(args: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] }): Promise<void>;
   /** Apuntar una salida (o devolución) de almacén: queda pendiente de validar, como en Almacén. */
@@ -383,6 +387,29 @@ export class SupabaseInventoryWriter implements InventoryWriter {
     const sortOrder = Number((last?.[0] as { sort_order?: number } | undefined)?.sort_order ?? 0) + 1;
     const { error } = await this.db.from("storage_areas").insert({ location_id: args.locationId, name: args.name, kind: args.kind, sort_order: sortOrder });
     if (error) raise("storage_areas", error);
+  }
+
+  async createRecipe(args: Parameters<InventoryWriter["createRecipe"]>[0]): Promise<void> {
+    const { data, error } = await this.db
+      .from("recipes")
+      .insert({ org_id: args.orgId, name: args.name, kind: args.kind, sale_price: args.salePrice, yield_qty: args.yieldQty, yield_unit: args.yieldUnit })
+      .select("id")
+      .single();
+    if (error) raise("recipes", error);
+    if (!data) raise("recipes", { message: "sin id" });
+    if (args.lines.length === 0) return;
+    const rows = args.lines.map((l, i) => ({ recipe_id: data.id, product_id: l.productId, qty: l.qtyBase, sort_order: i + 1 }));
+    const { error: lineError } = await this.db.from("recipe_lines").insert(rows);
+    if (lineError) {
+      // Sin transacción desde el cliente: si fallan las líneas, no se deja un escandallo vacío a medias.
+      await this.db.from("recipes").delete().eq("id", data.id);
+      raise("recipe_lines", lineError);
+    }
+  }
+
+  async addPack(args: Parameters<InventoryWriter["addPack"]>[0]): Promise<void> {
+    const { error } = await this.db.from("product_packs").insert({ product_id: args.productId, name: args.name, qty_base: args.qtyBase });
+    if (error) raise("product_packs", error);
   }
 
   async setRecipePrice(recipeId: string, price: string): Promise<void> {

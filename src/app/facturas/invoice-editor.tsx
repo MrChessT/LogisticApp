@@ -24,8 +24,10 @@ const dec = (s: string) => {
 };
 const text = (n: number | null | undefined) => (n === null || n === undefined ? "" : n.toFixed(2).replace(".", ","));
 
-export function InvoiceEditor({ invoice, preset, orgId, suppliers, unbilled, onClose, onChanged }: {
+export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, unbilled, onClose, onChanged }: {
   invoice: InvoiceRow | null;
+  /** PDF que llega del asistente: la factura nueva se abre con él ya adjunto. */
+  initialFile?: File;
   preset: { supplierId: string; receiptIds: string[] } | null;
   orgId: string;
   suppliers: SupplierOption[];
@@ -47,7 +49,7 @@ export function InvoiceEditor({ invoice, preset, orgId, suppliers, unbilled, onC
   const [notes, setNotes] = useState(invoice?.notes ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set(preset?.receiptIds ?? []));
   const [linked, setLinked] = useState<UnbilledReceipt[]>([]);
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(initialFile ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);

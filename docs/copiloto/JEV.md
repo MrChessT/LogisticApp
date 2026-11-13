@@ -66,7 +66,7 @@ src/copiloto/
 3. **Sin Jev** (`preroute.ts`), el primero que contesta gana:
    1. comandos `/…`;
    2. órdenes de oficina (pagar factura, apuntar y validar salidas, PVP, condiciones de proveedor,
-      categoría y alérgenos de un producto, crear una zona);
+      categoría, alérgenos y formatos de un producto, crear una zona, crear un escandallo);
    3. respuestas escritas (temas que no lleva, pantallas, consumo, «sí» suelto, datos de ficha, última vez);
    4. temas de gestión dichos claramente y tareas;
    5. vía rápida de stock.
@@ -77,7 +77,10 @@ src/copiloto/
    `ask` y `act`, depende del riesgo (leer contesta con lo más probable; escribir prepara el borrador
    marcado «revisar» o pregunta). **Cero adivinanzas en escrituras.**
 6. **Aclaración o formulario**: si falta un dato, se pregunta; si la operación está clara y faltan dos o
-   más, sale el miniformulario (`action-form.ts`).
+   más, sale el miniformulario (`action-form.ts`). Un alta de producto (`nuevo_producto`) solo se acepta si
+   la frase dice el alta («crea…», «da de alta…», `hasNewProductTrigger`); sin esas palabras se pregunta
+   qué operación. Un nombre hecho solo de palabras genéricas («manualmente», «preparar una operación») no
+   es un producto: `isGenericName` lo descarta y se vuelve a pedir el nombre.
 7. **Ejecución**: consulta (`run-query.ts`, `tools/`), información de gestión (`tools/info*.ts`), tarea o
    borrador (`drafts/`).
 8. **Llamada nº 2** (solo borradores que vienen de Jev): ¿el borrador encaja con lo pedido? En el

@@ -10,6 +10,7 @@ import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, type CatalogAccion, type DocumentA
 import { locationLabel, type JevReading } from "./reading";
 import { catalogAction, documentAction } from "./documents";
 import { resolveProducts } from "./products";
+import { hasNewProductTrigger } from "../../entities/catalog-parser";
 
 /** ¿Jev está seguro de una operación concreta (no «ninguna»)? Nunca para cerrar inventario. */
 export function actionCorroborates(r: JevReading): boolean {
@@ -44,6 +45,16 @@ function wasteOrTransfer(r: JevReading, ranked: RankedOption[]): "merma" | "tras
   return first.option === "traspaso" && otherVenue ? "traspaso" : null;
 }
 
+/**
+ * Pregunta la operación. La decisión de Jev que no se usó no se enseña como «Entendido»: si no, el panel
+ * diría «Entendido: Preparar pedido» justo antes de preguntar qué operación es.
+ */
+function askOperation(r: JevReading, ranked: RankedOption[]): Plan {
+  const at = r.decisions.findIndex((d) => d.id === "tipo_accion");
+  if (at >= 0) r.decisions.splice(at, 1);
+  return r.clarify("tipo_accion", "¿Qué operación quieres registrar?", ranked, ["ninguna"]);
+}
+
 export function action(r: JevReading): Plan {
   const accionAnswer = r.choice("tipo_accion");
   const spec = accionAnswer?.choice === "cierre_inventario" ? r.thresholds.cierre_inventario : r.thresholds.tipo_accion;
@@ -62,8 +73,11 @@ export function action(r: JevReading): Plan {
     const decision = chosen ? r.decisions.find((d) => d.id === "tipo_accion") : undefined;
     if (decision && chosen) Object.assign(decision, { value: chosen, valueLabel: label(chosen), gate: "actuar" });
   }
-  if (!chosen) {
-    return r.clarify("tipo_accion", "¿Qué operación quieres registrar?", g?.ranked ?? [], ["ninguna"]);
+  if (!chosen) return askOperation(r, g?.ranked ?? []);
+  // Un alta de producto exige que la frase la diga («crea…», «da de alta…»). Si Jev la propone sin esas
+  // palabras («Preparar una operación»), es una petición genérica: se pregunta la operación.
+  if (chosen === "nuevo_producto" && !hasNewProductTrigger(r.meta.message ?? "")) {
+    return askOperation(r, g?.ranked ?? []);
   }
   if ((CATALOG_ACCIONES as readonly string[]).includes(chosen)) return catalogAction(r, chosen as CatalogAccion);
   if ((DOCUMENT_ACCIONES as readonly string[]).includes(chosen)) return documentAction(r, chosen as DocumentAccion);

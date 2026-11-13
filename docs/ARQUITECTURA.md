@@ -89,7 +89,7 @@ Reglas que no se rompen:
 | --- | --- |
 | `copiloto.tsx` | El panel: conversación, envío (texto, comandos, fotos, voz) y pintado |
 | `form-card.tsx` | Miniformulario de una operación (varios datos a la vez) |
-| `use-file-drop.ts` | Archivos arrastrados al panel o pegados (Ctrl+V); fotos → `photo.ts`, el resto dice dónde va |
+| `use-file-drop.ts` | Archivos arrastrados al panel o pegados (Ctrl+V); fotos → `photo.ts`; PDF → botón que abre Facturas con el archivo (`src/lib/pending-file.ts`) |
 | `chat-model.ts`, `chat-stream.ts` | Mensajes de la conversación y lectura de la respuesta (SSE) |
 | `assistant-home.tsx` | Inicio según la pantalla, comandos «/» y guía de `/ayuda` |
 | `message-parts.tsx`, `draft-card.tsx` | Texto, tablas y tarjetas de borrador |

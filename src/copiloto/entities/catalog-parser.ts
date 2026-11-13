@@ -3,7 +3,7 @@
 // number: las cifras salen como cadenas decimales (decimal.js). Jev no extrae texto: solo decide.
 import Decimal from "decimal.js";
 import type { Dimension, NamedRef, Pack, Product } from "../domain";
-import { normalize } from "./normalize";
+import { normalize, tokenize } from "./normalize";
 import { canonicalUnit, parseNumber, parseQuantities } from "./quantity-parser";
 
 /** Último importe en euros del mensaje: "a 15 €", "15,50€", "por 12 euros", "€ 9". */
@@ -95,6 +95,27 @@ const NAME_END = [
  * Nombre del producto que se quiere dar de alta. Prioriza el texto entre comillas; si no, lo que
  * sigue a "añade / crea / da de alta…" hasta el precio, el formato, la categoría o el proveedor.
  */
+/**
+ * Palabras que nunca forman por sí solas el nombre de un producto: órdenes, verbos y adverbios del propio
+ * asistente («manualmente», «preparar una operación»). Un nombre hecho solo de ellas no se crea.
+ */
+const GENERIC_NAME_WORDS = new Set(
+  "manualmente manual operacion operaciones preparar preparame prepara hacer haz quiero necesito algo cosa cosas esto eso ayuda opcion opciones nuevo nueva producto productos alta dar crear crea creame registrar registra anadir anade el la los las un una de del para con y o".split(" "),
+);
+
+/** ¿Es un nombre que no identifica ningún producto? («Manualmente», «preparar una operación»). */
+export function isGenericName(name: string): boolean {
+  const words = tokenize(name);
+  return words.length === 0 || words.every((w) => GENERIC_NAME_WORDS.has(w));
+}
+
+/** Verbo o expresión de alta en la frase («crea…», «da de alta…», «nuevo producto…»), sin importar tildes. */
+const NEW_PRODUCT_WORDS =
+  /\b(anade|anademe|anadir|agrega|agregar|crea|crear|creame|da de alta|dar de alta|alta de|alta del|alta a|mete|meter|incluye|incluir|registra|registrar|nuevo producto|producto nuevo|nueva referencia|nuevo articulo|articulo nuevo)\b/;
+export function hasNewProductTrigger(text: string): boolean {
+  return NEW_PRODUCT_WORDS.test(normalize(text));
+}
+
 export function extractNewProductName(message: string, suppliers: NamedRef[] = [], locations: NamedRef[] = []): string | null {
   const text = message.normalize("NFC").trim();
   const quoted = /["“«'‘]([^"”»'’]{2,80})["”»'’]/u.exec(text);
@@ -122,6 +143,7 @@ export function extractNewProductName(message: string, suppliers: NamedRef[] = [
   name = name.replace(/\s+/g, " ").replace(/^[\s"'«“]+|[\s"'»”.,;:!?]+$/gu, "").trim();
   if (!name || name.length > 80 || name.split(" ").length > 10) return null;
   if ((name.match(/\p{L}/gu) ?? []).length < 2) return null;
+  if (isGenericName(name)) return null;
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 

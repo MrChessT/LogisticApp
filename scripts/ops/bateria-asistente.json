@@ -115,14 +115,34 @@
   {
     "nombre": "Ficha de producto desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "la tónica lleva sulfitos", "espera": "Ficha:|¿A cuál de estos productos\\?|No encuentro" },
+      { "usuario": "la tónica lleva sulfitos", "espera": "Revísalo y confírmalo|Ficha:|¿A cuál de estos productos\\?|No encuentro" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Zona nueva desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Zona nueva en|ya tiene una zona|¿En qué local\\?" },
+      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Revísalo y confírmalo|Zona nueva en|ya tiene una zona|¿En qué local\\?" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
+    "nombre": "Escandallo nuevo desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "crea el plato Sangría de prueba con PVP 6,50: 1 l de Ron Barceló Añejo 70 cl", "espera": "Revísalo y confírmalo|Ya hay un escandallo|No encuentro" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
+    "nombre": "Petición genérica no es alta de producto (reporte de opinión 13/11)",
+    "turnos": [
+      { "usuario": "Preparar una operación", "espera": "qué operación|Qué quieres hacer|operación", "no": "producto nuevo|Cómo se llama|créalo|Manualmente" }
+    ]
+  },
+  {
+    "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   }

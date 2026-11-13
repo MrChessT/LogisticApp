@@ -22,7 +22,7 @@ import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
 import { toBaseQty, unitChoices, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
-import { onPendingPhoto, takePendingPhoto } from "@/lib/pending-photo";
+import { onPendingFile, takePendingFile } from "@/lib/pending-file";
 import { guessSupplier, packForUnit, readAlbaranPhoto, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, priceCheck, type Incident } from "@/lib/receipt-checks";
@@ -209,11 +209,11 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   useEffect(() => {
     if (kind !== "recepciones") return;
     const pick = () => {
-      const photo = takePendingPhoto();
+      const photo = takePendingFile("recepcion");
       if (photo) setPhotoToScan(photo);
     };
     void Promise.resolve().then(pick);
-    return onPendingPhoto(pick);
+    return onPendingFile("recepcion", pick);
   }, [kind]);
   useEffect(() => {
     if (!photoToScan || !referenceReady) return;
