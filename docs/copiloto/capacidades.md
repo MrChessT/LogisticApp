@@ -23,7 +23,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada | «marca como pagada la factura de Makro» |
 | Informes | sí (las mismas cifras, resumidas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
 | Equipo | sí (quién, puesto, locales) | no: invitar y cambiar permisos solo en la pantalla, a propósito | «dame los nombres del personal» |
-| Zonas | sí (zonas de cada local, qué hay en cada una) | no | «¿qué zonas tiene el Parador?» |
+| Zonas | sí (zonas de cada local, qué hay en cada una) | crear una zona (almacén o servicio) | «crea la zona Terraza en el Vivero» |
 | Importar | — | enlace (arrastrar un Excel o CSV al chat dice dónde va) | — |
 | Opiniones del asistente | — | no (pantalla de administración) | — |
 
@@ -31,6 +31,5 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 
 1. Formatos de un producto («la coca también viene en caja de 12») y crear un escandallo.
 2. Registrar una factura desde el PDF arrastrado al chat.
-3. Crear zonas.
 
 Lo que no se hará desde el chat: invitar personas o cambiar permisos (riesgo alto por un malentendido).

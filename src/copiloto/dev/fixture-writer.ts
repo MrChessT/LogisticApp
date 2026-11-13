@@ -115,6 +115,10 @@ export class FixtureWriter implements InventoryWriter {
     this.record("updateProductSheet", args);
   }
 
+  async createArea(args: Parameters<InventoryWriter["createArea"]>[0]) {
+    this.record("createArea", args);
+  }
+
   async setRecipePrice(recipeId: string, price: string) {
     this.record("setRecipePrice", { recipeId, price });
   }

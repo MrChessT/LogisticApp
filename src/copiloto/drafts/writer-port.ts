@@ -104,6 +104,8 @@ export interface InventoryWriter {
   validateAreaMoves(moveIds: string[]): Promise<{ validated: number; skipped: number }>;
   /** PVP (con IVA) de un plato, como al editar el escandallo. */
   setRecipePrice(recipeId: string, price: string): Promise<void>;
+  /** Zona nueva en un local, la última del orden (como «Añadir zona» en Zonas). */
+  createArea(args: { locationId: string; name: string; kind: "almacen" | "servicio" }): Promise<void>;
   /** Ficha de productos: categoría y alérgenos (como en la ficha de Productos). */
   updateProductSheet(args: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] }): Promise<void>;
   /** Apuntar una salida (o devolución) de almacén: queda pendiente de validar, como en Almacén. */
@@ -374,6 +376,13 @@ export class SupabaseInventoryWriter implements InventoryWriter {
       const { error } = await this.db.from("product_allergens").delete().in("product_id", args.productIds).in("allergen", args.removeAllergens);
       if (error) raise("product_allergens", error);
     }
+  }
+
+  async createArea(args: Parameters<InventoryWriter["createArea"]>[0]): Promise<void> {
+    const { data: last } = await this.db.from("storage_areas").select("sort_order").eq("location_id", args.locationId).order("sort_order", { ascending: false }).limit(1);
+    const sortOrder = Number((last?.[0] as { sort_order?: number } | undefined)?.sort_order ?? 0) + 1;
+    const { error } = await this.db.from("storage_areas").insert({ location_id: args.locationId, name: args.name, kind: args.kind, sort_order: sortOrder });
+    if (error) raise("storage_areas", error);
   }
 
   async setRecipePrice(recipeId: string, price: string): Promise<void> {

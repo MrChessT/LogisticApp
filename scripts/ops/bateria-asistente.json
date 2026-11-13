@@ -118,5 +118,12 @@
       { "usuario": "la tónica lleva sulfitos", "espera": "Ficha:|¿A cuál de estos productos\\?|No encuentro" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
+  },
+  {
+    "nombre": "Zona nueva desde el chat (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Zona nueva en|ya tiene una zona|¿En qué local\\?" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
   }
 ]

@@ -66,7 +66,7 @@ src/copiloto/
 3. **Sin Jev** (`preroute.ts`), el primero que contesta gana:
    1. comandos `/…`;
    2. órdenes de oficina (pagar factura, apuntar y validar salidas, PVP, condiciones de proveedor,
-      categoría y alérgenos de un producto);
+      categoría y alérgenos de un producto, crear una zona);
    3. respuestas escritas (temas que no lleva, pantallas, consumo, «sí» suelto, datos de ficha, última vez);
    4. temas de gestión dichos claramente y tareas;
    5. vía rápida de stock.

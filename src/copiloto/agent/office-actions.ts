@@ -45,6 +45,9 @@ function namesServiceArea(text: string, ctx: SessionContext): boolean {
 /** Una cantidad de operación («2 cajas», «3 botellas»): no es un cambio de ficha (lo es «Larios 12»). */
 const QUANTITY = /\b\d+([.,]\d+)?\s*(cajas?|botellas?|ud|uds|unidades|packs?|kg|kilos?|latas?|bolsas?|barriles?|litros?)\b/;
 
+/** «Crea la zona Terraza…», «añade una sección…», «nueva zona…». */
+const NEW_ZONE = /\b(crea|crear|creame|anade|anadir|nueva|da de alta|dar de alta)\b.*\b(zona|seccion|espacio)\b|\bnueva (zona|seccion)\b/;
+
 const VALIDATE_MOVES =
   /\b(valida|validar|validame|validalas|validalo|aprueba|aprobar|apruebalas|acepta|aceptar|confirma|confirmar|confirmalas|da por buenas)\b.*\b(salidas?|movimientos?|devoluciones?|almacen)\b/;
 
@@ -63,7 +66,9 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
             ? "salida_almacen"
             : !QUANTITY.test(text) && parseSheet(message, ctx)
               ? "ficha_producto"
-              : null;
+              : NEW_ZONE.test(text)
+                ? "crear_zona"
+                : null;
   if (!accion) return null;
   const named = namedLocations(ctx.locations, message);
   const locationIds = named.length > 0 ? named.map((l) => l.id) : pageLocationId ? [pageLocationId] : ctx.locations.map((l) => l.id);
