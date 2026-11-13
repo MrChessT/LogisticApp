@@ -258,3 +258,12 @@
 .copiloto-drop strong { font: 600 16px var(--font-display), sans-serif; color: var(--ink); }
 .copiloto-drop span { color: var(--muted); font-size: var(--fs-sm); }
 .copiloto-drop svg { animation: rise .3s ease-out both; }
+
+/* Miniformulario: varios datos de una operación a la vez, con etiqueta encima de cada campo. */
+.copiloto-form { display: grid; gap: 10px; margin-top: 8px; padding: 14px; background: var(--panel); border: 1px solid var(--brand-line); border-radius: var(--r-lg); animation: pop .2s cubic-bezier(.2, .8, .2, 1) both; }
+.copiloto-form-title { font: 600 14px var(--font-display), sans-serif; color: var(--ink); }
+.copiloto-form-field { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--text-2); }
+.copiloto-form-field small { color: var(--text-3); }
+.copiloto-form-field :is(input, select) { width: 100%; min-height: 38px; padding: 0 10px; font: inherit; font-size: var(--fs-md); color: var(--ink); background: var(--canvas); border: 1px solid var(--line); border-radius: var(--r-md); }
+.copiloto-form-field :is(input, select):focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.copiloto-form .primary-button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }

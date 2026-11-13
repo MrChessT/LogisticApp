@@ -98,5 +98,14 @@
       { "usuario": "el pedido mínimo de Makro ahora es 200 €", "espera": "Condiciones de|No encuentro ese proveedor", "no": "proveedores activos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
+  },
+  {
+    "nombre": "Miniformulario: varios datos a la vez, uno solo se pregunta",
+    "turnos": [
+      { "usuario": "registra una merma", "espera": "Me faltan unos datos" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
+      { "usuario": "merma de 2 botellas de larios", "espera": "¿En qué local\\?|Revísalo|Larios", "no": "Me faltan unos datos" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
   }
 ]

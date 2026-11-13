@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowRight, Camera, Check, Flag, FlaskConical, ImageUp, 
 import { ChartCard } from "@/components/charts/charts";
 import { createClient } from "@/lib/supabase/client";
 import { setPendingPhoto } from "@/lib/pending-photo";
-import type { ActionsEvent, ChartSpec, ClarifyEvent, DecisionEvent, DoneEvent, Draft, ErrorEvent, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
+import type { ActionsEvent, ChartSpec, ClarifyEvent, DecisionEvent, DoneEvent, Draft, ErrorEvent, FormEvent as AssistantForm, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
 import { QuickActions } from "./quick-actions";
 import { CommandPalette, HelpCard, localCommandOf, matchCommands, Welcome, type Command, type LocalCommand } from "./assistant-home";
@@ -20,6 +20,7 @@ import { AssistantText, TableCard, Understood } from "./message-parts";
 import { summarizeAlbaranPhoto } from "./photo";
 import { ReportForm } from "./report-form";
 import { fileKind, otherFileReply, useFileDrop } from "./use-file-drop";
+import { FormCard, type FormValues } from "./form-card";
 import { useVoice } from "./use-voice";
 import "./copiloto.css";
 
@@ -151,7 +152,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   }
 
   /** `display`: lo que se enseña como mensaje del usuario (el menú de funciones manda un atajo). */
-  async function send(message: string, clarification?: { clarifyId: string; optionId: string; freeText?: string; field?: string }, followUpId?: string, display?: string) {
+  async function send(message: string, clarification?: { clarifyId: string; optionId: string; freeText?: string; field?: string }, followUpId?: string, display?: string, form?: { accion: AssistantForm["accion"]; values: FormValues }) {
     if (busy || !message.trim()) return;
     sessionId.current ??= newId();
     const assistantId = newId();
@@ -163,7 +164,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
       const res = await fetch("/api/copiloto/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId.current, message, page: currentRoute(pathname), ...(clarification ? { clarification } : {}), ...(followUpId ? { followUpId } : {}) }),
+        body: JSON.stringify({ sessionId: sessionId.current, message, page: currentRoute(pathname), ...(clarification ? { clarification } : {}), ...(followUpId ? { followUpId } : {}), ...(form ? { form } : {}) }),
       });
       if (!res.ok || !res.body) {
         const error = (await res.json().catch(() => null)) as ErrorEvent | null;
@@ -182,6 +183,8 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
           const nav = data as NavigateEvent;
           update(assistantId, () => ({ navigate: nav }));
           if (nav.auto) router.push(hrefFor(nav));
+        } else if (event === "form") {
+          update(assistantId, () => ({ form: data as AssistantForm }));
         } else if (event === "clarify") {
           setPendingClarify(data as ClarifyEvent);
           update(assistantId, () => ({ clarify: data as ClarifyEvent }));
@@ -431,6 +434,19 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                     )}
                     {item.table && <TableCard table={item.table} />}
                     {item.charts?.map((chart) => <ChartCard key={chart.id} spec={chart} compact />)}
+                    {item.form && (
+                      <FormCard
+                        form={item.form}
+                        disabled={busy}
+                        sent={!!item.formSent}
+                        onSubmit={(values) => {
+                          const form = item.form!;
+                          setItems((prev) => prev.map((x) => (x.id === item.id && x.role === "assistant" ? { ...x, formSent: true } : x)));
+                          const summary = form.fields.map((f) => values[f.key]).filter(Boolean).join(" · ");
+                          void send(form.title, undefined, undefined, `${form.title}: ${summary}`, { accion: form.accion, values });
+                        }}
+                      />
+                    )}
                     {item.draft && <DraftCard draft={item.draft} resolved={item.resolved} />}
                     {item.actions && item.actions.length > 0 && (
                       <div className="copiloto-actions">

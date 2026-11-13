@@ -92,7 +92,17 @@ export const DOCUMENT_ACCIONES = ["recibir_traspaso", "cancelar_traspaso", "envi
 export type DocumentAccion = (typeof DOCUMENT_ACCIONES)[number];
 
 /** Operaciones de documento que se reconocen sin Jev (office-actions.ts): no están en su catálogo. */
-type OfficeAccion = "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor";
+const OFFICE_ACCIONES = ["pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor"] as const;
+type OfficeAccion = (typeof OFFICE_ACCIONES)[number];
+
+/**
+ * ¿Hace falta que Jev compruebe el borrador? No en las órdenes de oficina: se reconocen con reglas fijas
+ * sobre lo que dice el usuario y el documento sale de la base de datos (pedirle la coherencia solo
+ * añadía medio segundo y algún «revisa» sin motivo).
+ */
+export function needsCoherenceCheck(plan: Plan): boolean {
+  return !(plan.type === "documento" && (OFFICE_ACCIONES as readonly string[]).includes(plan.accion));
+}
 
 export interface DocumentPlan {
   type: "documento";

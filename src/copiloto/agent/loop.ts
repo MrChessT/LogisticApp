@@ -16,7 +16,7 @@ import type { Tools } from "../tools/tools";
 import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
 import { Interpreter } from "../jev/interpret";
-import { shortcutIntent, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type InfoPlan, type Plan } from "./plans";
+import { needsCoherenceCheck, shortcutIntent, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type InfoPlan, type Plan } from "./plans";
 import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
@@ -34,6 +34,7 @@ import { tokenize } from "../entities/normalize";
 import { smallTalk } from "./topics";
 import { runInfo, type InfoSource } from "../tools/info";
 import { preroute } from "./preroute";
+import { formFor, readForm } from "./action-form";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
@@ -144,6 +145,19 @@ export class Agent {
         shortcut = true;
       } else if (followUp?.say) message = followUp.say;
 
+      // Miniformulario enviado: la frase completa y las decisiones fijadas con lo elegido (action-form.ts).
+      const fromForm = Boolean(req.form);
+      if (req.form) {
+        const read = readForm(req.form, ctx);
+        if ("error" in read) {
+          plan = { type: "aviso", text: read.error };
+          shortcut = true;
+        } else {
+          message = read.message;
+          overrides = read.overrides;
+        }
+      }
+
       // Respuesta a una aclaración: se retoma la orden original con lo contestado (ver clarify-answer.ts).
       if (req.clarification && !byButton) {
         ({ message, page, pageContext, overrides, answers, reuse, plan, shortcut } = await resumeClarification(req, session, ctx, deps.retriever, { message, page, pageContext, overrides, answers, reuse, plan, shortcut }));
@@ -152,7 +166,7 @@ export class Agent {
       // Seguimiento que depende de lo hablado («¿y sus proveedores?»): la IA lo completa antes de enrutar
       // (ver comprehension.ts). Lo reescrito sigue el camino normal; si falla, el mensaje tal cual.
       let understoodAs: string | null = null;
-      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !followUp) {
+      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !followUp && !fromForm) {
         understoodAs = await rewriteFollowUp(deps.assistant, message, session, activeFocus(session, this.now().getTime()), ctx, timer);
         if (understoodAs) message = understoodAs;
       }
@@ -163,7 +177,7 @@ export class Agent {
 
       // Lo que se resuelve sin Jev (comandos, órdenes de oficina, respuestas escritas, temas claros, vía
       // rápida de stock): ver preroute.ts, con el orden de prioridad.
-      if (!plan && !reuse) {
+      if (!plan && !reuse && !fromForm) {
         const now = this.now();
         plan = await preroute(message, {
           ctx,
@@ -205,7 +219,7 @@ export class Agent {
       // si no, sigue la aclaración de siempre. La IA nunca decide qué hacer ni da cifras.
       let skipGeneral = false;
       const focusNow = activeFocus(session, this.now().getTime());
-      if (deps.assistant?.enabled && !understoodAs && !shortcut && !reuse && !req.clarification && !byButton && !focusNow?.draftId && needsUnderstanding(plan, message)) {
+      if (deps.assistant?.enabled && !understoodAs && !shortcut && !reuse && !req.clarification && !byButton && !fromForm && !focusNow?.draftId && needsUnderstanding(plan, message)) {
         const understanding = await timer.time("comprension", () => deps.assistant!.understand(message, { turns: session.turns, ...(focusNow ? { focus: describeFocus(focusNow, ctx) } : {}) }));
         if (understanding?.tipo === "general") {
           plan = { type: "aviso", text: `${understanding.respuesta}\n\n${GENERAL_NOTE}` };
@@ -339,6 +353,12 @@ export class Agent {
   }
 
   private async clarify(plan: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
+    // Operación clara con dos datos o más por saber: se piden juntos en un miniformulario.
+    const form = formFor(plan, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
+    if (form) {
+      await env.emit({ event: "form", data: form });
+      return { kind: "tarea", tarea: "formulario", text: "Me faltan unos datos: rellénalos aquí y te preparo el borrador.", rows: 0 };
+    }
     // La misma pregunta otra vez: lo que se escribió no la contestaba. Se dice claro qué falta, con un
     // ejemplo de respuesta, y se ofrece dejarlo (nunca se manda a otra pantalla).
     const repeated = askedRecently(env.session, plan.question);
@@ -387,17 +407,20 @@ export class Agent {
 
     let draft = built.draft;
     const review = built.review;
-    let coherence: number | null;
+    let coherence: number | null = null;
     let answers: Awaited<ReturnType<JevPort["evaluate"]>>["answers"] = {};
-    try {
-      // La petición con lo respondido después: «pasa larios al Vivero» + «cantidad: 3» + «formato: Caja 6».
-      const request = env.answers.length ? `${env.message} (después respondió: ${env.answers.join("; ")})` : env.message;
-      const state = { request, draft: built.summary, ...(review?.state ?? {}) };
-      const questions = { ...evaluationQuestions([], true), ...(review?.questions ?? {}) };
-      ({ answers } = await env.timer.time("jev2", () => deps.jev.evaluate(state, questions)));
-      coherence = asNoul(answers.coherencia)?.noul ?? null;
-    } catch {
-      coherence = null;
+    const check = review !== undefined || needsCoherenceCheck(plan);
+    if (check) {
+      try {
+        // La petición con lo respondido después: «pasa larios al Vivero» + «cantidad: 3» + «formato: Caja 6».
+        const request = env.answers.length ? `${env.message} (después respondió: ${env.answers.join("; ")})` : env.message;
+        const state = { request, draft: built.summary, ...(review?.state ?? {}) };
+        const questions = { ...evaluationQuestions([], true), ...(review?.questions ?? {}) };
+        ({ answers } = await env.timer.time("jev2", () => deps.jev.evaluate(state, questions)));
+        coherence = asNoul(answers.coherencia)?.noul ?? null;
+      } catch {
+        coherence = null;
+      }
     }
     if (review) {
       const reviewed = review.apply(answers, deps.thresholds);
@@ -410,9 +433,9 @@ export class Agent {
     draft = validateDraft(draft);
     if (env.overrides.uno_a_uno) draft.warnings.unshift("Van de uno en uno: confirma este y vuelve a pedírmelo para el siguiente.");
     if (plan.type === "accion" && plan.reviewAll) draft.warnings.unshift("Revisa los datos antes de confirmar: puede que falte algo de lo que querías.");
-    if (coherence === null) {
+    if (coherence === null && check) {
       draft.warnings.unshift("No he podido comprobar el borrador: revísalo con atención.");
-    } else {
+    } else if (coherence !== null) {
       draft.coherence = coherence;
       const gate = gateNoulYes({ type: "noul", noul: coherence }, deps.thresholds.coherencia);
       env.decisions.push({ id: "coherencia", label: "Coherencia del borrador", value: gate, valueLabel: gate === "actuar" ? "Coincide con la petición" : "Revisar", probability: coherence, confidence: null, gate });

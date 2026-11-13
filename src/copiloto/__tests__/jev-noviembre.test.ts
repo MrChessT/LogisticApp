@@ -125,9 +125,11 @@ describe("preguntas: lo escrito contesta la pregunta, sin bucles", () => {
   });
 
   it("«déjalo» a cualquier pregunta la cierra", async () => {
-    const jev = new FakeJev([route("merma")]);
+    // Solo falta el local: sigue siendo una pregunta (con dos datos o más sería el miniformulario).
+    const jev = new FakeJev([route("merma", { producto_0: "Ron Barceló Añejo 70 cl", cantidad_ok_0: 0.95 })]);
     const { agent } = makeAgent(jev);
-    const ask = find(await run(agent, chat("registrar merma")), "clarify")!;
+    const ask = find(await run(agent, chat("merma de 2 botellas de barceló")), "clarify")!;
+    expect(ask.field).toBe("local");
     const events = await run(agent, chat("déjalo", { clarification: { clarifyId: ask.clarifyId, optionId: "otra", freeText: "déjalo" } }));
     expect(find(events, "done")!.text).toBe("Vale, lo dejo. Dime si necesitas otra cosa.");
     expect(find(events, "clarify")).toBeUndefined();

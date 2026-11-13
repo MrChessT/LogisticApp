@@ -39,15 +39,17 @@ describe("aclaraciones: no se repite la primera orden", () => {
     expect((find(events, "draft") as TransferDraft).lines[0]).toMatchObject({ qtyBase: "3500", input: { amount: "5", unit: "Botella 70 cl" } });
   });
 
-  it("producto elegido con botón + cantidad escrita: no vuelve a preguntar el producto", async () => {
+  it("producto ambiguo y sin cantidad: formulario con los candidatos; al enviarlo, borrador sin más preguntas", async () => {
     const script: Script = { ...TRANSFER, producto_0: "varios" };
-    const jev = new FakeJev([script, { coherencia: 0.95 }]);
+    const jev = new FakeJev([script, { cantidad_ok_0: 0.95 }, { coherencia: 0.95 }]);
     const { agent } = makeAgent(jev);
-    const which = find(await run(agent, chat("pasa ron del Parador al Vivero")), "clarify")!;
-    expect(which.field).toBe("producto");
-    const qty = find(await run(agent, chat(BRUGAL.name, { clarification: { clarifyId: which.clarifyId, optionId: BRUGAL.name } })), "clarify")!;
-    expect(qty.field).toBe("cantidad");
-    const events = await run(agent, chat("3 botellas", { clarification: { clarifyId: qty.clarifyId, optionId: "otra", freeText: "3 botellas" } }));
+    const form = find(await run(agent, chat("pasa ron del Parador al Vivero")), "form")!;
+    const product = form.fields.find((f) => f.key === "producto")!;
+    expect(product.kind).toBe("select");
+    expect(product.options!.map((o) => o.label)).toContain(BRUGAL.name);
+    expect(form.fields.find((f) => f.key === "local")!.value).toBe("Parador");
+    const events = await run(agent, chat("Traspaso", { form: { accion: "traspaso", values: { local: "Parador", destino: "Vivero", producto: BRUGAL.name, cantidad: "3 botellas" } } }));
+    expect(find(events, "clarify")).toBeUndefined();
     expect((find(events, "draft") as TransferDraft).lines[0]).toMatchObject({ productName: BRUGAL.name, qtyBase: "2100" });
   });
 

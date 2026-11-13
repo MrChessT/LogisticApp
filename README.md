@@ -103,7 +103,7 @@ La cabecera de cada migración explica qué añade y por qué.
 
 - **Tareas** (`src/copiloto/skills/tareas.ts`, menú Funciones o `/preparar`, `/equilibrar`, `/revisar`, `/parte`): trabajo que el panel no hace solo. *Preparar pedidos* calcula lo de la semana en todos los locales por proveedor y en cajas, y deja cada pedido en borrador con un toque; *Equilibrar locales* propone traspasos de donde sobra a donde falta (en botellas o unidades enteras); *Revisar catálogo* lista lo que da cifras falsas; *Parte de ayer* resume consumo, mermas, compras y alertas por local. Sin Jev hasta el borrador.
 - Cantidades compuestas: «3 cajas y 5 sueltas», «1 caja y 2 botellas», «2 cajas + 3 de red bull» son una sola cantidad (cajas + sueltas del mismo producto), en el chat y en la hoja de inventario.
-- `src/copiloto/jev/catalog.ts`: todas las preguntas a Jev (cambiar un texto sube `CATALOG_VERSION`). `gates/thresholds.ts`: umbrales de confianza.
+- `src/copiloto/jev/`: todo lo de Jev (preguntas en `catalog/`, umbrales en `gates/`, interpretación en `interpret/`). Guía en `docs/copiloto/JEV.md`.
 - `agent/`: interpretación y bucle; `drafts/`: borradores, comprobaciones y confirmación; `tools/` y `analytics/`: cálculos.
 - `src/app/api/copiloto/[...ruta]/route.ts`: `chat` (SSE), `actions/confirm`, `suggestions`, `analytics`, `reorder` y `health`.
 - Documentación: [arquitectura](docs/ARQUITECTURA.md), [contrato](docs/copiloto/CONTRACT.md), [catálogo de Jev y mediciones](docs/copiloto/CATALOGO_JEV.md).

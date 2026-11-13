@@ -1,4 +1,4 @@
-// Umbrales ÚNICOS por decisión (docs/CATALOGO_JEV.md). Se pueden cambiar por .env con
+// Umbrales ÚNICOS por decisión (docs/copiloto/JEV.md; mediciones en docs/copiloto/CATALOGO_JEV.md). Se pueden cambiar por .env con
 // GATE_<CLAVE>_ACT, GATE_<CLAVE>_ASK y GATE_<CLAVE>_MARGIN (clave en mayúsculas).
 
 export interface GateSpec {

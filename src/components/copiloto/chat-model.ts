@@ -1,7 +1,7 @@
 // Modelo del chat en el navegador: los mensajes de la conversación, las rutas de la app y cómo se
 // resume un mensaje al adjuntarlo a un reporte.
 import type { TranscriptEntry } from "@/lib/copilot-feedback";
-import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, DecisionEvent, Draft, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
+import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, DecisionEvent, Draft, FormEvent, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
 
 export type Item =
@@ -14,6 +14,9 @@ export type Item =
       decision?: DecisionEvent;
       navigate?: NavigateEvent;
       clarify?: ClarifyEvent;
+      /** Miniformulario (faltan varios datos de una operación clara) y si ya se envió. */
+      form?: FormEvent;
+      formSent?: boolean;
       draft?: Draft;
       /** El borrador se confirmó o descartó después, desde el chat. */
       resolved?: ResolvedEvent;
@@ -78,6 +81,7 @@ export function toEntry(item: Item, flagged: boolean): TranscriptEntry {
     item.draft && `Borrador: ${item.draft.title}`,
     item.resolved && `Borrador ${item.resolved.status}`,
     item.clarify && item.clarify.options.length > 0 && `Opciones: ${item.clarify.options.map((o) => o.label).join(" / ")}`,
+    item.form && `Formulario: ${item.form.fields.map((f) => f.label).join(", ")}`,
     item.table && `Tabla: ${item.table.columns.map((c) => c.label).join(", ")} · ${item.table.rows.length} filas`,
     item.charts?.length && `${item.charts.length} gráfico(s)`,
     item.actions?.length && `Botones: ${item.actions.map((a) => a.label).join(" / ")}`,

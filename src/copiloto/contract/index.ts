@@ -52,6 +52,19 @@ export const ChatRequest = z.object({
     .optional(),
   /** Botón de seguimiento de una respuesta anterior (se ejecuta sin volver a llamar a Jev). */
   followUpId: z.string().min(1).max(64).optional(),
+  /** Miniformulario enviado: la operación y lo elegido en cada campo (el servidor lo valida todo). */
+  form: z
+    .object({
+      accion: z.enum(["merma", "traspaso", "recepcion"]),
+      values: z.object({
+        local: z.string().trim().max(120).optional(),
+        destino: z.string().trim().max(120).optional(),
+        producto: z.string().trim().max(200).optional(),
+        cantidad: z.string().trim().max(60).optional(),
+        motivo: z.string().trim().max(40).optional(),
+      }),
+    })
+    .optional(),
 });
 export type ChatRequest = z.infer<typeof ChatRequest>;
 
@@ -112,6 +125,29 @@ export type ClarifyField =
   /** Nombre de un producto nuevo: lo escrito ES la respuesta (no un mensaje nuevo). */
   | "nombre"
   | "borrador";
+
+/** Un campo del miniformulario: lo ya entendido viene en `value`. */
+export interface FormField {
+  key: "local" | "destino" | "producto" | "cantidad" | "motivo";
+  label: string;
+  /** select: elegir de `options`; product: escribir con sugerencias del catálogo; text: libre. */
+  kind: "select" | "product" | "text";
+  options?: Array<{ id: string; label: string }>;
+  value?: string;
+  required: boolean;
+  placeholder?: string;
+}
+
+/**
+ * Miniformulario: la operación está clara pero faltan varios datos. En vez de preguntarlos de uno en uno
+ * («¿En qué local?», «¿Qué producto y qué cantidad?»), se piden juntos, con lo entendido ya puesto.
+ */
+export interface FormEvent {
+  formId: string;
+  title: string;
+  accion: "merma" | "traspaso" | "recepcion";
+  fields: FormField[];
+}
 
 export interface ClarifyEvent {
   clarifyId: string;
@@ -466,6 +502,7 @@ export type SseEvent =
   | { event: "table"; data: TableEvent }
   | { event: "actions"; data: ActionsEvent }
   | { event: "clarify"; data: ClarifyEvent }
+  | { event: "form"; data: FormEvent }
   | { event: "resolved"; data: ResolvedEvent }
   | { event: "error"; data: ErrorEvent }
   | { event: "done"; data: DoneEvent };

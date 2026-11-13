@@ -29,13 +29,11 @@ describe("opinión 2026-10-15 (Luis): alta de producto y cambio de operación", 
   it("«registrar merma» seguido de «crear producto nuevo»: no crea un producto llamado «Merma»", async () => {
     const jev = new FakeJev([route("merma"), route("nuevo_producto")]);
     const { agent } = makeAgent(jev);
-    const local = find(await run(agent, chat("registrar merma")), "clarify")!;
-    expect(local.field).toBe("local");
-    const product = find(await run(agent, chat("Parador", { clarification: { clarifyId: local.clarifyId, optionId: "Parador" } })), "clarify")!;
-    expect(product.question).toBe("¿Qué producto y qué cantidad?");
+    // Faltan local, producto y cantidad: el miniformulario de merma.
+    expect(find(await run(agent, chat("registrar merma")), "form")!.accion).toBe("merma");
 
     // Cambia de operación a mitad: es una orden nueva, no un dato para la merma.
-    const events = await run(agent, chat("crear producto nuevo", { clarification: { clarifyId: product.clarifyId, optionId: "otra", freeText: "crear producto nuevo" } }));
+    const events = await run(agent, chat("crear producto nuevo"));
     const ask = find(events, "clarify")!;
     expect(ask.question).toContain("¿Cómo se llama el producto nuevo?");
     // Jev recibe solo la orden nueva (la merma queda como contexto de la conversación, no como parte de ella).
@@ -65,8 +63,9 @@ describe("opinión 2026-10-15 (Luis): alta de producto y cambio de operación", 
     const jev = new FakeJev([LOST]);
     const { agent } = makeAgent(jev);
     const events = await run(agent, chat("merma"));
-    const ask = find(events, "clarify");
-    expect(ask?.field).toBe("local");
+    // Faltan local, producto y cantidad: se piden juntos.
+    const form = find(events, "form");
+    expect(form?.fields.map((f) => f.key)).toEqual(["local", "producto", "cantidad", "motivo"]);
     expect(find(events, "decision")!.intent.value).toBe("proponer_accion");
   });
 
