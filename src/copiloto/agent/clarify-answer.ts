@@ -3,6 +3,7 @@
 import type { ChatRequest } from "../contract/index";
 import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
+import { isGenericName } from "../entities/catalog-parser";
 import type { Retriever } from "../entities/retriever";
 import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, readFreeText, type FreeTextAnswer } from "./free-text";
 import type { ClarifyPlan, Plan } from "./plans";
@@ -86,7 +87,7 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       overrides = { ...pending.overrides, precio: price };
       answers = answered(text);
       reuse = pending.routing;
-    } else if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text)) {
+    } else if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text) && !isGenericName(text)) {
       // «¿Cómo se llama el producto nuevo?» → «Prueba Luis»: es el nombre, se sigue con la misma orden.
       const { sentido: _sentido, ...rest } = pending.overrides;
       void _sentido;

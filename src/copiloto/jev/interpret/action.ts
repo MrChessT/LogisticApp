@@ -10,6 +10,7 @@ import { CATALOG_ACCIONES, DOCUMENT_ACCIONES, type CatalogAccion, type DocumentA
 import { locationLabel, type JevReading } from "./reading";
 import { catalogAction, documentAction } from "./documents";
 import { resolveProducts } from "./products";
+import { hasNewProductTrigger } from "../../entities/catalog-parser";
 
 /** ¿Jev está seguro de una operación concreta (no «ninguna»)? Nunca para cerrar inventario. */
 export function actionCorroborates(r: JevReading): boolean {
@@ -63,6 +64,11 @@ export function action(r: JevReading): Plan {
     if (decision && chosen) Object.assign(decision, { value: chosen, valueLabel: label(chosen), gate: "actuar" });
   }
   if (!chosen) {
+    return r.clarify("tipo_accion", "¿Qué operación quieres registrar?", g?.ranked ?? [], ["ninguna"]);
+  }
+  // Un alta de producto exige que la frase la diga («crea…», «da de alta…»). Si Jev la propone sin esas
+  // palabras («Preparar una operación»), es una petición genérica: se pregunta la operación.
+  if (chosen === "nuevo_producto" && !hasNewProductTrigger(r.meta.message ?? "")) {
     return r.clarify("tipo_accion", "¿Qué operación quieres registrar?", g?.ranked ?? [], ["ninguna"]);
   }
   if ((CATALOG_ACCIONES as readonly string[]).includes(chosen)) return catalogAction(r, chosen as CatalogAccion);

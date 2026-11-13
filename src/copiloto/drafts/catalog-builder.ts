@@ -19,6 +19,7 @@ import {
   asksHardDelete,
   containerFromText,
   extractNewProductName,
+  isGenericName,
   levelQuantity,
   mentionedPack,
   mentionedSupplier,
@@ -266,7 +267,7 @@ export class CatalogDraftBuilder {
   private async newProduct({ plan, message, ctx, overrides, now }: CatalogBuildInput): Promise<BuildResult> {
     // El nombre escrito al contestar «¿cómo se llama?» (o al corregirlo) manda sobre el del mensaje.
     const name = typedName(overrides.nombre) ?? extractNewProductName(message, ctx.suppliers, ctx.locations);
-    if (!name) {
+    if (!name || isGenericName(name)) {
       return { kind: "clarify", plan: { type: "clarify", field: "nombre", question: "¿Cómo se llama el producto nuevo? Escribe el nombre tal y como quieres verlo en el catálogo.", options: [] } };
     }
 

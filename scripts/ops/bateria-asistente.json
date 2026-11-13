@@ -134,6 +134,12 @@
     ]
   },
   {
+    "nombre": "Petición genérica no es alta de producto (reporte de opinión 13/11)",
+    "turnos": [
+      { "usuario": "Preparar una operación", "espera": "qué operación|Qué quieres hacer|operación", "no": "producto nuevo|Cómo se llama|créalo|Manualmente" }
+    ]
+  },
+  {
     "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro" },
