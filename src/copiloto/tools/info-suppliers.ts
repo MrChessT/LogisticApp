@@ -5,7 +5,7 @@ import type { AppRoute } from "../contract/index";
 import type { InfoResult, SupplierRaw } from "./info";
 
 /** Datos básicos que le faltan a un proveedor (lo que se pide para pedirle y pagarle). */
-export function supplierMissing(s: SupplierRaw): string[] {
+function supplierMissing(s: SupplierRaw): string[] {
   return [
     !s.contact && !s.phone && !s.email ? "contacto" : null,
     s.orderDays.length === 0 ? "días de pedido" : null,
