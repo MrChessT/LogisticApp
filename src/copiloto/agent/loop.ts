@@ -29,6 +29,7 @@ import { CANCEL_OPTION, operationOnly } from "./free-text";
 import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
 import { describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
+import { multiTaskTurn } from "./multi-task";
 import { runQuery } from "./run-query";
 import { tokenize } from "../entities/normalize";
 import { smallTalk } from "./topics";
@@ -123,6 +124,9 @@ export class Agent {
     deps.metrics.messages += 1;
 
     try {
+      // Varias órdenes de oficina en una frase: un borrador por orden, sin Jev (multi-task.ts).
+      if (!req.clarification && !req.form && !req.followUpId && (await multiTaskTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, builder: deps.builder, source: toolset.source, info: deps.info, retriever: deps.retriever, emit }))) return;
+
       let message = req.message;
       let page = req.page;
       let pageContext = req.pageContext;

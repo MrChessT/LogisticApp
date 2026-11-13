@@ -40,7 +40,9 @@ export async function supplierLink({ message, ctx, overrides, now, retriever }: 
   const phrase = tokenize(message).filter((w) => !NOT_PRODUCT.has(w) && !supplierWords.has(w)).join(" ");
   if (!phrase) return { kind: "error", message: `¿A qué producto asocio ${supplier.name}? Dime su nombre como sale en Productos.` };
   const picked = overrides.documento?.startsWith("producto:") ? ctx.products.find((p) => p.id === overrides.documento!.slice(9)) : undefined;
-  const products = picked ? [picked] : await productsNamed(phrase, ctx, retriever, 6);
+  // Un nombre dicho entero es ese producto, aunque otro se le parezca («Ron Barceló…» frente a «Ron Brugal…»).
+  const exact = ctx.products.filter((p) => tokenize(p.name).join(" ") === phrase);
+  const products = picked ? [picked] : exact.length > 0 ? exact : await productsNamed(phrase, ctx, retriever, 6);
   if (products.length === 0) return { kind: "error", message: `No encuentro «${phrase}» en el catálogo. Dímelo como sale en Productos.` };
   if (products.length > 1) {
     return {

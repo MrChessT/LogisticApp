@@ -67,6 +67,8 @@ src/copiloto/
    1. comandos `/…`;
    2. órdenes de oficina (pagar factura, apuntar y validar salidas, PVP, condiciones de proveedor,
       categoría, alérgenos y formatos de un producto, proveedor de un producto, crear una zona, crear un escandallo);
+      si el mensaje son varias de estas órdenes (separadas por «y», «;» o «además»), cada una da su borrador
+      (`multi-task.ts`); si una parte no es de oficina, el mensaje sigue el camino normal;
    3. respuestas escritas (temas que no lleva, pantallas, consumo, «sí» suelto, datos de ficha, última vez);
    4. temas de gestión dichos claramente y tareas;
    5. vía rápida de stock.

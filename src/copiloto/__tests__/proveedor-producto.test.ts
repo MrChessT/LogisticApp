@@ -49,3 +49,11 @@ describe("proveedor asociado con borrador y confirmación", () => {
     expect(find(events, "done")?.text).toContain("No encuentro");
   });
 });
+
+describe("el nombre exacto gana a los parecidos", () => {
+  it("«Ron Barceló Añejo 70 cl» es ese producto, no el Brugal parecido", async () => {
+    const setup = makeAgent(new FakeJev([{ coherencia: 0.95 }]));
+    const draft = find(await run(setup.agent, chat("el proveedor de Ron Barceló Añejo 70 cl es Makro")), "draft") as DocumentDraft;
+    expect(draft.supplier!.productName).toBe("Ron Barceló Añejo 70 cl");
+  });
+});

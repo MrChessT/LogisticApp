@@ -142,7 +142,14 @@
   {
     "nombre": "Proveedor asociado a un producto desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "el proveedor de Coca-Cola 20 cl es Makro", "espera": "Revísalo y confírmalo|No encuentro|¿A cuál|¿En qué formato" },
+      { "usuario": "el proveedor de Tónica Schweppes 20 cl es Bebidas Mar Menor", "espera": "Revísalo y confírmalo|ya es proveedor|No encuentro|¿A cuál|¿En qué formato" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
+    "nombre": "Varias órdenes en un mensaje: un borrador por orden (sin confirmar)",
+    "turnos": [
+      { "usuario": "asocia Bebidas Mar Menor a Tónica Schweppes 20 cl y pon el PVP de las croquetas a 9,50", "espera": "He preparado|No he podido|Revísalo y confírmalo|¿A cuál" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },

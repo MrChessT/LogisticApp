@@ -58,7 +58,8 @@ en [copiloto/JEV.md](copiloto/JEV.md)):
    (`clarify-answer.ts`) o mensaje nuevo.
 2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado, la IA lo
    reescribe como petición completa. Se descarta si inventa productos o locales.
-3. **Sin Jev** (`preroute.ts`, en orden): comandos `/…`, órdenes de oficina (`office-actions.ts`),
+3. **Sin Jev** (`preroute.ts`, en orden): comandos `/…`, órdenes de oficina (`office-actions.ts`; varias
+   órdenes en una frase, un borrador por orden, en `multi-task.ts`),
    respuestas ya escritas (`fixed-replies.ts`), temas de gestión claros (`tools/info.ts`) y vía rápida de
    stock (`fast-path.ts`).
 4. **Jev** (`jev/`): `request.ts` prepara la llamada, `catalog/` define las preguntas, `interpret/` aplica

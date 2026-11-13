@@ -188,10 +188,17 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
         } else if (event === "clarify") {
           setPendingClarify(data as ClarifyEvent);
           update(assistantId, () => ({ clarify: data as ClarifyEvent }));
-        } else if (event === "draft") update(assistantId, () => ({ draft: data as Draft }));
+        } else if (event === "draft") update(assistantId, (item) => (item.draft ? { moreDrafts: [...(item.moreDrafts ?? []), { draft: data as Draft }] } : { draft: data as Draft }));
         else if (event === "resolved") {
           const r = data as ResolvedEvent;
-          setItems((prev) => prev.map((item) => (item.role === "assistant" && item.draft?.draftId === r.draftId ? { ...item, resolved: r } : item)));
+          setItems((prev) =>
+            prev.map((item) => {
+              if (item.role !== "assistant") return item;
+              if (item.draft?.draftId === r.draftId) return { ...item, resolved: r };
+              if (item.moreDrafts?.some((m) => m.draft.draftId === r.draftId)) return { ...item, moreDrafts: item.moreDrafts.map((m) => (m.draft.draftId === r.draftId ? { ...m, resolved: r } : m)) };
+              return item;
+            }),
+          );
         } else if (event === "chart") update(assistantId, (item) => ({ charts: [...(item.charts ?? []), data as ChartSpec] }));
         else if (event === "table") update(assistantId, () => ({ table: data as TableEvent }));
         else if (event === "actions") update(assistantId, () => ({ actions: (data as ActionsEvent).actions }));
@@ -404,7 +411,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                     {item.decision && <Understood decision={item.decision} asking={!!item.clarify} />}
                     {item.pending && !item.text && <p className="copiloto-muted"><Loader2 size={14} className="copiloto-spin" /> Pensando…</p>}
                     {/* Con borrador, la tarjeta ya lo dice todo: sin texto que la repita. */}
-                    {item.text && !(item.draft && !item.error) && <AssistantText text={item.text} />}
+                    {item.text && !(item.draft && !item.error && !item.moreDrafts?.length) && <AssistantText text={item.text} />}
                     {item.error && <p className="copiloto-error"><AlertTriangle size={14} /> {item.error}</p>}
                     {item.clarify && item.clarify.options.length > 0 && (
                       <div className="copiloto-options">
@@ -448,6 +455,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                       />
                     )}
                     {item.draft && <DraftCard draft={item.draft} resolved={item.resolved} />}
+                    {item.moreDrafts?.map((m) => <DraftCard key={m.draft.draftId} draft={m.draft} resolved={m.resolved} />)}
                     {item.actions && item.actions.length > 0 && (
                       <div className="copiloto-actions">
                         {item.actions.map((a) => (
