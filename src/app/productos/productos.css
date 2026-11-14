@@ -21,4 +21,3 @@
   .catalog-row > .inactive-status { grid-column: 1 / -1; }
 }
 .catalog-family { font-weight: 700; color: var(--ink); }
-.facet-bold .facet-option:not(.facet-child) span { font-weight: 700; color: var(--ink); }
