@@ -87,8 +87,28 @@ del Drive «FACTURAS EJEMPLO»:
 No se copian al repositorio documentos reales de ningún proveedor ni de ningún negocio. Para añadir un caso,
 se escribe un documento inventado con la misma maquetación y se fija lo que debe salir.
 
+## Factura desde foto (OCR)
+
+Las cajas de texto que devuelve el OCR del navegador (`albaran-ocr.ts`) se agrupan en renglones con
+`filasDeOcr` (`src/lib/documento-filas.ts`): dos cajas van en la misma fila si su centro vertical está a menos de
+media altura de letra, y dentro de la fila van de izquierda a derecha. Ese texto pasa por `readDocumentText`, la
+misma lectura que la de texto, así que las reglas de arriba se aplican igual.
+
+Resultado con los tres ejemplos de factura del Drive «FACTURAS EJEMPLO» (medido en la lectura real del OCR):
+
+- **Modelo de factura** (750 px): completa. Número, fecha, vencimiento, tres líneas, subtotal, IVA y total; cuadra.
+- **Duplicada de la factura modelo** (750 px): sale **sin líneas**. El OCR no detecta las cantidades 1, 2 y 3, y
+  el número «Factura ES-001» va escrito en vertical y no se lee. Es lo correcto: no se inventa nada.
+- **Factura de plantilla con cabecera gráfica** (`images.png`, 465 px): el OCR lee mal la tabla. Ampliarla 3× no
+  lo arregla: sale más texto, pero con menos confianza y las filas siguen rotas. No se amplía en producción.
+
+Por eso una foto de factura sale **revisar** o **sin líneas** cuando el OCR no la lee bien, y la persona la
+corrige antes de guardar nada.
+
 ## Límites conocidos
 
+- Una factura cuyas cantidades el OCR no detecta, o con el número en vertical, no se puede leer desde la foto.
+- Una etiqueta partida en dos renglones («Fecha» / «vencimiento») no da la fecha de vencimiento: no se adivina.
 - Una tabla cuyas filas no llegan como renglones (solo como trozos sueltos) no se puede leer como texto: hay
   que leerla por geometría (foto con OCR) o revisarla a mano. Es el caso de la factura de «images.png».
 - El reparto del IVA por tipo sin importe base se comprueba solo cuando hay un único tipo.
