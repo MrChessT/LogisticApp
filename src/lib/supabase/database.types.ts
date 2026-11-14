@@ -296,6 +296,18 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      invoice_lines: {
+        Row: {
+          id: string; invoice_id: string; position: number; ref: string | null; description: string; qty: number; unit: string | null;
+          price: number; discount_pct: number | null; vat_pct: number | null; amount: number;
+        };
+        // Solo por save_invoice (p_lines): ni altas ni cambios directos.
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [
+          { foreignKeyName: "invoice_lines_invoice_id_fkey"; columns: ["invoice_id"]; isOneToOne: false; referencedRelation: "invoices"; referencedColumns: ["id"] },
+        ];
+      };
       invoice_receipts: {
         Row: { invoice_id: string; receipt_id: string };
         Insert: Record<string, never>;
@@ -888,7 +900,7 @@ export type Database = {
       save_invoice: {
         Args: {
           p_id: string | null; p_org: string; p_supplier: string; p_number: string; p_date: string; p_due: string | null;
-          p_subtotal: number; p_vat: number; p_total: number; p_notes: string | null; p_receipts: string[];
+          p_subtotal: number; p_vat: number; p_total: number; p_notes: string | null; p_receipts: string[]; p_lines?: Json | null;
         };
         Returns: string;
       };

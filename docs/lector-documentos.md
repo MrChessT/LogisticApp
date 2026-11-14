@@ -6,7 +6,7 @@ Cómo se leen los documentos de compra y qué comprueba cada lectura. Hay dos ca
 |---|---|---|---|
 | **Foto** (Nueva recepción) | Imagen → OCR en el navegador → cajas de texto | `src/lib/albaran-reader.ts` (geometría) | En producción |
 | **Texto** (PDF, texto copiado, OCR ya ordenado en filas) | Texto por líneas | `src/lib/documento-texto.ts` | Módulo y pruebas; sin integrar |
-| **Factura desde foto** (Nueva factura) | Imagen → OCR → renglones → texto | `src/lib/documento-foto.ts`, `documento-filas.ts` | En Nueva factura, sin guardar |
+| **Factura desde foto** (Nueva factura) | Imagen → OCR → renglones → texto | `src/lib/documento-foto.ts`, `documento-filas.ts` | En Nueva factura; se guarda al registrar |
 
 Un documento leído nunca se guarda sin que la persona lo confirme. Si algo no cuadra, la lectura sale como
 **revisar** con el motivo, no se corrige en silencio.
@@ -97,6 +97,13 @@ así salen sus albaranes sin facturar y el cuadre entre base y albaranes se ve a
 vencimiento no se lee (no hace falta por ahora): se sigue calculando con las condiciones de pago del proveedor.
 Si la lectura no cuadra o no tiene líneas, el aviso dice el motivo y el importe que falte se deja vacío.
 
+**Líneas guardadas.** Al registrar una factura nueva, sus líneas leídas se guardan en `invoice_lines` (migración
+0050), ligadas a la factura: referencia, descripción, cantidad, unidad, precio, descuento, IVA e importe. Las
+escribe solo `save_invoice` (parámetro `p_lines`), en la misma transacción que la cabecera. Cada línea cumple
+cantidad × precio × (1 − descuento) = importe, con la misma tolerancia que el lector; si no, la base de datos no la
+guarda. Al editar una factura, sus líneas se muestran y no cambian (`p_lines` no llega). La persona las ve en la
+tabla «Líneas de la factura».
+
 Las cajas de texto que devuelve el OCR del navegador (`albaran-ocr.ts`) se agrupan en renglones con
 `filasDeOcr` (`src/lib/documento-filas.ts`): dos cajas van en la misma fila si su centro vertical está a menos de
 media altura de letra, y dentro de la fila van de izquierda a derecha. Ese texto pasa por `readDocumentText`, la
@@ -126,6 +133,6 @@ corrige antes de guardar nada.
 1. Integrar el lector de texto en la lectura de PDF y de texto copiado.
 2. Hecho: factura desde foto en Nueva factura, sin guardar, con proveedor sugerido y cuadre con sus albaranes.
    Falta: marcar los albaranes automáticamente cuando la suma cuadra, y guardar las líneas (fase 3).
-3. Guardar la cabecera y las líneas leídas para que el asistente responda qué albaranes hay, con qué productos y
-   cuánto.
+3. Hecho: las líneas de la factura se guardan en `invoice_lines` (migración 0050). Falta que el asistente
+   responda con ellas: qué albaranes hay, con qué productos y cuánto.
 4. Mostrar en el chat la foto del albarán o de la factura guardada.

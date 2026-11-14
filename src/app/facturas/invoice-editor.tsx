@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
 import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
 import { camposDeFactura, readDocumentPhoto } from "@/lib/documento-foto";
+import { InvoiceLinesTable, type LineaFactura } from "./invoice-lines";
 import { guessSupplier } from "@/lib/albaran-ocr";
 
 // Alta y edición de una factura de proveedor: datos, albaranes que cubre (con el cuadre en vivo), archivo
@@ -55,8 +56,32 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [lines, setLines] = useState<LineaFactura[]>([]);
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Líneas guardadas de la factura (solo para verlas).
+  useEffect(() => {
+    if (!invoice) return;
+    let cancelled = false;
+    void (async () => {
+      const supabase = createClient();
+      if (!supabase) return;
+      const { data } = await supabase
+        .from("invoice_lines")
+        .select("ref, description, qty, unit, price, discount_pct, vat_pct, amount")
+        .eq("invoice_id", invoice.id)
+        .order("position");
+      if (cancelled) return;
+      setLines((data ?? []).map((l) => ({
+        ref: l.ref, description: l.description, qty: String(l.qty), unit: l.unit, price: String(l.price),
+        discountPct: l.discount_pct === null ? null : String(l.discount_pct), vatPct: l.vat_pct === null ? null : String(l.vat_pct), amount: String(l.amount),
+      })));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invoice]);
 
   // Albaranes ya enlazados (si se edita) + los libres del proveedor.
   useEffect(() => {
@@ -138,6 +163,7 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
       if (c.subtotal) setSubtotal(c.subtotal);
       if (c.vat) setVat(c.vat);
       if (c.total) setTotal(c.total);
+      setLines(leida.lines);
       setFile(photo);
       setReadNote(c.aviso);
     } catch (e) {
@@ -164,10 +190,16 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     const { data: id, error: err } = await supabase.rpc("save_invoice", {
       p_id: invoice?.id ?? null, p_org: orgId, p_supplier: supplierId, p_number: number.trim(), p_date: date, p_due: due || null,
       p_subtotal: b, p_vat: v, p_total: t, p_notes: notes.trim() || null, p_receipts: chosen.map((r) => r.id),
+      // Solo una factura nueva lleva líneas nuevas; en una edición las que hay se conservan.
+      p_lines: !invoice && lines.length ? lines.map((l, i) => ({
+        position: i + 1, ref: l.ref, description: l.description.trim() || "Sin descripción", qty: l.qty, unit: l.unit,
+        price: l.price, discount_pct: l.discountPct, vat_pct: l.vatPct, amount: l.amount,
+      })) : null,
     });
     if (err || !id) {
       setSaving(false);
       if (err?.code === "23505") return setError("Ese número de factura ya está registrado para este proveedor.");
+      if (err?.code === "23514") return setError("Una línea no cuadra (cantidad × precio ≠ importe). Vuelve a leer la foto o corrígela.");
       if (err?.message.includes("invalid_receipts")) return setError("Algún albarán ya está en otra factura o no es de este proveedor. Recarga y vuelve a probar.");
       if (err?.code === "42501") return setError("No tienes permiso para registrar facturas.");
       return setError("No se pudo guardar la factura.");
@@ -252,6 +284,8 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
             </label>
             <label>Total<input value={total} inputMode="decimal" onChange={(e) => setTotal(e.target.value)} placeholder="0,00" /></label>
           </div>
+
+          <InvoiceLinesTable lines={lines} />
 
           <div className="editor-section">
             <p className="facet-title">Albaranes que cubre</p>
