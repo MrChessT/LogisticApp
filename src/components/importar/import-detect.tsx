@@ -4,7 +4,7 @@
 // se enseña antes de tocar nada. Aún no se guarda nada: es el primer paso del flujo de importación.
 import { useState } from "react";
 import { FileSpreadsheet, Loader2, TriangleAlert } from "lucide-react";
-import { classifyCsv, classifySheets, type ClassifiedSheet, type ImportKind } from "@/lib/import-classify";
+import { buildImportPackage, classifyCsv, classifySheets, type ClassifiedSheet, type ImportKind } from "@/lib/import-classify";
 import { readXlsx } from "@/lib/xlsx";
 
 const KIND_LABEL: Record<ImportKind, string> = { catalogo: "Catálogo", escandallos: "Escandallos", ventas: "Ventas del TPV", desconocido: "¿Qué es?" };
@@ -61,6 +61,16 @@ export function ImportDetect() {
           </ul>
         </div>
       ))}
+      {items.length > 0 && (() => {
+        const pack = buildImportPackage(items.filter((i) => !i.error));
+        const parts = (Object.keys(KIND_LABEL) as ImportKind[]).filter((k) => pack.counts[k] > 0).map((k) => `${pack.counts[k]} ${KIND_LABEL[k].toLowerCase()}`);
+        return (
+          <p className="import-package" role="status">
+            Paquete: {parts.length ? parts.join(" · ") : "nada reconocido"}.
+            {pack.questions.length > 0 && <> Antes de guardar, hay que decir qué es: {pack.questions.map((q) => `«${q.sheet}» (${q.file})`).join(", ")}.</>}
+          </p>
+        );
+      })()}
     </section>
   );
 }

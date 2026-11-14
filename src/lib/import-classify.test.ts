@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyCsv, classifySheets } from "./import-classify";
+import { buildImportPackage, classifyCsv, classifySheets } from "./import-classify";
 
 const SALES = [
   ["Ventas del día"],
@@ -41,5 +41,16 @@ describe("clasificar un CSV", () => {
   it("un CSV de ventas se reconoce igual que una hoja", () => {
     const csv = "Código;Descripción;Cantidad;Unidad;Importe\n101;Croquetas;3;ud;27,00\n";
     expect(classifyCsv("ventas-noviembre.csv", csv)).toMatchObject({ sheet: "ventas-noviembre", kind: "ventas" });
+  });
+});
+
+describe("paquete de importación", () => {
+  it("cuenta cada tipo y pregunta lo que no se reconoce", () => {
+    const pack = buildImportPackage([
+      { file: "ventas.csv", sheets: [classifyCsv("ventas.csv", "Código;Descripción;Cantidad;Unidad;Importe\n101;Croquetas;3;ud;27,00\n")] },
+      { file: "libro.xlsx", sheets: classifySheets({ Proveedores: [["Nombre"], ["Makro"]], Varios: [["Foo"], ["1"]] }) },
+    ]);
+    expect(pack.counts).toEqual({ catalogo: 1, escandallos: 0, ventas: 1, desconocido: 1 });
+    expect(pack.questions).toEqual([{ sheet: "Varios", file: "libro.xlsx" }]);
   });
 });

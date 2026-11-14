@@ -43,3 +43,23 @@ function classifyRows(sheet: string, rows: string[][]): ClassifiedSheet {
   }
   return { sheet, kind: "desconocido", rows: rows.length, reason: "No reconozco sus columnas: hay que decir qué es." };
 }
+
+export interface ImportPackage {
+  /** Cuántas hojas o CSV hay de cada tipo. */
+  counts: Record<ImportKind, number>;
+  /** Lo que el asistente tiene que preguntar antes de guardar: cada hoja que no se reconoce. */
+  questions: Array<{ sheet: string; file: string }>;
+}
+
+/** Resumen del paquete de importación a partir de los archivos clasificados (archivo → hojas). */
+export function buildImportPackage(files: Array<{ file: string; sheets: ClassifiedSheet[] }>): ImportPackage {
+  const counts: Record<ImportKind, number> = { catalogo: 0, escandallos: 0, ventas: 0, desconocido: 0 };
+  const questions: ImportPackage["questions"] = [];
+  for (const { file, sheets } of files) {
+    for (const s of sheets) {
+      counts[s.kind] += 1;
+      if (s.kind === "desconocido") questions.push({ sheet: s.sheet, file });
+    }
+  }
+  return { counts, questions };
+}
