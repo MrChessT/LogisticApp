@@ -778,6 +778,7 @@ export type Database = {
       receive_transfer: { Args: { p_transfer: string; p_lines?: Json }; Returns: undefined };
       cancel_transfer: { Args: { p_transfer: string }; Returns: undefined };
       reorganiza_familias_productos: { Args: { p_org: string }; Returns: undefined };
+      reorganiza_familias_productos_v2: { Args: { p_org: string }; Returns: undefined };
       cuentas_minusculas: { Args: { p_org: string }; Returns: undefined };
       renombra_comida_antigua: { Args: { p_org: string }; Returns: undefined };
       taxonomia_cuentas: { Args: { p_org: string }; Returns: undefined };
