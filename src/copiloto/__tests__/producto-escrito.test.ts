@@ -16,3 +16,20 @@ describe("respuesta escrita a «¿qué producto?»", () => {
     expect((find(events, "draft") as { title: string } | undefined)?.title).toBe("Archivar Coca-Cola 20 cl");
   });
 });
+
+describe("varios productos encajan con lo escrito", () => {
+  const archive2: Script = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "archivar_producto" };
+
+  it("se pregunta cuál, y la elección lleva al borrador de ese producto", async () => {
+    const setup = makeAgent(new FakeJev([archive2, archive2, archive2]));
+    const ask = find(await run(setup.agent, chat("quiero archivar un producto")), "clarify")!;
+    const choose = await run(setup.agent, chat("Ron Añejo 70 cl", { clarification: { clarifyId: ask.clarifyId, optionId: "otra", freeText: "Ron Añejo 70 cl", field: ask.field } }));
+    const again = find(choose, "clarify");
+    expect(again?.field).toBe("producto");
+    expect(again?.options.map((o) => o.label)).toEqual(expect.arrayContaining(["Ron Barceló Añejo 70 cl", "Ron Brugal Añejo 70 cl"]));
+    const brugal = again!.options.find((o) => o.label === "Ron Brugal Añejo 70 cl")!;
+    const done = await run(setup.agent, chat("Ron Brugal Añejo 70 cl", { clarification: { clarifyId: again!.clarifyId, optionId: brugal.id, freeText: undefined, field: "producto" } }));
+    expect(find(done, "clarify")).toBeUndefined();
+    expect((find(done, "draft") as { title: string } | undefined)?.title).toBe("Archivar Ron Brugal Añejo 70 cl");
+  });
+});

@@ -95,7 +95,7 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       message = pending.message;
       page = pending.page;
       pageContext = pending.pageContext;
-      overrides = found.length === 1 ? { ...pending.overrides, producto_elegido: found[0]!.id } : { ...pending.overrides, producto_nombre: text };
+      overrides = found.length === 1 ? { ...pending.overrides, producto_elegido: found[0]!.id } : found.length > 1 ? { ...pending.overrides, producto_opciones: found.map((p) => p.id).join(",") } : { ...pending.overrides, producto_nombre: text };
       answers = answered(text);
       reuse = pending.routing;
     } else if (option === null && !typed && NAME_FIELDS.has(pending.field) && pending.routing && !changes && !isNewQuestion(text) && !isGenericName(text)) {
@@ -107,6 +107,14 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       pageContext = pending.pageContext;
       overrides = { ...rest, nombre: text };
       answers = answered(text);
+      reuse = pending.routing;
+    } else if (option !== null && pending.field === "producto" && pending.routing && ctx.products.some((p) => p.id === option)) {
+      // Entre varios productos que encajaban, el elegido: es la decisión del usuario (sin Jev).
+      message = pending.message;
+      page = pending.page;
+      pageContext = pending.pageContext;
+      overrides = { ...fieldOverrides(pending.overrides), producto_elegido: option };
+      answers = answered(pending.optionLabels?.[pending.optionIds.indexOf(option)] ?? text);
       reuse = pending.routing;
     } else if (option !== null && pending.fromShortcut && pending.field === "documento" && officeAction(pending.message, ctx, pending.pageContext?.locationId)) {
       // «¿Qué factura marco como pagada?» → la elegida: misma orden de oficina con ese documento.
