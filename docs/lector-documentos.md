@@ -91,7 +91,8 @@ se escribe un documento inventado con la misma maquetación y se fija lo que deb
 ## Factura desde foto (OCR)
 
 En **Facturas → Nueva factura** hay un botón «Leer foto de la factura». Rellena número, fecha, base (subtotal),
-IVA (suma de sus tipos) y total, y adjunta la foto. No guarda nada: la persona revisa los campos y pulsa
+IVA (suma de sus tipos) y total, y adjunta la foto. Si el nombre de un proveedor aparece en la factura, lo elige:
+así salen sus albaranes sin facturar y el cuadre entre base y albaranes se ve al momento. No guarda nada: la persona revisa los campos y pulsa
 «Registrar factura». Solo se ofrece en facturas nuevas, para no sobrescribir una factura ya registrada. El
 vencimiento no se lee (no hace falta por ahora): se sigue calculando con las condiciones de pago del proveedor.
 Si la lectura no cuadra o no tiene líneas, el aviso dice el motivo y el importe que falte se deja vacío.
@@ -123,8 +124,8 @@ corrige antes de guardar nada.
 ## Pendiente (fases siguientes)
 
 1. Integrar el lector de texto en la lectura de PDF y de texto copiado.
-2. Hecho: factura desde foto en Nueva factura, sin guardar. Falta comprobarla contra los albaranes asociados
-   (el cuadre de albaranes ya existe en el editor; falta que la lectura lo alimente sin escribir a mano).
+2. Hecho: factura desde foto en Nueva factura, sin guardar, con proveedor sugerido y cuadre con sus albaranes.
+   Falta: marcar los albaranes automáticamente cuando la suma cuadra, y guardar las líneas (fase 3).
 3. Guardar la cabecera y las líneas leídas para que el asistente responda qué albaranes hay, con qué productos y
    cuánto.
 4. Mostrar en el chat la foto del albarán o de la factura guardada.

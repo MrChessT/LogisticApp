@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { ocrTextos } from "@/lib/albaran-ocr";
+import type { OcrText } from "@/lib/albaran-reader";
 import { filasDeOcr } from "@/lib/documento-filas";
 import { readDocumentText, type DocRead } from "@/lib/documento-texto";
 
@@ -37,7 +38,11 @@ export function camposDeFactura(r: DocRead): CamposLeidos {
   };
 }
 
-/** Lee una foto de factura o de albarán: el OCR del navegador (la foto no sale del dispositivo), renglones y el mismo lector que el texto. No guarda nada. */
-export async function readDocumentPhoto(file: Blob): Promise<DocRead> {
-  return readDocumentText(filasDeOcr(await ocrTextos(file)));
+/**
+ * Lee una foto de factura o de albarán: el OCR del navegador (la foto no sale del dispositivo), renglones y el
+ * mismo lector que el texto. Devuelve también el texto del OCR, para buscar el proveedor. No guarda nada.
+ */
+export async function readDocumentPhoto(file: Blob): Promise<DocRead & { texts: OcrText[] }> {
+  const texts = await ocrTextos(file);
+  return { ...readDocumentText(filasDeOcr(texts)), texts };
 }

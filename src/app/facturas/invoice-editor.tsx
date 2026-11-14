@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
 import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
 import { camposDeFactura, readDocumentPhoto } from "@/lib/documento-foto";
+import { guessSupplier } from "@/lib/albaran-ocr";
 
 // Alta y edición de una factura de proveedor: datos, albaranes que cubre (con el cuadre en vivo), archivo
 // y pago. La base de datos valida (save_invoice): base + IVA = total, albaranes del proveedor y libres.
@@ -127,7 +128,11 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     setReading(true);
     setReadNote(null);
     try {
-      const c = camposDeFactura(await readDocumentPhoto(photo));
+      const leida = await readDocumentPhoto(photo);
+      const c = camposDeFactura(leida);
+      // El proveedor sale de su nombre en la factura: así aparecen sus albaranes sin facturar para el cuadre.
+      const proveedor = supplierId ? null : guessSupplier(leida.texts, suppliers);
+      if (proveedor) pickSupplier(proveedor.id);
       if (c.number) setNumber(c.number);
       if (c.date) changeDate(c.date);
       if (c.subtotal) setSubtotal(c.subtotal);
