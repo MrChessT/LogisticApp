@@ -24,8 +24,7 @@ export interface ReportInput {
 /** Lo que significa cada cifra, solo para las vistas que aparecen en el informe. */
 const NOTES: Partial<Record<AnalyticsView, string>> = {
   compras: "Compras: importe de los albaranes cerrados (cantidad × precio de cada formato). Departamento: primer nivel de la categoría del catálogo; familia: la categoría completa.",
-  cuentas: "Variación de stock = compras − salidas. Las salidas son consumo, pérdidas, invitaciones y consumo del personal. Las pérdidas se miden sobre lo consumido.",
-  consumo: "Consumo: todas las salidas que consumen stock (consumo, mermas, invitaciones y ajustes negativos). Cuentas las separa.",
+  consumo: "Consumo: todas las salidas que consumen stock (consumo, mermas, invitaciones y ajustes negativos).",
   mermas: "Pérdidas: mermas con motivo de pérdida. Invitaciones y consumo del personal se muestran aparte.",
 };
 

@@ -21,7 +21,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Escandallos | sí (coste, food cost, margen, alérgenos) | crear un plato o una elaboración con sus ingredientes; PVP de un plato | «crea el escandallo de croquetas con PVP 9,50» · «pon el PVP de las croquetas a 10 €» |
 | Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | — | «¿cuánto vendimos este mes?» |
 | Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada; registrar una factura desde su PDF arrastrado (abre Nueva factura con el PDF) | «marca como pagada la factura de Makro» |
-| Informes | sí (las mismas cifras, resumidas; también la vista Cuentas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
+| Informes | sí (las mismas cifras, resumidas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
 | Equipo | sí (quién, puesto, locales) | no: invitar y cambiar permisos solo en la pantalla, a propósito | «dame los nombres del personal» |
 | Zonas | sí (zonas de cada local, qué hay en cada una) | crear una zona (almacén o servicio) | «crea la zona Terraza en el Vivero» |
 | Importar | — | enlace (arrastrar un Excel o CSV al chat dice dónde va) | — |

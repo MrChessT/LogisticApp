@@ -10,7 +10,6 @@ import "./informes.css";
 const VIEWS: Array<{ id: AnalyticsView; label: string }> = [
   { id: "resumen", label: "Resumen" },
   { id: "compras", label: "Compras" },
-  { id: "cuentas", label: "Cuentas" },
   { id: "consumo", label: "Consumo" },
   { id: "mermas", label: "Mermas" },
   { id: "stock", label: "Stock" },
@@ -66,37 +65,41 @@ export default function InformesPage() {
   const [error, setError] = useState("");
   // Resumen redactado (llega después de las cifras; si no hay ayudante o no es fiable, no se muestra).
   const [summary, setSummary] = useState<{ state: "cargando" | "listo"; text: string | null }>({ state: "listo", text: null });
-  const request = useRef(0);
+  // Cada cambio de filtro cancela la petición anterior: no se calcula ni se pinta algo que ya no se ve.
+  const inFlight = useRef<AbortController | null>(null);
 
-  async function loadSummary(params: URLSearchParams, id: number) {
+  async function loadSummary(params: URLSearchParams, signal: AbortSignal) {
     setSummary({ state: "cargando", text: null });
     try {
-      const res = await fetch(`/api/copiloto/analytics/resumen?${params.toString()}`);
+      const res = await fetch(`/api/copiloto/analytics/resumen?${params.toString()}`, { signal });
       const body = (await res.json()) as { text?: string | null };
-      if (request.current === id) setSummary({ state: "listo", text: res.ok ? (body.text ?? null) : null });
+      if (!signal.aborted) setSummary({ state: "listo", text: res.ok ? (body.text ?? null) : null });
     } catch {
-      if (request.current === id) setSummary({ state: "listo", text: null });
+      if (!signal.aborted) setSummary({ state: "listo", text: null });
     }
   }
 
   async function load(next: Filters) {
-    const id = ++request.current;
+    inFlight.current?.abort();
+    const controller = new AbortController();
+    inFlight.current = controller;
+    const { signal } = controller;
     setLoading(true);
     setError("");
     setSummary({ state: "listo", text: null });
     const params = reportParams(next);
     window.history.replaceState(null, "", `/informes?${params.toString()}`);
     try {
-      const res = await fetch(`/api/copiloto/analytics?${params.toString()}`);
+      const res = await fetch(`/api/copiloto/analytics?${params.toString()}`, { signal });
       const body = (await res.json()) as AnalyticsResponse & { message?: string };
       if (!res.ok) throw new Error(body.message ?? "No se pudieron cargar los informes.");
-      if (request.current !== id) return;
       setData(body);
-      if (body.kpis.length > 0 || body.charts.length > 0) void loadSummary(params, id);
+      if (body.kpis.length > 0 || body.charts.length > 0) void loadSummary(params, signal);
     } catch (err) {
+      if (signal.aborted) return;
       setError(err instanceof Error ? err.message : "No se pudieron cargar los informes.");
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }
 
@@ -203,7 +206,6 @@ export default function InformesPage() {
               <Sparkles size={16} aria-hidden />
               <div>
                 <p>{summary.text ?? "Redactando el resumen…"}</p>
-                {summary.text && <small>Resumen a partir de estas cifras; cada número está comprobado.</small>}
               </div>
             </section>
           )}
