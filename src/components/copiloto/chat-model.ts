@@ -29,7 +29,7 @@ export type Item =
       actions?: ActionsEvent["actions"];
       error?: string;
       /** Foto de un albarán leída en el chat: se revisa y registra en Nueva recepción. */
-      photo?: { file: File; read: boolean };
+      photo?: { file: File; read: boolean; result?: unknown };
       /** PDF arrastrado al chat: se registra como factura en Facturas, con el PDF ya adjunto. */
       invoiceFile?: File;
       /** Guía de /ayuda. */

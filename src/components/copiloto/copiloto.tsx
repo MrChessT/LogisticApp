@@ -124,7 +124,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
     update(assistantId, () => ({ text: "Leyendo la foto… (la primera vez tarda un poco más)" }));
     try {
       const summary = await summarizeAlbaranPhoto(file);
-      update(assistantId, () => ({ pending: false, text: summary.text, photo: { file, read: summary.read } }));
+      update(assistantId, () => ({ pending: false, text: summary.text, photo: { file, read: summary.read, result: summary.result } }));
     } catch (err) {
       // Los fallos del navegador al abrir la imagen llegan en inglés («could not be decoded»): se dice en claro.
       const decode = err instanceof Error && /decod|load|image|canvas/i.test(err.message);
@@ -144,9 +144,9 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const drop = useFileDrop(handleFile, !busy);
 
   /** El panel se cierra para dejar a la vista la pantalla (la conversación sigue al volver a abrirlo). */
-  function openFileIn(target: "recepcion" | "factura", file: File) {
+  function openFileIn(target: "recepcion" | "factura", file: File, read?: unknown) {
     setOpen(false);
-    setPendingFile(target, file);
+    setPendingFile(target, file, read);
     const route = target === "recepcion" ? "/recepciones" : "/facturas";
     if (currentRoute(pathname) !== route) router.push(route);
   }
@@ -467,7 +467,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                     )}
                     {item.photo && (
                       <div className="copiloto-actions">
-                        <button type="button" onClick={() => item.photo && openFileIn("recepcion", item.photo.file)}>
+                        <button type="button" onClick={() => item.photo && openFileIn("recepcion", item.photo.file, item.photo.result)}>
                           {item.photo.read ? "Revisar y registrar la recepción" : "Registrar en Recepciones"}
                         </button>
                       </div>
