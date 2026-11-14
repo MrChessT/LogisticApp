@@ -15,6 +15,7 @@ import type {
   OpenCountRaw,
   OpenOrderRaw,
   OrderRaw,
+  PurchaseLineRaw,
   PurchaseRaw,
   PriceRaw,
   SupplierPriceRaw,
@@ -274,6 +275,32 @@ export class SupabaseDataSource implements InventoryDataSource {
       docDate: String(r.doc_date),
       total: ((r.lines as Row[] | null) ?? []).reduce((acc, l) => acc.plus(new Decimal(str(l.packs_qty)).mul(str(l.pack_price))), new Decimal(0)).toString(),
     }));
+  }
+
+  async purchaseLines(filter: { locationIds: string[]; since: string }): Promise<PurchaseLineRaw[]> {
+    if (filter.locationIds.length === 0) return [];
+    const rows = await readAll<Row>("las líneas de compra", (from, to) =>
+      this.db
+        .from("goods_receipts")
+        .select("id,location_id,doc_date,supplier:suppliers(name),lines:receipt_lines(packs_qty:packs_qty::text,pack_price:pack_price::text,pack:product_packs(product_id))")
+        .in("location_id", filter.locationIds)
+        .eq("status", "closed")
+        .gte("doc_date", filter.since)
+        .order("id")
+        .range(from, to),
+    );
+    return rows.flatMap((r) =>
+      ((r.lines as Row[] | null) ?? [])
+        .map((l) => ({
+          receiptId: String(r.id),
+          locationId: String(r.location_id),
+          supplierName: (r.supplier as { name?: string } | null)?.name ?? null,
+          docDate: String(r.doc_date),
+          productId: String((l.pack as { product_id?: string } | null)?.product_id ?? ""),
+          amount: new Decimal(str(l.packs_qty)).mul(str(l.pack_price)).toString(),
+        }))
+        .filter((l) => l.productId !== ""),
+    );
   }
 
   async countResults(filter: DataFilter & { since: string }): Promise<CountResultRaw[]> {

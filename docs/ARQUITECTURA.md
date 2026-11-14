@@ -21,7 +21,7 @@ src/
   components/
     copiloto/             Panel del asistente (ver «Panel del asistente»)
     operations/           Recepciones, traspasos, inventarios y mermas (una pantalla, cuatro modos)
-    shell/, ui/, charts/, product-picker/   Piezas comunes
+    shell/, ui/, charts/, product-picker/   Piezas comunes (charts/: paleta validada de la guía de dataviz)
   copiloto/             Motor del asistente. Solo servidor, sin React (ver «Asistente»)
   lib/                  Lógica compartida y pura: unidades, formatos, recetas, facturas, lector de
                         albaranes, clientes de Supabase, registro de errores

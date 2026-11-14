@@ -54,6 +54,17 @@ export interface OrderRaw {
 }
 
 /** Recepción contabilizada: lo que se gastó con un proveedor en una fecha. */
+/** Una línea de un albarán cerrado: el importe (cantidad × precio del formato) y el producto que compra. */
+export interface PurchaseLineRaw {
+  receiptId: string;
+  locationId: string;
+  supplierName: string | null;
+  /** YYYY-MM-DD. */
+  docDate: string;
+  productId: string;
+  amount: string;
+}
+
 export interface PurchaseRaw {
   receiptId: string;
   locationId: string;
@@ -117,6 +128,8 @@ export interface InventoryDataSource {
   orders(filter: { locationIds: string[]; statuses: OrderRaw["status"][] }): Promise<OrderRaw[]>;
   /** Recepciones cerradas desde `since` (YYYY-MM-DD, incluido). */
   purchases(filter: { locationIds: string[]; since: string }): Promise<PurchaseRaw[]>;
+  /** Líneas de esas mismas recepciones: para repartir las compras por departamento, familia y día. */
+  purchaseLines(filter: { locationIds: string[]; since: string }): Promise<PurchaseLineRaw[]>;
   /** Problemas del catálogo (sin local) y del stock de esos locales. */
   catalogHealth(filter: { locationIds: string[] }): Promise<HealthIssueRaw[]>;
 }

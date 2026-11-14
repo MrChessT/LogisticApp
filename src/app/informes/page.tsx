@@ -9,6 +9,7 @@ import "./informes.css";
 
 const VIEWS: Array<{ id: AnalyticsView; label: string }> = [
   { id: "resumen", label: "Resumen" },
+  { id: "compras", label: "Compras" },
   { id: "cuentas", label: "Cuentas" },
   { id: "consumo", label: "Consumo" },
   { id: "mermas", label: "Mermas" },

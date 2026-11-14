@@ -17,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
@@ -560,10 +561,10 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
             <div className="operation-row"><div className="operation-reference"><span className="operation-icon purple"><Icon size={16} /></span><strong>Sin resultados</strong></div><span>Todavía no hay registros.</span><span /><span /><span /></div>
           )}
           {!loading && !loadError && filteredRows.map((row) => (
-            <div className="operation-row" key={row.id}>
+            <div className={`operation-row${row.href ? " linked" : ""}`} key={row.id}>
               <div className="operation-reference">
                 <span className={`operation-icon ${row.statusColor}`}><Icon size={16} /></span>
-                <strong>{row.title}</strong>
+                <strong>{row.href ? <Link href={row.href}>{row.title}</Link> : row.title}</strong>
               </div>
               <span>{row.detail}</span>
               <span className={`operation-status ${row.statusColor}`}>{row.status}</span>
