@@ -10,6 +10,7 @@ import { addDays } from "../tools/periods";
 import { daysBetween, dayLabel, point, weekLabel } from "./points";
 import { comprasView } from "./compras";
 import { departmentChart } from "./departamentos";
+import { scopeByDepartment } from "./categories";
 import { computeReorder, type ToolName } from "../tools/tools";
 import type { InventoryDataSource, MovementRaw, ToolParams } from "../tools/types";
 
@@ -59,7 +60,10 @@ export interface AnalyticsQuery {
   productIds: string[];
   days: number;
   now: Date;
+  /** Departamento del catálogo (cuenta de análisis): si se indica, solo cuentan sus productos. */
+  department?: string;
 }
+
 
 interface Window {
   from: string;
@@ -374,8 +378,12 @@ export class Analytics {
 
   // Vistas ------------------------------------------------------------------------
 
-  async view(view: AnalyticsView, q: AnalyticsQuery): Promise<Omit<AnalyticsResponse, "locations">> {
-    const w = this.window(q);
+  async view(view: AnalyticsView, query: AnalyticsQuery): Promise<Omit<AnalyticsResponse, "locations" | "departments">> {
+    const w = this.window(query);
+    const q = scopeByDepartment(query);
+    if (!q) {
+      return { view, title: VIEW_TITLES[view], periodLabel: w.label, locationName: null, kpis: [], charts: [], generatedAt: query.now.toISOString() };
+    }
     const needsMovements = view === "resumen" || view === "cuentas" || view === "consumo" || view === "mermas";
     // Los movimientos (la lectura más pesada) se piden a la vez que el resto, no antes.
     const movementsReady: Promise<MovementRaw[]> = needsMovements ? this.movements(q, w.prevFrom) : Promise.resolve([]);

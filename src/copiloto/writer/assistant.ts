@@ -99,7 +99,7 @@ const MAX_SUMMARY = 700;
 const MAX_GENERAL = 600;
 
 /** Vista compacta del informe: indicadores y, de cada gráfico, sus puntos más significativos. */
-export function summaryView(report: Omit<AnalyticsResponse, "locations">): Record<string, unknown> {
+export function summaryView(report: Omit<AnalyticsResponse, "locations" | "departments">): Record<string, unknown> {
   return {
     informe: report.title,
     periodo: report.periodLabel,
@@ -160,7 +160,7 @@ export class Assistant {
   }
 
   /** Resumen del informe con cifras verificadas, o null (sin LLM, sin datos, error o cifra inventada). */
-  async summary(report: Omit<AnalyticsResponse, "locations">): Promise<string | null> {
+  async summary(report: Omit<AnalyticsResponse, "locations" | "departments">): Promise<string | null> {
     if (!this.provider || (report.kpis.length === 0 && report.charts.every((c) => c.empty || c.series.every((s) => s.points.length === 0)))) return null;
     const view = summaryView(report);
     const text = await this.complete(SUMMARY_PROMPT, `<informe>\n${JSON.stringify(view)}\n</informe>`, MAX_SUMMARY);

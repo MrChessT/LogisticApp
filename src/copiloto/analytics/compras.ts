@@ -7,6 +7,9 @@ import { formatDecimal, formatMoney } from "../entities/units";
 import type { PurchaseLineRaw } from "../tools/types";
 import { departmentOf, leafOf, SIN_CATEGORIA } from "./categories";
 import { daysBetween, dayLabel, point } from "./points";
+import { topWithOthers } from "./top";
+
+const OTHERS = "Otros";
 
 const TOP_N = 8;
 /** Series de la evolución diaria: hasta 4 (la paleta validada); el resto se agrupa en «Otros». */
@@ -37,7 +40,7 @@ function withShare(name: string, value: Decimal, total: Decimal) {
 }
 
 function ranking(id: string, title: string, subtitle: string, totals: Map<string, Decimal>, total: Decimal, labelOf: (key: string) => string, empty: string): ChartSpec {
-  const points = rank(totals).slice(0, TOP_N).map(([key, v]) => ({ ...withShare(key, v, total), label: labelOf(key) }));
+  const points = topWithOthers(rank(totals), TOP_N).map(([key, v]) => ({ ...withShare(key, v, total), label: key === OTHERS ? key : labelOf(key) }));
   return {
     id,
     kind: "bar",

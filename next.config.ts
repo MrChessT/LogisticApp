@@ -52,6 +52,8 @@ const ocrSecurityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // pdfkit carga sus fuentes estándar desde disco: se usa tal cual, sin empaquetar.
+  serverExternalPackages: ["pdfkit"],
   async headers() {
     // La última regla que coincide manda: la de /ocr sustituye la CSP general solo en esos ficheros.
     return [

@@ -288,9 +288,17 @@ interface ChartSpec {
 interface Kpi { id: string; label: string; value: string; hint?: string; delta?: { display: string; direction: "up" | "down" | "flat"; good: boolean } }
 ```
 
+### GET /analytics/pdf
+
+`GET /analytics/pdf?vista=<AnalyticsView | todas>&dias=7|30|90&locationId=<uuid opcional>&departamento=<texto opcional>`
+
+Informe descargable en PDF (`application/pdf`, adjunto). `vista=todas` genera el informe completo con todas las vistas, una sección por vista. Mismos permisos («ve costes»), filtros y límites que `GET /analytics`; las cifras salen de los mismos cálculos, así que el documento y la pantalla no pueden discrepar. Las gráficas son vectoriales (no capturas) y cada una va con su tabla de datos exactos.
+
 ### GET /analytics
 
-`GET /analytics?orgId=<uuid>&vista=<AnalyticsView>&dias=7|30|90&locationId=<uuid opcional>&productId=<uuid opcional>`
+`GET /analytics?orgId=<uuid>&vista=<AnalyticsView>&dias=7|30|90&locationId=<uuid opcional>&productId=<uuid opcional>&departamento=<texto opcional>`
+
+`departamento` es la cuenta de análisis (primer nivel del catálogo, por ejemplo «BEBIDA»): solo cuentan sus productos. La respuesta trae `departments`, la lista para el selector. Un departamento sin productos devuelve la vista vacía. Los rankings con más de 8 categorías agrupan el resto en «Otros», así que siempre suman el total.
 
 ```ts
 interface AnalyticsResponse {

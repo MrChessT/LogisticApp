@@ -5,7 +5,7 @@ import { Metrics } from "../metrics/metrics";
 import { Assistant, summaryView } from "../writer/assistant";
 import { chat, FakeJev, FakeProvider, makeAgent, run } from "./helpers";
 
-const report: Omit<AnalyticsResponse, "locations"> = {
+const report: Omit<AnalyticsResponse, "locations" | "departments"> = {
   view: "precios",
   title: "Precios",
   periodLabel: "últimos 30 días",
