@@ -147,12 +147,15 @@ function FacetList({
   value,
   onChange,
   searchable,
+  bold,
 }: {
   title: string;
   options: Option[];
   value: string;
   onChange: (id: string) => void;
   searchable?: boolean;
+  /** Nombres en negrita (las categorías, para leerlas de un vistazo). */
+  bold?: boolean;
 }) {
   const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -166,7 +169,7 @@ function FacetList({
   const shown = expanded || filter ? visible : tree ? visible.filter((o) => !o.parent_id || o.parent_id === selectedFamily) : visible.slice(0, 8);
   if (options.length === 0) return null;
   return (
-    <div className="facet">
+    <div className={`facet${bold ? " facet-bold" : ""}`}>
       <p className="facet-title">{title}</p>
       {searchable && options.length > 8 && (
         <input className="facet-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`Buscar ${title.toLowerCase()}`} />
@@ -416,7 +419,7 @@ export default function ProductsPage() {
                       </button>
                     ))}
                   </div>
-                  <FacetList title="Categoría" options={categoryOptions} value={filters.cat} onChange={(cat) => update({ cat })} />
+                  <FacetList title="Categoría" options={categoryOptions} value={filters.cat} onChange={(cat) => update({ cat })} bold />
                   <FacetList title="Proveedor" options={facets.suppliers} value={filters.prov} onChange={(prov) => update({ prov })} searchable />
                   <FacetList title="Local" options={facets.locations} value={filters.local} onChange={(local) => update({ local })} />
                   <div className="facet">
