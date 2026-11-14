@@ -37,7 +37,7 @@ describe("factura leída desde las cajas del OCR", () => {
       caja("Total", 300, 360), caja("7,26", 500, 360),
     ];
     const r = readDocumentText(filasDeOcr(cajas));
-    expect([r.kind, r.number, r.date, r.dueDate, r.status]).toEqual(["factura", "F-2024/3", "2024-03-02", "2024-04-01", "cuadra"]);
+    expect([r.kind, r.number, r.date, r.status]).toEqual(["factura", "F-2024/3", "2024-03-02", "cuadra"]);
     expect(r.lines.map((l) => [l.description, l.qty, l.price, l.amount])).toEqual([["Harina de trigo", "2", "3.00", "6.00"]]);
     expect([r.subtotal, r.total]).toEqual(["6.00", "7.26"]);
   });

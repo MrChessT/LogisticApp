@@ -25,8 +25,6 @@ export type DocRead = {
   kind: DocKind;
   number: string | null;
   date: string | null;
-  /** Fecha de vencimiento de una factura («Vencimiento: 12/12/2026»), en ISO. */
-  dueDate: string | null;
   lines: DocLine[];
   /** Suma de los importes de las líneas (antes de descuento de cabecera e IVA). */
   linesTotal: string;
@@ -76,9 +74,8 @@ const RE_SUBTOTAL = /^(sub\s?total)\b/i;
 // «B. Imponible» solo con el punto o con la palabra completa: «B / 1» es el número de albarán, no la base.
 const RE_BASE = /^(base\b|b\.\s*imponible\b)/i;
 const RE_BLOCK = /^b\.?\s*imponible\b.*\biva\b/i;
-// «Vencimiento», «Vence el», «Vto.»: la fecha de vencimiento no es la del documento.
+// «Vencimiento», «Vence el», «Vto.»: esa fecha es la de pago, no la del documento, y no se usa.
 const RE_DUE_WORD = /\b(vencimiento|vence|vto\.?)\b/i;
-const RE_DUE = /\b(?:vencimiento|vence(?: el)?|vto\.?)\s*:?\s*[^\d\n]*?(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})/i;
 const RE_DISCOUNT = /^(descuento|dto\.?)\b/i;
 const RE_VAT = /^(i\.?\s?v\.?\s?a\.?|iva)\b/i;
 const RE_SURCHARGE = /^recargo/i;
@@ -172,7 +169,6 @@ export function readDocumentText(text: string): DocRead {
 
   let number: string | null = null;
   let date: string | null = null;
-  let dueDate: string | null = null;
   // «Factura ES-001», «Albarán 2024/117»: el número va justo después de la palabra.
   for (const l of rawLines.slice(0, 15)) {
     const h = /(?:factura|albar[áa]n)\s+(?:n[º°.]?\s*)?([A-Za-z]{0,4}[-/]?\d[\w/-]*)/i.exec(l);
@@ -181,8 +177,6 @@ export function readDocumentText(text: string): DocRead {
   for (const l of rawLines) {
     const m = /(?:n[º°.]?\s*(?:de\s*)?(?:albar[áa]n|factura)|n[º°]|n[úu]mero)\s*[:.]?\s*([A-Za-z0-9/.-]*\d[A-Za-z0-9/.-]*)/i.exec(l);
     if (!number && m) number = m[1]!;
-    const v = RE_DUE.exec(l);
-    if (!dueDate && v) dueDate = parseDate(v[1]!);
     const d = /fecha[^\d]*(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})/i.exec(l);
     if (!date && d && !RE_DUE_WORD.test(l)) date = parseDate(d[1]!);
   }
@@ -285,5 +279,5 @@ export function readDocumentText(text: string): DocRead {
   if (total === null) issues.push("No se lee el total del documento.");
 
   const status: DocRead["status"] = !lines.length ? "sin_lineas" : issues.length ? "revisar" : "cuadra";
-  return { kind, number, date, dueDate, lines, linesTotal, subtotal, discountPct, base, vatRows, surcharge, total, status, issues };
+  return { kind, number, date, lines, linesTotal, subtotal, discountPct, base, vatRows, surcharge, total, status, issues };
 }

@@ -5,7 +5,8 @@ Cómo se leen los documentos de compra y qué comprueba cada lectura. Hay dos ca
 | Camino | Entrada | Módulo | Estado |
 |---|---|---|---|
 | **Foto** (Nueva recepción) | Imagen → OCR en el navegador → cajas de texto | `src/lib/albaran-reader.ts` (geometría) | En producción |
-| **Texto** (PDF, texto copiado, OCR ya ordenado en filas) | Texto por líneas | `src/lib/documento-texto.ts` | Fase 1: módulo y pruebas; sin integrar |
+| **Texto** (PDF, texto copiado, OCR ya ordenado en filas) | Texto por líneas | `src/lib/documento-texto.ts` | Módulo y pruebas; sin integrar |
+| **Factura desde foto** (Nueva factura) | Imagen → OCR → renglones → texto | `src/lib/documento-foto.ts`, `documento-filas.ts` | En Nueva factura, sin guardar |
 
 Un documento leído nunca se guarda sin que la persona lo confirme. Si algo no cuadra, la lectura sale como
 **revisar** con el motivo, no se corrige en silencio.
@@ -16,8 +17,8 @@ Un documento leído nunca se guarda sin que la persona lo confirme. Si algo no c
   («Factura ES-001», «Albarán 2024/117»); la fecha, después de «Fecha» o la primera que aparezca.
 - **Líneas de producto:** cantidad, unidad (si la hay), descripción, referencia (si la hay), precio, descuento
   de la línea (si lo hay), IVA de la línea (si la tabla lo trae) e importe.
-- **Cabecera:** número, fecha del documento y, en las facturas, fecha de vencimiento («Vencimiento»,
-  «Vence el», «Vto.»). La fecha de vencimiento no se toma como fecha del documento.
+- **Cabecera:** número y fecha del documento. Una línea con «Vencimiento», «Vence el» o «Vto.» no da la fecha
+  del documento; la fecha de vencimiento no se lee.
 - **Totales:** subtotal (con descuento de cabecera, si lo hay), base imponible, cuotas de IVA por tipo,
   recargo de equivalencia y total.
 
@@ -89,6 +90,12 @@ se escribe un documento inventado con la misma maquetación y se fija lo que deb
 
 ## Factura desde foto (OCR)
 
+En **Facturas → Nueva factura** hay un botón «Leer foto de la factura». Rellena número, fecha, base (subtotal),
+IVA (suma de sus tipos) y total, y adjunta la foto. No guarda nada: la persona revisa los campos y pulsa
+«Registrar factura». Solo se ofrece en facturas nuevas, para no sobrescribir una factura ya registrada. El
+vencimiento no se lee (no hace falta por ahora): se sigue calculando con las condiciones de pago del proveedor.
+Si la lectura no cuadra o no tiene líneas, el aviso dice el motivo y el importe que falte se deja vacío.
+
 Las cajas de texto que devuelve el OCR del navegador (`albaran-ocr.ts`) se agrupan en renglones con
 `filasDeOcr` (`src/lib/documento-filas.ts`): dos cajas van en la misma fila si su centro vertical está a menos de
 media altura de letra, y dentro de la fila van de izquierda a derecha. Ese texto pasa por `readDocumentText`, la
@@ -96,7 +103,7 @@ misma lectura que la de texto, así que las reglas de arriba se aplican igual.
 
 Resultado con los tres ejemplos de factura del Drive «FACTURAS EJEMPLO» (medido en la lectura real del OCR):
 
-- **Modelo de factura** (750 px): completa. Número, fecha, vencimiento, tres líneas, subtotal, IVA y total; cuadra.
+- **Modelo de factura** (750 px): completa. Número, fecha, tres líneas, subtotal, IVA y total; cuadra.
 - **Duplicada de la factura modelo** (750 px): sale **sin líneas**. El OCR no detecta las cantidades 1, 2 y 3, y
   el número «Factura ES-001» va escrito en vertical y no se lee. Es lo correcto: no se inventa nada.
 - **Factura de plantilla con cabecera gráfica** (`images.png`, 465 px): el OCR lee mal la tabla. Ampliarla 3× no
@@ -108,7 +115,6 @@ corrige antes de guardar nada.
 ## Límites conocidos
 
 - Una factura cuyas cantidades el OCR no detecta, o con el número en vertical, no se puede leer desde la foto.
-- Una etiqueta partida en dos renglones («Fecha» / «vencimiento») no da la fecha de vencimiento: no se adivina.
 - Una tabla cuyas filas no llegan como renglones (solo como trozos sueltos) no se puede leer como texto: hay
   que leerla por geometría (foto con OCR) o revisarla a mano. Es el caso de la factura de «images.png».
 - El reparto del IVA por tipo sin importe base se comprueba solo cuando hay un único tipo.
@@ -117,8 +123,8 @@ corrige antes de guardar nada.
 ## Pendiente (fases siguientes)
 
 1. Integrar el lector de texto en la lectura de PDF y de texto copiado.
-2. Usar el mismo lector para facturas desde foto y comprobarlas contra los albaranes asociados. Ya leído como
-   texto: número, fecha y vencimiento. Falta la foto (OCR) y el cruce con los albaranes de la base de datos.
+2. Hecho: factura desde foto en Nueva factura, sin guardar. Falta comprobarla contra los albaranes asociados
+   (el cuadre de albaranes ya existe en el editor; falta que la lectura lo alimente sin escribir a mano).
 3. Guardar la cabecera y las líneas leídas para que el asistente responda qué albaranes hay, con qué productos y
    cuánto.
 4. Mostrar en el chat la foto del albarán o de la factura guardada.

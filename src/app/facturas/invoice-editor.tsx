@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, FileText, Paperclip, Trash2, X } from "lucide-react";
+import { Camera, CheckCircle2, FileText, Paperclip, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
 import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
+import { camposDeFactura, readDocumentPhoto } from "@/lib/documento-foto";
 
 // Alta y edición de una factura de proveedor: datos, albaranes que cubre (con el cuadre en vivo), archivo
 // y pago. La base de datos valida (save_invoice): base + IVA = total, albaranes del proveedor y libres.
@@ -53,6 +54,8 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Albaranes ya enlazados (si se edita) + los libres del proveedor.
   useEffect(() => {
@@ -117,6 +120,26 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     const v = Math.round(b * rate) / 100;
     setVat(text(v));
     setTotal(text(b + v));
+  }
+
+  /** Rellena los campos con lo que se lee en la foto. Solo en facturas nuevas; la persona revisa y registra. */
+  async function readPhoto(photo: File) {
+    setReading(true);
+    setReadNote(null);
+    try {
+      const c = camposDeFactura(await readDocumentPhoto(photo));
+      if (c.number) setNumber(c.number);
+      if (c.date) changeDate(c.date);
+      if (c.subtotal) setSubtotal(c.subtotal);
+      if (c.vat) setVat(c.vat);
+      if (c.total) setTotal(c.total);
+      setFile(photo);
+      setReadNote(c.aviso);
+    } catch (e) {
+      setReadNote({ ok: false, text: e instanceof Error ? e.message : "No se pudo leer la foto." });
+    } finally {
+      setReading(false);
+    }
   }
 
   async function save() {
@@ -196,6 +219,14 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
         </header>
 
         <div className="editor-body invoice-body">
+          {!invoice && (
+            <div className="invoice-read">
+              <label className="ghost-button"><Camera size={14} /> {reading ? "Leyendo la foto…" : "Leer foto de la factura"}
+                <input type="file" hidden accept="image/*" disabled={reading} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void readPhoto(f); }} />
+              </label>
+              {readNote && <p className={`editor-message ${readNote.ok ? "" : "error"}`}>{readNote.text}</p>}
+            </div>
+          )}
           <div className="editor-grid invoice-fields">
             <label className="span-2">Proveedor
               <select value={supplierId} onChange={(e) => pickSupplier(e.target.value)} disabled={!!invoice && invoice.status === "pagada"}>

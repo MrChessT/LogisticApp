@@ -159,14 +159,14 @@ describe("albarán con columnas Ud., Precio, Dto e Importe (IVA y totales en blo
   });
 });
 
-describe("fecha de vencimiento de una factura", () => {
-  it("separa la fecha del documento de la de vencimiento", () => {
+describe("la fecha de vencimiento no es la del documento", () => {
+  it("con «Vencimiento» aparte, la fecha del documento es la de «Fecha»", () => {
     const r = readDocumentText(["Factura F-2019/7", "Fecha 29/01/2019", "Vencimiento: 28/02/2019", "1 Harina 2,00 2,00", "Total 2,00"].join("\n"));
-    expect([r.date, r.dueDate]).toEqual(["2019-01-29", "2019-02-28"]);
+    expect(r.date).toBe("2019-01-29");
   });
 
   it("una línea «Fecha de vencimiento» no se toma como fecha del documento", () => {
     const r = readDocumentText(["Factura F-2019/8", "Fecha de vencimiento 28.02.2019", "1 Harina 2,00 2,00", "Total 2,00"].join("\n"));
-    expect([r.date, r.dueDate]).toEqual([null, "2019-02-28"]);
+    expect(r.date).toBeNull();
   });
 });

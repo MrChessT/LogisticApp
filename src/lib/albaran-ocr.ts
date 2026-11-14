@@ -52,16 +52,21 @@ async function imageDataOf(file: Blob): Promise<ImageData> {
 
 export type AlbaranPhotoRead = AlbaranRead & { texts: OcrText[] };
 
-/** Lee la foto de un albarán. La primera vez descarga el lector (unos 40 MB); después queda en caché. */
-export async function readAlbaranPhoto(file: Blob): Promise<AlbaranPhotoRead> {
-  if (!file.type.startsWith("image/")) throw new Error("Para leer el albarán hace falta una foto (JPG o PNG).");
+/** Texto y cajas que el OCR saca de una foto. La primera vez descarga el lector (unos 40 MB); después queda en caché. */
+export async function ocrTextos(file: Blob): Promise<OcrText[]> {
+  if (!file.type.startsWith("image/")) throw new Error("Para leer el documento hace falta una foto (JPG o PNG).");
   const image = await imageDataOf(file);
   const w = getWorker();
   const id = nextId++;
-  const texts = await new Promise<OcrText[]>((resolve, reject) => {
+  return new Promise<OcrText[]>((resolve, reject) => {
     pending.set(id, { resolve, reject });
     w.postMessage({ id, image: { data: image.data, width: image.width, height: image.height } }, [image.data.buffer]);
   });
+}
+
+/** Lee la foto de un albarán. */
+export async function readAlbaranPhoto(file: Blob): Promise<AlbaranPhotoRead> {
+  const texts = await ocrTextos(file);
   return { ...readAlbaran(texts), texts };
 }
 
