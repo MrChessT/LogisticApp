@@ -126,3 +126,35 @@ describe("factura con el total en otra línea y la tabla de productos rota", () 
     expect(r.issues).toContain("No se reconoce ninguna línea de producto.");
   });
 });
+
+describe("albarán con columnas Ud., Precio, Dto e Importe (IVA y totales en bloque)", () => {
+  // Maquetación de un albarán de gestión: el descuento va como número en la columna «Dto», el IVA lleva su
+  // porcentaje entre paréntesis y el total está en la línea siguiente a su etiqueta. Datos inventados.
+  const doc = [
+    "ALBARÁN",
+    "Nº Albarán Fecha Albarán",
+    "B / 1 12.05.2024",
+    "Cod. Concepto Ud. Precio Dto Importe",
+    "000113 Válvula de ejemplo DN50 20.00 48.83 976.60",
+    "77 Membrana de ejemplo 12.00 25.00 5 285.00",
+    "00120 Racor de ejemplo 4.00 1.38 5.52",
+    "97 Caldera de ejemplo 3.00 2.101,00 6.303,00",
+    "B. Imponible IVA Total Albarán",
+    "7.711,87 € (21.00%) 1.619,49 €",
+    "9.331,36 €",
+  ].join("\n");
+
+  it("lee el descuento de la columna Dto y los totales de bloque", () => {
+    const r = readDocumentText(doc);
+    expect(r.lines.map((l) => [l.ref, l.qty, l.price, l.discountPct, l.amount])).toEqual([
+      ["000113", "20.00", "48.83", null, "976.60"],
+      ["77", "12.00", "25.00", "5", "285.00"],
+      ["00120", "4.00", "1.38", null, "5.52"],
+      ["97", "3.00", "2101.00", null, "6303.00"],
+    ]);
+    expect(r.base).toBe("7711.87");
+    expect(r.vatRows).toEqual([{ rate: "21.00", vat: "1619.49" }]);
+    expect(r.total).toBe("9331.36");
+    expect(r.status).toBe("cuadra");
+  });
+});

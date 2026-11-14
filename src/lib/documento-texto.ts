@@ -71,7 +71,9 @@ export function parseDate(raw: string): string | null {
 const UNITS = new Set(["kg", "g", "l", "ml", "cl", "ud", "uds", "u", "un", "caja", "cajas", "cj", "pz", "paq", "bot"]);
 const RE_TOTAL = /^(total|total albar[áa]n|total factura|total con iva|importe total)\b/i;
 const RE_SUBTOTAL = /^(sub\s?total)\b/i;
-const RE_BASE = /^base( imponible)?\b/i;
+// «B. Imponible» solo con el punto o con la palabra completa: «B / 1» es el número de albarán, no la base.
+const RE_BASE = /^(base\b|b\.\s*imponible\b)/i;
+const RE_BLOCK = /^b\.?\s*imponible\b.*\biva\b/i;
 const RE_DISCOUNT = /^(descuento|dto\.?)\b/i;
 const RE_VAT = /^(i\.?\s?v\.?\s?a\.?|iva)\b/i;
 const RE_SURCHARGE = /^recargo/i;
@@ -79,12 +81,14 @@ const RE_SURCHARGE = /^recargo/i;
 /** Separa una línea en palabras, importes y porcentajes. Los miles con espacio se pegan antes. */
 function tokens(line: string): { words: string[]; nums: string[]; pcts: string[] } {
   // Solo se pegan los grupos de miles: un bloque de 1-3 cifras, un espacio y tres cifras, al principio de la
-  // línea o tras un espacio, y seguido de decimales o de € («7 900,00 €»). «100.00 100.00» no se toca.
-  const joined = line.replace(/(^|\s)(\d{1,3}) (\d{3})(?=[.,]\d{1,2}(?:\s|$)|\s?€|$)/g, "$1$2$3");
+  // línea o tras un espacio, y seguido de decimales con coma o de € («7 900,00 €»). Con punto decimal («5 285.00»)
+  // el espacio separa dos números. «100.00 100.00» no se toca.
+  const joined = line.replace(/(^|\s)(\d{1,3}) (\d{3})(?=,\d{1,2}(?:\s|$)|\s?€|$)/g, "$1$2$3");
   const words: string[] = [];
   const nums: string[] = [];
   const pcts: string[] = [];
-  for (const tok of joined.split(/\s+/).filter((t) => t && t !== "€")) {
+  for (const tok0 of joined.split(/\s+/).filter((t) => t && t !== "€")) {
+    const tok = tok0.replace(/^\(|\)$/g, "");
     if (/%$/.test(tok)) {
       const p = parseNumber(tok);
       if (p !== null) pcts.push(p);
@@ -99,6 +103,7 @@ function tokens(line: string): { words: string[]; nums: string[]; pcts: string[]
 }
 
 const REF = /^(\d{4,}|[A-Za-z]{1,3}[-.]?\d{3,}[A-Za-z0-9-]*)$/;
+const REF_LOOSE = /^(\d{1,6}|[A-Za-z]{1,3}[-.]?\d{2,}[A-Za-z0-9-]*)$/;
 
 /**
  * Línea de producto. Formas admitidas (de izquierda a derecha, con la referencia y la descripción delante):
@@ -108,6 +113,13 @@ const REF = /^(\d{4,}|[A-Za-z]{1,3}[-.]?\d{3,}[A-Za-z0-9-]*)$/;
  * La comprobación es siempre cantidad × precio = importe (o × (1 − descuento) si hay descuento en la línea).
  */
 export function productLine(text: string): DocLine | null {
+  // Un código al principio («000113», «77») es la referencia, no un importe: si le sigue una palabra, se quita
+  // y la línea se lee sin él. Así «77 Membrana … 12,00 25,00 5 285,00» no pierde el descuento.
+  const coded = /^(\S+)\s+(\p{L}[\s\S]*)$/u.exec(text.trim());
+  if (coded && REF_LOOSE.test(coded[1]!)) {
+    const inner = productLine(coded[2]!);
+    if (inner) return { ...inner, ref: coded[1]! };
+  }
   const { words, nums, pcts } = tokens(text);
   const ref = words.length && REF.test(words[0]!) ? words[0]! : null;
   const unitIdx = words.findIndex((w) => UNITS.has(w.toLowerCase()));
@@ -129,6 +141,13 @@ export function productLine(text: string): DocLine | null {
     const net = q.mul(p).mul(D(1).minus(dto.div(100)));
     if (net.minus(a).abs().lte(TOL.plus(a.abs().mul("0.0005")))) {
       return { ref, description: desc, qty: nums.at(-4)!, unit, price: nums.at(-3)!, discountPct: pcts[0]!, vatPct: null, amount: nums.at(-1)! };
+    }
+  }
+  if (nums.length >= 4 && pcts.length === 0) {
+    // Columna «Dto» sin símbolo: cantidad × precio × (1 − dto) = importe (dto entero entre 0 y 100).
+    const [q, p, dto, a] = nums.slice(-4).map((n) => D(n)) as [Decimal, Decimal, Decimal, Decimal];
+    if (dto.gt(0) && dto.lt(100) && dto.isInteger() && q.mul(p).mul(D(1).minus(dto.div(100))).minus(a).abs().lte(TOL.plus(a.abs().mul("0.0005")))) {
+      return { ref, description: desc, qty: nums.at(-4)!, unit, price: nums.at(-3)!, discountPct: nums.at(-2)!, vatPct: null, amount: nums.at(-1)! };
     }
   }
   if (nums.length >= 3) {
@@ -173,7 +192,7 @@ export function readDocumentText(text: string): DocRead {
   let total: string | null = null;
   const vatRows: VatRow[] = [];
   let pendingVatRate: string | null = null;
-  let pendingLabel: "subtotal_descuento" | null = null;
+  let pendingLabel: "subtotal_descuento" | "bloque" | "total" | null = null;
 
   for (const l of rawLines) {
     const { words, nums, pcts } = tokens(l);
@@ -188,7 +207,26 @@ export function readDocumentText(text: string): DocRead {
       pendingVatRate = null;
       continue;
     }
-    if (RE_TOTAL.test(l)) { if (nums.length) total = nums.at(-1)!; continue; }
+    if (pendingLabel === "bloque") {
+      // «B. Imponible IVA Total Albarán» y debajo «7.711,87 € (21.00%) 1.619,49 €»; el total va en la línea siguiente.
+      pendingLabel = null;
+      if (pcts.length === 1 && nums.length === 2 && words.length === 0) {
+        base = nums[0]!;
+        vatRows.push({ rate: pcts[0]!, vat: nums[1]! });
+        pendingLabel = "total";
+        continue;
+      }
+    }
+    if (pendingLabel === "total") {
+      // «Total Albarán» en una línea y su importe en la siguiente.
+      pendingLabel = null;
+      if (nums.length && words.length === 0) { total = nums.at(-1)!; continue; }
+    }
+    if (RE_TOTAL.test(l)) {
+      if (nums.length) total = nums.at(-1)!;
+      else if (/^total( albar[áa]n| factura)?\s*:?\s*$/i.test(l)) pendingLabel = "total";
+      continue;
+    }
     if (RE_SUBTOTAL.test(l)) {
       if (/descuento/i.test(l) && !nums.length) { pendingLabel = "subtotal_descuento"; continue; }
       if (nums.length) subtotal = nums[0]!;
@@ -196,6 +234,7 @@ export function readDocumentText(text: string): DocRead {
       else if (pcts.length) discountPct = pcts[0]!;
       continue;
     }
+    if (RE_BLOCK.test(l) && !nums.length) { pendingLabel = "bloque"; continue; }
     if (RE_BASE.test(l)) { if (nums.length) base = nums.at(-1)!; continue; }
     if (RE_DISCOUNT.test(l)) { if (pcts.length) discountPct = pcts[0]!; continue; }
     if (RE_SURCHARGE.test(l)) { if (nums.length) surcharge = nums.at(-1)!; continue; }

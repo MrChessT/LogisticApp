@@ -32,7 +32,11 @@ Un documento leído nunca se guarda sin que la persona lo confirme. Si algo no c
 | `1.250` (sin coma) | 1.25 (en un albarán, el decimal) |
 
 Un espacio solo se toma como separador de miles si va entre 1–3 cifras y 3 cifras, y lo que sigue es un decimal
-o el símbolo €. Así «100.00 100.00» no se une en «100.00100.00».
+con **coma** o el símbolo €. Así «100.00 100.00» no se une en «100.00100.00», y «5 285.00» (punto decimal) son dos
+números: el 5 y el 285,00.
+
+Un código al principio de la línea («000113», «77») es la **referencia** si le sigue una palabra (la descripción):
+se quita antes de leer la línea, así no se toma por un importe.
 
 ## Reglas de línea
 
@@ -43,6 +47,9 @@ Una línea de producto cumple siempre **cantidad × precio = importe**. Formas a
    Se comprueba también que `importe × (1 + IVA) = total`. El `%` no se toma por descuento.
 3. `cantidad precio importe %descuento neto` — por ejemplo `2 10,00 € 20,00 € 10% 18,00 €`.
    Se comprueba que `cantidad × precio × (1 − descuento) = neto`.
+
+Cuando la columna «Dto» trae solo el número (`5` en vez de `5%`), se acepta si es entero entre 1 y 99 y la
+línea cuadra con él.
 
 Un renglón que no cumple ninguna forma no es línea. Las tolerancias son de un céntimo más un 0,05 %.
 
@@ -69,6 +76,10 @@ del Drive «FACTURAS EJEMPLO»:
 - **Factura sencilla** (modelo con IVA 21 %): lectura completa y cuadre; también la cuota de IVA en la línea
   siguiente a su etiqueta.
 - **Albarán con descuento de cabecera** (15 %) y tabla de IVA (4 %, 10 %, 21 %): lectura completa y cuadre.
+- **Albarán de gestión** (columnas Cod., Ud., Precio, Dto, Importe; IVA con el porcentaje entre paréntesis):
+  el descuento va como número en «Dto», y el bloque «B. Imponible · IVA · Total Albarán» pone sus valores en la
+  línea de debajo, con el total en la línea siguiente a su etiqueta. «B / 1 12.05.2024» es el número y la fecha
+  del albarán, no la base.
 - **Factura con la tabla rota** (los importes de cada fila llegan separados): sale como **sin líneas**, sin inventar.
 
 No se copian al repositorio documentos reales de ningún proveedor ni de ningún negocio. Para añadir un caso,
