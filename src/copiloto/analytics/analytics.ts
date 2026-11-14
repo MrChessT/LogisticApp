@@ -16,6 +16,7 @@ const TOP_N = 8;
 
 const VIEW_TITLES: Record<AnalyticsView, string> = {
   resumen: "Resumen",
+  cuentas: "Cuentas de la mercancía",
   consumo: "Consumo",
   mermas: "Mermas",
   stock: "Stock",
@@ -408,7 +409,7 @@ export class Analytics {
 
   async view(view: AnalyticsView, q: AnalyticsQuery): Promise<Omit<AnalyticsResponse, "locations">> {
     const w = this.window(q);
-    const needsMovements = view === "resumen" || view === "consumo" || view === "mermas";
+    const needsMovements = view === "resumen" || view === "cuentas" || view === "consumo" || view === "mermas";
     // Los movimientos (la lectura más pesada) se piden a la vez que el resto, no antes.
     const movementsReady: Promise<MovementRaw[]> = needsMovements ? this.movements(q, w.prevFrom) : Promise.resolve([]);
     const withMovements = <T>(fn: (movements: MovementRaw[]) => Promise<T>) => movementsReady.then(fn);
@@ -421,6 +422,13 @@ export class Analytics {
           withMovements((m) => this.dailyUsage(q, false, m)),
           this.stockByLocation(q),
           withMovements((m) => this.topProducts(q, true, m)),
+        ]) as [Kpi[], ...ChartSpec[]];
+        break;
+      case "cuentas":
+        [kpis, ...charts] = await Promise.all([
+          withMovements((m) => this.accountKpis(q, m)),
+          this.spendBySupplier(q),
+          withMovements((m) => this.topProducts(q, false, m)),
         ]) as [Kpi[], ...ChartSpec[]];
         break;
       case "consumo":
@@ -460,6 +468,42 @@ export class Analytics {
       charts,
       generatedAt: q.now.toISOString(),
     };
+  }
+
+  /**
+   * Cuentas de la mercancía: lo comprado frente a lo que salió. Todo lo que sale (consumo, mermas, invitaciones y
+   * personal) está en la misma ventana, así que lo que no cuadra es la variación de stock: compras − salidas.
+   */
+  private async accountKpis(q: AnalyticsQuery, movements: MovementRaw[]): Promise<Kpi[]> {
+    const w = this.window(q);
+    const sumOf = (filter: (m: MovementRaw) => boolean) =>
+      movements.reduce((acc, m) => {
+        const day = this.dayOf(q, m);
+        return day >= w.from && day <= w.to && filter(m) ? acc.plus(movementValue(m)) : acc;
+      }, new Decimal(0));
+    const purchases = await this.source.purchases({ locationIds: q.locationIds, since: w.from });
+    const bought = purchases.filter((p) => p.docDate <= w.to).reduce((acc, p) => acc.plus(p.total), new Decimal(0));
+    // isUsage incluye todas las mermas; las invitaciones y la pérdida se separan para no contarlas dos veces.
+    const usage = sumOf(isUsage);
+    const loss = sumOf(isLossExit);
+    const other = sumOf(isOtherExit);
+    const consumed = usage.minus(loss).minus(other);
+    // El consumo puede superar a lo comprado: se gasta stock de periodos anteriores. Por eso la merma se mide
+    // sobre lo consumido y no sobre lo comprado.
+    const share = (part: Decimal, base: Decimal) => (base.isZero() ? "Sin salidas en el periodo" : `${formatDecimal(part.div(base).mul(100), 1)} % de las salidas`);
+    const variation = bought.minus(usage);
+    return [
+      { id: "compras", label: "Compras", value: formatMoney(bought), hint: w.label },
+      { id: "consumo_productivo", label: "Consumo", value: formatMoney(consumed), hint: "Lo que se ha gastado en cocina y barra" },
+      { id: "mermas_perdida", label: "Pérdidas", value: formatMoney(loss), hint: share(loss, usage) },
+      { id: "invitaciones_personal", label: "Invitaciones y personal", value: formatMoney(other), hint: "Salidas que no son pérdida" },
+      {
+        id: "variacion_stock",
+        label: "Variación de stock",
+        value: `${variation.gt(0) ? "+" : ""}${formatMoney(variation)}`,
+        hint: variation.gt(0) ? "Se ha comprado más de lo que ha salido: el stock sube" : variation.lt(0) ? "Ha salido más de lo que se ha comprado: el stock baja" : "Cuadra: lo comprado es lo que ha salido",
+      },
+    ];
   }
 
   /** Gasto en compras (recepciones) por proveedor en la ventana de la consulta. */

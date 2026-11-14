@@ -448,7 +448,7 @@ export type Draft = WasteDraft | TransferDraft | ReceiptDraft | CountCloseDraft 
 
 // Gráficas y análisis -----------------------------------------------------------
 
-export const ANALYTICS_VIEWS = ["resumen", "consumo", "mermas", "stock", "precios", "reposicion", "desvios"] as const;
+export const ANALYTICS_VIEWS = ["resumen", "cuentas", "consumo", "mermas", "stock", "precios", "reposicion", "desvios"] as const;
 export type AnalyticsView = (typeof ANALYTICS_VIEWS)[number];
 
 /** Cómo se formatean los valores de una gráfica (las cifras ya vienen formateadas en display). */

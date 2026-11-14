@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Printer, Sparkles } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import type { AnalyticsResponse, AnalyticsView } from "@/copiloto/contract";
 import "../productos/productos.css";
@@ -9,6 +9,7 @@ import "./informes.css";
 
 const VIEWS: Array<{ id: AnalyticsView; label: string }> = [
   { id: "resumen", label: "Resumen" },
+  { id: "cuentas", label: "Cuentas" },
   { id: "consumo", label: "Consumo" },
   { id: "mermas", label: "Mermas" },
   { id: "stock", label: "Stock" },
@@ -95,6 +96,14 @@ export default function InformesPage() {
   const current = VIEWS.find((v) => v.id === view)!;
   const [lead, ...rest] = data?.charts ?? [];
 
+  // El PDF lo genera el navegador («Guardar como PDF»). El título de la página se usa como nombre del fichero.
+  function downloadPdf() {
+    const previous = document.title;
+    document.title = `Informes ${current.label} ${data?.locationName ?? "Todos los locales"} ${days} días`;
+    window.print();
+    document.title = previous;
+  }
+
   return (
     <main className="informes-page">
 
@@ -104,6 +113,9 @@ export default function InformesPage() {
             <h1>Informes</h1>
             <p className="informes-meta">{current.label} · {data?.locationName ?? "Todos los locales"} · últimos {days} días</p>
           </div>
+          <button type="button" className="informes-print" onClick={downloadPdf} disabled={!data}>
+            <Printer size={15} aria-hidden /> Descargar PDF
+          </button>
         </div>
 
         <div className="informes-filters" role="toolbar" aria-label="Filtros">
@@ -162,7 +174,7 @@ export default function InformesPage() {
               <Sparkles size={16} aria-hidden />
               <div>
                 <p>{summary.text ?? "Redactando el resumen…"}</p>
-                {summary.text && <small>Resumen redactado con IA a partir de estas cifras; cada número está comprobado.</small>}
+                {summary.text && <small>Resumen a partir de estas cifras; cada número está comprobado.</small>}
               </div>
             </section>
           )}
