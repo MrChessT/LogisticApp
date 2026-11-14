@@ -56,7 +56,8 @@ export function line(doc: Doc, value: string, x: number, y: number, opts: { widt
   const width = opts.width ?? doc.widthOfString(value);
   const left = opts.align === "right" ? x - width : x;
   const cursor = doc.y;
-  doc.text(value, left, y, { lineBreak: false, width: Math.max(width, 1) });
+  // Margen de 4 pt: con el ancho exacto del texto, el redondeo de pdfkit lo partía en dos líneas.
+  doc.text(value, left, y, { lineBreak: false, width: Math.max(width, 1) + 4 });
   doc.y = cursor;
 }
 
