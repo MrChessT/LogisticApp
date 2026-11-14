@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Analytics } from "./analytics/analytics";
 import { buildReportPdf, type ReportView } from "./reports/pdf-report";
+import { departmentsOf } from "./analytics/categories";
 import { SessionStore } from "./agent/session";
 import { CompositeAuditSink, ConsoleAuditSink } from "./audit/audit";
 import { ANALYTICS_VIEWS, CATALOG_KINDS, ChatRequest, CONTRACT_VERSION, type ErrorEvent, type HealthResponse } from "./contract/index";
@@ -197,6 +198,8 @@ const AnalyticsQuery = z.object({
   vista: z.enum(ANALYTICS_VIEWS).default("resumen"),
   locationId: z.uuid().optional(),
   productId: z.uuid().optional(),
+  /** Departamento del catálogo (cuenta de análisis), tal como sale en la respuesta. */
+  departamento: z.string().trim().min(1).max(80).optional(),
   dias: z.coerce
     .number()
     .int()
@@ -222,8 +225,9 @@ async function analytics(url: URL, user: RequestUser): Promise<Response> {
     productIds: parsed.data.productId ? [parsed.data.productId] : [],
     days: parsed.data.dias,
     now: new Date(),
+    ...(parsed.data.departamento ? { department: parsed.data.departamento } : {}),
   });
-  return json({ ...result, locations: ctx.locations.map((l) => ({ id: l.id, name: l.name })) });
+  return json({ ...result, locations: ctx.locations.map((l) => ({ id: l.id, name: l.name })), departments: departmentsOf(ctx.products) });
 }
 
 /** Informe en PDF: una vista, o «todas» (informe completo). Mismos permisos, filtros y límites que la pantalla. */
@@ -248,6 +252,7 @@ async function analyticsPdf(url: URL, user: RequestUser): Promise<Response> {
     productIds: parsed.data.productId ? [parsed.data.productId] : [],
     days: parsed.data.dias,
     now: new Date(),
+    ...(parsed.data.departamento ? { department: parsed.data.departamento } : {}),
   };
   const ids = parsed.data.vista === "todas" ? [...ANALYTICS_VIEWS] : [parsed.data.vista];
   const views: ReportView[] = [];

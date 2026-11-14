@@ -503,6 +503,8 @@ export interface AnalyticsResponse {
   generatedAt: string;
   /** Locales del usuario, para el selector (los añade la ruta HTTP). */
   locations: Array<{ id: string; name: string }>;
+  /** Departamentos del catálogo, para el selector (los añade la ruta HTTP). */
+  departments: string[];
 }
 
 // Eventos SSE ----------------------------------------------------------------

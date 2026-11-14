@@ -5,6 +5,7 @@ import type { SessionContext } from "../domain";
 import { formatDecimal } from "../entities/units";
 import { departmentOf } from "./categories";
 import { point } from "./points";
+import { topWithOthers } from "./top";
 
 const TOP_N = 8;
 
@@ -24,10 +25,7 @@ export function departmentChart(opts: {
     totals.set(department, (totals.get(department) ?? new Decimal(0)).plus(value));
   }
   const total = [...totals.values()].reduce((acc, v) => acc.plus(v), new Decimal(0));
-  const points = [...totals.entries()]
-    .filter(([, v]) => v.gt(0))
-    .sort((a, b) => b[1].cmp(a[1]))
-    .slice(0, TOP_N)
+  const points = topWithOthers([...totals.entries()].filter(([, v]) => v.gt(0)), TOP_N)
     .map(([name, v]) => {
       const pct = formatDecimal(v.div(total).mul(100), 0);
       return point(name, name, v, "money", ` · ${pct} %`);
