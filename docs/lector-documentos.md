@@ -16,6 +16,8 @@ Un documento leído nunca se guarda sin que la persona lo confirme. Si algo no c
   («Factura ES-001», «Albarán 2024/117»); la fecha, después de «Fecha» o la primera que aparezca.
 - **Líneas de producto:** cantidad, unidad (si la hay), descripción, referencia (si la hay), precio, descuento
   de la línea (si lo hay), IVA de la línea (si la tabla lo trae) e importe.
+- **Cabecera:** número, fecha del documento y, en las facturas, fecha de vencimiento («Vencimiento»,
+  «Vence el», «Vto.»). La fecha de vencimiento no se toma como fecha del documento.
 - **Totales:** subtotal (con descuento de cabecera, si lo hay), base imponible, cuotas de IVA por tipo,
   recargo de equivalencia y total.
 
@@ -95,8 +97,8 @@ se escribe un documento inventado con la misma maquetación y se fija lo que deb
 ## Pendiente (fases siguientes)
 
 1. Integrar el lector de texto en la lectura de PDF y de texto copiado.
-2. Usar el mismo lector para facturas desde foto, con el número y el vencimiento, y comprobarlas contra los
-   albaranes asociados.
+2. Usar el mismo lector para facturas desde foto y comprobarlas contra los albaranes asociados. Ya leído como
+   texto: número, fecha y vencimiento. Falta la foto (OCR) y el cruce con los albaranes de la base de datos.
 3. Guardar la cabecera y las líneas leídas para que el asistente responda qué albaranes hay, con qué productos y
    cuánto.
 4. Mostrar en el chat la foto del albarán o de la factura guardada.
