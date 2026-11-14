@@ -6,10 +6,19 @@ export type FileTarget = "recepcion" | "factura";
 
 const EVENT = "logisticapp:archivo-pendiente";
 const pending = new Map<FileTarget, File>();
+/** Lo que ya se leyó del archivo (una foto de albarán): la pantalla no vuelve a leerlo. */
+const pendingRead = new Map<FileTarget, unknown>();
 
-export function setPendingFile(target: FileTarget, file: File): void {
+export function setPendingFile(target: FileTarget, file: File, read?: unknown): void {
   pending.set(target, file);
+  if (read !== undefined) pendingRead.set(target, read);
   window.dispatchEvent(new CustomEvent(EVENT, { detail: target }));
+}
+
+export function takePendingRead<T>(target: FileTarget): T | null {
+  const read = pendingRead.get(target) ?? null;
+  pendingRead.delete(target);
+  return read as T | null;
 }
 
 /** El archivo pendiente para esa pantalla (una sola vez). */

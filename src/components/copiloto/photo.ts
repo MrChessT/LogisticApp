@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 export interface PhotoSummary {
   /** Lo que dice el asistente. */
   text: string;
+  /** La lectura del albarán, para que Nueva recepción no la repita. */
+  result?: unknown;
   /** Se han reconocido líneas de albarán. */
   read: boolean;
 }
@@ -44,6 +46,7 @@ export async function summarizeAlbaranPhoto(file: File): Promise<PhotoSummary> {
   const total = result.total !== null ? `, total con IVA ${money(result.total)}` : "";
   return {
     read: true,
+    result,
     text: `Albarán${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${date}: ${lines}${total}; ${status}.${order} Ábrelo para emparejar los productos, revisar y registrar la recepción.`,
   };
 }

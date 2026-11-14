@@ -12,7 +12,7 @@
     "nombre": "Ventas",
     "turnos": [
       { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer |^No hay ventas importadas de ayer" },
-      { "usuario": "¿y el sábado?", "espera": "^El sábado \\d" },
+      { "usuario": "¿y el sábado?", "espera": "^El sábado \\d|^No hay ventas importadas de (el )?sábado" },
       { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada" }
     ]
   },

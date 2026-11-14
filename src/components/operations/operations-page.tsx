@@ -22,7 +22,7 @@ import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
 import { toBaseQty, unitChoices, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
-import { onPendingFile, takePendingFile } from "@/lib/pending-file";
+import { onPendingFile, takePendingFile, takePendingRead } from "@/lib/pending-file";
 import { guessSupplier, packForUnit, readAlbaranPhoto, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, priceCheck, type Incident } from "@/lib/receipt-checks";
@@ -205,12 +205,13 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
 
   // Foto de un albarán enviada desde el asistente: se abre Nueva recepción y se lee (cuando ya están los proveedores).
   const [photoToScan, setPhotoToScan] = useState<File | null>(null);
+  const [photoRead, setPhotoRead] = useState<AlbaranPhotoRead | null>(null);
   const [referenceReady, setReferenceReady] = useState(false);
   useEffect(() => {
     if (kind !== "recepciones") return;
     const pick = () => {
       const photo = takePendingFile("recepcion");
-      if (photo) setPhotoToScan(photo);
+      if (photo) { setPhotoToScan(photo); setPhotoRead(takePendingRead<AlbaranPhotoRead>("recepcion")); }
     };
     void Promise.resolve().then(pick);
     return onPendingFile("recepcion", pick);
@@ -222,7 +223,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       await Promise.resolve();
       setPhotoToScan(null);
       openModal();
-      await handleScanAlbaran(photo);
+      await handleScanAlbaran(photo, photoRead ?? undefined);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoToScan, referenceReady]);
@@ -366,13 +367,13 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     await loadRows();
   }
 
-  async function handleScanAlbaran(file: File | null) {
+  async function handleScanAlbaran(file: File | null, preRead?: AlbaranPhotoRead) {
     if (!file) return;
     setRPhoto(file);
     setFormError("");
     setScan({ stage: "reading" });
     try {
-      const result = await readAlbaranPhoto(file);
+      const result = preRead ?? (await readAlbaranPhoto(file));
       if (result.lines.length === 0) {
         setScan({ stage: "error", message: "No he encontrado líneas con cantidad, precio e importe. Rellénalas a mano; la foto queda adjunta." });
         return;

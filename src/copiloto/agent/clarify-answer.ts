@@ -90,8 +90,11 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       reuse = pending.routing;
     } else if (option === null && !typed && pending.field === "producto" && pending.routing && !changes && !isNewQuestion(text)) {
       // «¿Qué producto quieres archivar?» → «Coca-Cola 20 cl»: el nombre escrito (exacto, o el único que encaja).
-      const exact = ctx.products.filter((p) => tokenize(p.name).join(" ") === tokenize(text).join(" "));
-      const found = exact.length > 0 ? exact : await productsNamed(text, ctx, retriever, 6);
+      // El formato («20 cl», «1 kg») puede no estar en el nombre del catálogo: se busca también sin él.
+      const core = text.replace(/\b\d+([.,]\d+)?\s*(cl|ml|l|kg|g|ud|uds|unidades?)\b/gi, " ").replace(/\s+/g, " ").trim() || text;
+      const same = (name: string, dicho: string) => tokenize(name).join(" ") === tokenize(dicho).join(" ");
+      const exact = ctx.products.filter((p) => same(p.name, text) || same(p.name, core));
+      const found = exact.length > 0 ? exact : await productsNamed(core, ctx, retriever, 6);
       message = pending.message;
       page = pending.page;
       pageContext = pending.pageContext;
