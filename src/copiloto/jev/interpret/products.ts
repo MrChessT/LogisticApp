@@ -44,6 +44,11 @@ export function resolveProducts(r: JevReading, context: ContextKey, forAction: b
   // Al preguntar «¿qué producto?» la respuesta escrita ya es el producto (clarify-answer.ts): no se vuelve a extraer.
   const typed = r.overrides.producto_elegido ? r.ctx.products.find((p) => p.id === r.overrides.producto_elegido) : undefined;
   if (typed) return [{ product: typed, segmentIndex: 0, amount: null, unit: null, price: null, quantityOutcome: null, productOutcome: "actuar" }];
+  // Varios productos encajan con lo escrito: se pregunta cuál, sin adivinar.
+  if (r.overrides.producto_opciones) {
+    const options = r.overrides.producto_opciones.split(",").map((id) => r.ctx.products.find((p) => p.id === id)).filter((p) => p !== undefined);
+    if (options.length > 0) return { type: "clarify", field: "producto", question: "¿Cuál de estos productos?", options: options.map((p) => ({ id: p.id, label: p.name, probability: null })) };
+  }
   for (const [i, rs] of r.meta.segments.entries()) {
     const id = `producto_${i}`;
     const answer = r.choice(id);
