@@ -7,6 +7,7 @@ import Decimal from "decimal.js";
 import { euros as money, inputText as show } from "@/lib/format";
 import { formatStock, type CountingPacks, type UnitDimension } from "@/lib/units";
 import { EntityHistory } from "./product-history";
+import { ProductPurchases, ProductSuppliers } from "./product-purchases";
 import { ProductAllergens } from "./product-allergens";
 import "./product-editor.css";
 import { LoadingRows } from "@/components/ui/loading-rows";
@@ -15,7 +16,7 @@ import { LoadingRows } from "@/components/ui/loading-rows";
 // Se edita todo en borrador y "Guardar cambios" aplica solo lo que ha cambiado. Los permisos los
 // decide RLS (gerente o superior); si una escritura no afecta a ninguna fila se avisa como falta de permiso.
 
-type Tab = "general" | "formatos" | "precios" | "locales" | "alergenos" | "historial";
+type Tab = "general" | "formatos" | "precios" | "proveedores" | "compras" | "locales" | "alergenos" | "historial";
 
 type Option = { id: string; name: string };
 type Unit = { id: string; label: string; factor: number };
@@ -527,6 +528,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
               ["precios", `Precios${d ? ` (${d.prices.length})` : ""}`],
               ["locales", "Locales y stock"],
               ["alergenos", "Alérgenos"],
+              ["proveedores", "Proveedores"], ["compras", "Compras"],
               ["historial", "Historial"],
             ] as Array<[Tab, string]>
           ).map(([id, label]) => (
@@ -765,6 +767,8 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
           )}
 
           {tab === "historial" && <EntityHistory entityId={productId} />}
+          {tab === "proveedores" && <ProductSuppliers productId={productId} />}
+          {tab === "compras" && <ProductPurchases productId={productId} />}
           {tab === "alergenos" && <ProductAllergens productId={productId} canEdit />}
 
           {d && data && tab === "locales" && (

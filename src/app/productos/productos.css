@@ -20,3 +20,4 @@
   .catalog-head > span:nth-child(4), .catalog-row > span:nth-child(4) { display: block; justify-self: end; text-align: right; }
   .catalog-row > .inactive-status { grid-column: 1 / -1; }
 }
+.catalog-family { font-weight: 700; color: var(--ink); }

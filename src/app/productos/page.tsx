@@ -416,7 +416,7 @@ export default function ProductsPage() {
                       </button>
                     ))}
                   </div>
-                  <FacetList title="Categoría" options={categoryOptions} value={filters.cat} onChange={(cat) => update({ cat })} searchable />
+                  <FacetList title="Categoría" options={categoryOptions} value={filters.cat} onChange={(cat) => update({ cat })} />
                   <FacetList title="Proveedor" options={facets.suppliers} value={filters.prov} onChange={(prov) => update({ prov })} searchable />
                   <FacetList title="Local" options={facets.locations} value={filters.local} onChange={(local) => update({ local })} />
                   <div className="facet">
@@ -476,7 +476,9 @@ export default function ProductsPage() {
                       <span>
                         <strong>{product.name}</strong>
                         <small>
-                          {product.category ? (product.family ? `${product.family} · ${product.category}` : product.category) : "Sin categoría"}
+                          {product.category ? (
+                            product.family ? <><b className="catalog-family">{product.family}</b> · {product.category}</> : <b className="catalog-family">{product.category}</b>
+                          ) : "Sin categoría"}
                           {product.sku ? ` · ${product.sku}` : ""}
                         </small>
                       </span>
