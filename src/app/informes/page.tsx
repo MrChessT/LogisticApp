@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Printer, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Download, Sparkles } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import type { AnalyticsResponse, AnalyticsView } from "@/copiloto/contract";
 import "../productos/productos.css";
@@ -25,6 +25,18 @@ function readFilters(): { view: AnalyticsView; location: string; days: number } 
   const view = VIEWS.find((v) => v.id === params.get("vista"))?.id ?? "resumen";
   const days = Number(params.get("dias"));
   return { view, location: params.get("local") ?? "", days: PERIODS.includes(days as 7) ? days : 30 };
+}
+
+/** Descarga del PDF que genera el servidor con los mismos datos, permisos y filtros que la pantalla. */
+function PdfButton({ label, vista, filters, ready }: { label: string; vista: AnalyticsView | "todas"; filters: { location: string; days: number }; ready: boolean }) {
+  if (!ready) return <span className="informes-print" aria-disabled="true"><Download size={15} aria-hidden /> {label}</span>;
+  const params = new URLSearchParams({ vista, dias: String(filters.days) });
+  if (filters.location) params.set("locationId", filters.location);
+  return (
+    <a className="informes-print" href={`/api/copiloto/analytics/pdf?${params.toString()}`} download>
+      <Download size={15} aria-hidden /> {label}
+    </a>
+  );
 }
 
 export default function InformesPage() {
@@ -97,13 +109,6 @@ export default function InformesPage() {
   const current = VIEWS.find((v) => v.id === view)!;
   const [lead, ...rest] = data?.charts ?? [];
 
-  // El PDF lo genera el navegador («Guardar como PDF»). El título de la página se usa como nombre del fichero.
-  function downloadPdf() {
-    const previous = document.title;
-    document.title = `Informes ${current.label} ${data?.locationName ?? "Todos los locales"} ${days} días`;
-    window.print();
-    document.title = previous;
-  }
 
   return (
     <main className="informes-page">
@@ -114,9 +119,10 @@ export default function InformesPage() {
             <h1>Informes</h1>
             <p className="informes-meta">{current.label} · {data?.locationName ?? "Todos los locales"} · últimos {days} días</p>
           </div>
-          <button type="button" className="informes-print" onClick={downloadPdf} disabled={!data}>
-            <Printer size={15} aria-hidden /> Descargar PDF
-          </button>
+          <div className="informes-download">
+            <PdfButton label="Esta vista" vista={view} filters={{ location, days }} ready={data !== null} />
+            <PdfButton label="Informe completo" vista="todas" filters={{ location, days }} ready={data !== null} />
+          </div>
         </div>
 
         <div className="informes-filters" role="toolbar" aria-label="Filtros">

@@ -37,12 +37,7 @@
   .informes-selects .location-select { flex: 1; }
   .informes-kpi strong { font-size: 21px; }
 }
-.informes-print { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; color: var(--green); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-md); font-weight: 600; white-space: nowrap; }
-.informes-print:disabled { opacity: .5; }
-@media print {
-  body * { visibility: hidden; }
-  .informes-content, .informes-content * { visibility: visible; }
-  .informes-content { position: absolute; inset: 0; width: 100%; padding: 0; max-width: none; }
-  .informes-filters, .informes-print { display: none; }
-  .informes-kpi, .informes-summary, .informes-grid > div { break-inside: avoid; }
-}
+.informes-download { display: flex; gap: 8px; flex-wrap: wrap; }
+.informes-print { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; color: var(--green); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-md); font-weight: 600; white-space: nowrap; text-decoration: none; }
+.informes-print:hover { border-color: var(--brand-line); background: var(--soft-green); }
+.informes-print[aria-disabled="true"] { opacity: .5; pointer-events: none; }

@@ -288,6 +288,12 @@ interface ChartSpec {
 interface Kpi { id: string; label: string; value: string; hint?: string; delta?: { display: string; direction: "up" | "down" | "flat"; good: boolean } }
 ```
 
+### GET /analytics/pdf
+
+`GET /analytics/pdf?vista=<AnalyticsView | todas>&dias=7|30|90&locationId=<uuid opcional>`
+
+Informe descargable en PDF (`application/pdf`, adjunto). `vista=todas` genera el informe completo con todas las vistas, una sección por vista. Mismos permisos («ve costes»), filtros y límites que `GET /analytics`; las cifras salen de los mismos cálculos, así que el documento y la pantalla no pueden discrepar. Las gráficas son vectoriales (no capturas) y cada una va con su tabla de datos exactos.
+
 ### GET /analytics
 
 `GET /analytics?orgId=<uuid>&vista=<AnalyticsView>&dias=7|30|90&locationId=<uuid opcional>&productId=<uuid opcional>`

@@ -5,6 +5,7 @@ import { formatStock } from "./entities/units";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Analytics } from "./analytics/analytics";
+import { buildReportPdf, type ReportView } from "./reports/pdf-report";
 import { SessionStore } from "./agent/session";
 import { CompositeAuditSink, ConsoleAuditSink } from "./audit/audit";
 import { ANALYTICS_VIEWS, CATALOG_KINDS, ChatRequest, CONTRACT_VERSION, type ErrorEvent, type HealthResponse } from "./contract/index";
@@ -225,6 +226,43 @@ async function analytics(url: URL, user: RequestUser): Promise<Response> {
   return json({ ...result, locations: ctx.locations.map((l) => ({ id: l.id, name: l.name })) });
 }
 
+/** Informe en PDF: una vista, o «todas» (informe completo). Mismos permisos, filtros y límites que la pantalla. */
+const PdfQuery = AnalyticsQuery.extend({ vista: z.enum([...ANALYTICS_VIEWS, "todas"]).default("resumen") });
+
+async function analyticsPdf(url: URL, user: RequestUser): Promise<Response> {
+  const rt = runtime();
+  const blocked = limited(rt.limiters.analytics, `pdf:${user.userId}`);
+  if (blocked) return blocked;
+  const parsed = PdfQuery.safeParse(Object.fromEntries(url.searchParams));
+  if (!parsed.success) return fail(400, { code: "invalid_request", message: "Petición no válida", retryable: false });
+  const ctx = await loadContext(user);
+  if (!ctx.seesCosts) return fail(403, { code: "forbidden", message: "Tu usuario no tiene permiso para ver costes e importes.", retryable: false });
+  if (parsed.data.locationId && !ctx.locations.some((l) => l.id === parsed.data.locationId)) {
+    return fail(403, { code: "forbidden", message: "No tienes acceso a ese local", retryable: false });
+  }
+  const scope = scopeFor(user);
+  const engine = new Analytics(scope.tools.source);
+  const common = {
+    ctx,
+    locationIds: parsed.data.locationId ? [parsed.data.locationId] : ctx.locations.map((l) => l.id),
+    productIds: parsed.data.productId ? [parsed.data.productId] : [],
+    days: parsed.data.dias,
+    now: new Date(),
+  };
+  const ids = parsed.data.vista === "todas" ? [...ANALYTICS_VIEWS] : [parsed.data.vista];
+  const views: ReportView[] = [];
+  for (const id of ids) {
+    const result = await engine.view(id, common);
+    views.push({ id, title: result.title, periodLabel: result.periodLabel, locationName: result.locationName, kpis: result.kpis, charts: result.charts });
+  }
+  const { data: org } = await scope.db.from("organizations").select("name").eq("id", user.orgId).maybeSingle();
+  const pdf = await buildReportPdf({ organization: org?.name ?? "", generatedAt: new Date(), views });
+  const filename = `informe-${parsed.data.vista}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  return new Response(new Uint8Array(pdf), {
+    headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store" },
+  });
+}
+
 /** Resumen redactado del mismo informe (mismos permisos y filtros). text null: sin ayudante o sin resumen fiable. */
 async function analyticsSummary(url: URL, user: RequestUser): Promise<Response> {
   const rt = runtime();
@@ -355,6 +393,8 @@ export async function handleCopiloto(route: string, request: Request, user: Requ
         return await analytics(url, user);
       case "GET analytics/resumen":
         return await analyticsSummary(url, user);
+      case "GET analytics/pdf":
+        return await analyticsPdf(url, user);
       case "GET reorder":
         return await reorder(url, user);
       case "GET health":
