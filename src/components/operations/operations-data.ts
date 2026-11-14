@@ -38,6 +38,8 @@ function daysAgo(days: number) {
 
 export type DisplayRow = {
   id: string;
+  /** Si la fila lleva a su ficha (los albaranes). */
+  href?: string;
   title: string;
   detail: string;
   status: string;
@@ -92,6 +94,7 @@ export async function loadOperations(kind: OperationKind, deps: LoadDeps): Promi
     const incidents = (r: (typeof records)[number]) => r.receipt_lines.filter((l) => l.incident).length;
     rows = records.map((r) => ({
       id: r.id,
+      href: `/recepciones/${r.id}`,
       title: `${r.code ? `${r.code} · ` : ""}${r.doc_number ? `Albarán ${r.doc_number}` : "albarán sin número"}`,
       detail: [
         r.suppliers?.name ?? "Proveedor sin asignar",

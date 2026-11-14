@@ -12,6 +12,7 @@ import type {
   OpenCountRaw,
   OpenOrderRaw,
   OrderRaw,
+  PurchaseLineRaw,
   PurchaseRaw,
   PriceRaw,
   SupplierPriceRaw,
@@ -164,6 +165,24 @@ export class FixtureDataSource implements InventoryDataSource {
       { receiptId: "r4", locationId: PARADOR.id, supplierId: id("99999999", 1), supplierName: "Distribuciones Canarias", docDate: day(60), total: "300.00" },
     ];
     return all.filter((p) => filter.locationIds.includes(p.locationId) && p.docDate >= filter.since);
+  }
+
+  async purchaseLines(filter: { locationIds: string[]; since: string }): Promise<PurchaseLineRaw[]> {
+    // Cada albarán se reparte en líneas que suman exactamente su total (ver purchases).
+    const receipts = new Map((await this.purchases({ locationIds: LOCATIONS.map((l) => l.id), since: "0000-00-00" })).map((p) => [p.receiptId, p]));
+    const lines: Array<[string, string, string]> = [
+      ["r1", P[1]!.id, "104.80"],
+      ["r1", P[4]!.id, "80.00"],
+      ["r2", P[7]!.id, "132.00"],
+      ["r3", P[6]!.id, "66.00"],
+      ["r4", P[8]!.id, "300.00"],
+    ];
+    return lines
+      .map(([receiptId, productId, amount]) => {
+        const r = receipts.get(receiptId)!;
+        return { receiptId, locationId: r.locationId, supplierName: r.supplierName, docDate: r.docDate, productId, amount };
+      })
+      .filter((l) => filter.locationIds.includes(l.locationId) && l.docDate >= filter.since);
   }
 
   async openOrders(filter: { locationIds: string[] }): Promise<OpenOrderRaw[]> {

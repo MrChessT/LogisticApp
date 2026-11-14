@@ -2,16 +2,16 @@
 
 // Kit de gráficas SVG de LogisticApp. Las cifras llegan calculadas (decimal.js en el servicio) como cadena
 // y ya formateadas en `display`; aquí solo se convierten a número para POSICIONAR marcas en píxeles.
-// Paleta validada (verde de marca saturado, azul, naranja, violeta; orden fijo, nunca cíclico).
+// Colores: paleta categórica validada (charts.css, tokens --viz-*), en orden fijo y nunca cíclica.
 
 import { useEffect, useRef, useState } from "react";
 import { Table2 } from "lucide-react";
 import type { ChartSpec } from "@/copiloto/contract";
 import "./charts.css";
 
-const SERIES_COLORS = ["#0f8a5f", "#2a78d6", "#eb6834", "#4a3aa7"] as const;
-const POSITIVE = "#2a78d6";
-const NEGATIVE = "#d03b3b";
+const SERIES_COLORS = ["var(--viz-1)", "var(--viz-2)", "var(--viz-3)", "var(--viz-4)"] as const;
+const POSITIVE = "var(--viz-1)";
+const NEGATIVE = "var(--viz-critical)";
 
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -153,10 +153,10 @@ function LineChart({ spec, width, height }: { spec: ChartSpec; width: number; he
           ) : null,
         )}
         {single && spec.series[0] && spec.series[0].points.length > 1 && (
-          <path d={`${pathOf(spec.series[0])} L${x(index.get(spec.series[0].points.at(-1)!.x)!)},${y(0)} L${x(index.get(spec.series[0].points[0]!.x)!)},${y(0)}Z`} fill={SERIES_COLORS[0]} opacity={0.1} />
+          <path d={`${pathOf(spec.series[0])} L${x(index.get(spec.series[0].points.at(-1)!.x)!)},${y(0)} L${x(index.get(spec.series[0].points[0]!.x)!)},${y(0)}Z`} style={{ fill: SERIES_COLORS[0] }} opacity={0.1} />
         )}
         {spec.series.map((s, si) => (
-          <path key={s.key} d={pathOf(s)} fill="none" stroke={SERIES_COLORS[si]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path key={s.key} d={pathOf(s)} fill="none" style={{ stroke: SERIES_COLORS[si] }} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         ))}
         {spec.series.map((s, si) => {
           const last = s.points.at(-1);
@@ -164,7 +164,7 @@ function LineChart({ spec, width, height }: { spec: ChartSpec; width: number; he
           const cx = x(index.get(last.x)!);
           return (
             <g key={`${s.key}-end`}>
-              <circle cx={cx} cy={y(toPx(last.value))} r={4} fill={SERIES_COLORS[si]} stroke="#fff" strokeWidth={2} />
+              <circle cx={cx} cy={y(toPx(last.value))} r={4} style={{ fill: SERIES_COLORS[si] }} stroke="#fff" strokeWidth={2} />
               {endLabels && (
                 <text x={cx + 9} y={y(toPx(last.value))} className="chart-end-label" dominantBaseline="middle">
                   {single ? last.display : s.name}
@@ -178,7 +178,7 @@ function LineChart({ spec, width, height }: { spec: ChartSpec; width: number; he
             <line x1={x(hover)} x2={x(hover)} y1={m.top} y2={m.top + h} className="chart-crosshair" />
             {spec.series.map((s, si) => {
               const p = s.points.find((pt) => pt.x === hoverKey);
-              return p ? <circle key={s.key} cx={x(hover)} cy={y(toPx(p.value))} r={4} fill={SERIES_COLORS[si]} stroke="#fff" strokeWidth={2} /> : null;
+              return p ? <circle key={s.key} cx={x(hover)} cy={y(toPx(p.value))} r={4} style={{ fill: SERIES_COLORS[si] }} stroke="#fff" strokeWidth={2} /> : null;
             })}
           </g>
         )}
@@ -214,7 +214,7 @@ function ColumnChart({ spec, width, height }: { spec: ChartSpec; width: number; 
           return (
             <g key={p.x} onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)}>
               <rect x={m.left + band * i} y={m.top} width={band} height={h} fill="transparent" />
-              <path d={roundedTopBar(cx - barW / 2, top, barW, m.top + h - top)} fill={SERIES_COLORS[0]} opacity={hover === null || hover === i ? 1 : 0.55} />
+              <path d={roundedTopBar(cx - barW / 2, top, barW, m.top + h - top)} style={{ fill: SERIES_COLORS[0] }} opacity={hover === null || hover === i ? 1 : 0.55} />
               <text x={cx} y={top - 6} className="chart-value" textAnchor="middle">{p.display}</text>
               <text x={cx} y={height - 9} className="chart-tick" textAnchor="middle">{p.label}</text>
             </g>
@@ -282,7 +282,7 @@ function HorizontalChart({ spec, width }: { spec: ChartSpec; width: number }) {
                 <title>{p.label}</title>
                 {p.label.length > 26 ? `${p.label.slice(0, 25)}…` : p.label}
               </text>
-              <path d={roundedEndBar(x(0), end, y0, barH)} fill={color} opacity={hover === null || hover === i ? 1 : 0.55} />
+              <path d={roundedEndBar(x(0), end, y0, barH)} style={{ fill: color }} opacity={hover === null || hover === i ? 1 : 0.55} />
               <text x={labelX} y={y0 + barH / 2} className="chart-value" textAnchor={v < 0 ? "end" : "start"} dominantBaseline="middle">
                 {p.display}
               </text>

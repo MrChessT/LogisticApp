@@ -35,6 +35,7 @@ export function cachedSource(source: InventoryDataSource, scope: { orgId: string
     prices: cached("prices", source.prices),
     countResults: cached("countResults", source.countResults),
     purchases: cached("purchases", source.purchases),
+    purchaseLines: cached("purchaseLines", source.purchaseLines),
     // Estado actual: siempre fresco.
     balances: (...a) => source.balances(...a),
     areaBalances: (...a) => source.areaBalances(...a),

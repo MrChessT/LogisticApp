@@ -1,5 +1,9 @@
-/* Gráficas de LogisticApp: marcas finas, rejilla recesiva, texto siempre con tinta de texto (nunca color de serie). */
-.chart-card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); min-width: 0; }
+/* Gráficas de LogisticApp: marcas finas, rejilla recesiva, texto siempre con tinta de texto (nunca color de serie).
+   Paleta categórica validada (references/palette.md de la guía de dataviz): orden fijo, cuatro series como máximo;
+   la app no tiene modo oscuro, así que solo hay valores para superficie clara. */
+.chart-card { --viz-1: #2a78d6; --viz-2: #eb6834; --viz-3: #1baf7a; --viz-4: #eda100; --viz-critical: #d03b3b;
+  --viz-grid: #e1e0d9; --viz-axis: #c3c2b7; --viz-muted: #898781; --viz-ink: #0b0b0b; --viz-ink-2: #52514e;
+  position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); min-width: 0; }
 .chart-card.compact { padding: 12px 12px 10px; gap: 8px; border-color: var(--line-strong); }
 .chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .chart-head h3 { margin: 0; font: 600 15px var(--font-display), sans-serif; letter-spacing: -.2px; color: var(--ink); }
@@ -9,24 +13,24 @@
 .chart-table-toggle:hover, .chart-table-toggle.active { color: var(--green); border-color: var(--brand-line); background: var(--soft-green); }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--text-2); font-size: var(--fs-sm); }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.chart-legend i { width: 14px; height: 2px; border-radius: var(--r-sm); }
+.chart-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .chart-body { position: relative; min-height: 60px; }
 .chart-body svg { display: block; overflow: visible; }
-.chart-grid { stroke: #eef1ee; stroke-width: 1; }
-.chart-axis { stroke: #d8dfda; stroke-width: 1; }
-.chart-crosshair { stroke: #b9c4bd; stroke-width: 1; }
+.chart-grid { stroke: var(--viz-grid); stroke-width: 1; }
+.chart-axis { stroke: var(--viz-axis); stroke-width: 1; }
+.chart-crosshair { stroke: var(--viz-axis); stroke-width: 1; stroke-dasharray: none; }
 .chart-reference { stroke: var(--text-2); stroke-width: 1; }
 .chart-reference-label { fill: var(--text-2); font-size: var(--fs-xs); font-weight: 600; }
-.chart-tick { fill: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.chart-category { fill: var(--text-2); font-size: var(--fs-sm); }
-.chart-value { fill: var(--ink); font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.chart-tick { fill: var(--viz-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.chart-category { fill: var(--viz-ink-2); font-size: var(--fs-sm); }
+.chart-value { fill: var(--viz-ink); font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
 .chart-end-label { fill: var(--text-2); font-size: var(--fs-xs); font-weight: 600; }
 .chart-empty { margin: 18px 0; color: var(--muted); font-size: var(--fs-md); text-align: center; }
-.chart-tooltip { position: absolute; z-index: 2; pointer-events: none; display: flex; flex-direction: column; gap: 4px; min-width: 130px; max-width: 220px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: 0 8px 24px rgba(32, 60, 43, .14); font-size: var(--fs-sm); }
+.chart-tooltip { position: absolute; z-index: 2; pointer-events: none; display: flex; flex-direction: column; gap: 4px; min-width: 130px; max-width: 220px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: 0 6px 18px rgba(11, 11, 11, .10); font-size: var(--fs-sm); }
 .chart-tooltip-title { color: var(--muted); }
 .chart-tooltip-row { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
 .chart-tooltip-row b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.chart-tooltip-row i { width: 12px; height: 2px; border-radius: var(--r-sm); flex-shrink: 0; }
+.chart-tooltip-row i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .chart-table-wrap { max-height: 260px; overflow: auto; }
 .chart-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .chart-table th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }

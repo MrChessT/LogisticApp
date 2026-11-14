@@ -1,12 +1,15 @@
 // Analítica para /informes y para las gráficas del chat. Todo cálculo con decimal.js; cada punto sale
 // con su valor exacto (cadena decimal) y su texto ya formateado. La UI solo dibuja.
 import Decimal from "decimal.js";
-import type { AnalyticsResponse, AnalyticsView, ChartFormat, ChartPoint, ChartSeries, ChartSpec, Kpi } from "../contract/index";
+import type { AnalyticsResponse, AnalyticsView, ChartSeries, ChartSpec, Kpi } from "../contract/index";
 import type { SessionContext } from "../domain";
 import { formatDecimal, formatMoney } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
 import { EXIT_KIND_LABEL, EXIT_KINDS, isLoss } from "../../lib/exit-kinds";
 import { addDays } from "../tools/periods";
+import { daysBetween, dayLabel, point, weekLabel } from "./points";
+import { comprasView } from "./compras";
+import { departmentChart } from "./departamentos";
 import { computeReorder, type ToolName } from "../tools/tools";
 import type { InventoryDataSource, MovementRaw, ToolParams } from "../tools/types";
 
@@ -16,6 +19,7 @@ const TOP_N = 8;
 
 const VIEW_TITLES: Record<AnalyticsView, string> = {
   resumen: "Resumen",
+  compras: "Compras",
   cuentas: "Cuentas de la mercancía",
   consumo: "Consumo",
   mermas: "Mermas",
@@ -25,45 +29,8 @@ const VIEW_TITLES: Record<AnalyticsView, string> = {
   desvios: "Desvíos de inventario",
 };
 
-const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-
-function dayLabel(day: string): string {
-  const [, m, d] = day.split("-");
-  return `${Number(d)} ${MONTHS[Number(m) - 1]}`;
-}
-
-/** «16–22 sep» (o «29 sep–5 oct» si cambia de mes). */
-function weekLabel(from: string, to: string): string {
-  const [a, b] = [dayLabel(from), dayLabel(to)];
-  return a.split(" ")[1] === b.split(" ")[1] ? `${a.split(" ")[0]}–${b}` : `${a}–${b}`;
-}
-
-function display(value: Decimal, format: ChartFormat): string {
-  switch (format) {
-    case "money":
-      return formatMoney(value);
-    case "days":
-      return `${formatDecimal(value, 1)} días`;
-    case "percent":
-      return `${formatDecimal(value, 1)} %`;
-    case "number":
-      return formatDecimal(value, 2);
-  }
-}
-
-function point(x: string, label: string, value: Decimal, format: ChartFormat): ChartPoint {
-  const rounded = format === "money" ? value.toDecimalPlaces(2) : value.toDecimalPlaces(2);
-  return { x, label, value: rounded.toString(), display: display(rounded, format) };
-}
-
 function sinceIso(day: string): string {
   return `${addDays(day, -1)}T00:00:00Z`;
-}
-
-function daysBetween(from: string, to: string): string[] {
-  const out: string[] = [];
-  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
-  return out;
 }
 
 /** Salidas que consumen stock (consumo, merma y ajustes negativos). Los traspasos no cuentan. */
@@ -431,11 +398,19 @@ export class Analytics {
           withMovements((m) => this.topProducts(q, false, m)),
         ]) as [Kpi[], ...ChartSpec[]];
         break;
+      case "compras": {
+        const lines = await this.source.purchaseLines({ locationIds: q.locationIds, since: w.from });
+        const compras = comprasView(lines, q.ctx, w, q.productIds);
+        kpis = compras.kpis;
+        charts = compras.charts;
+        break;
+      }
       case "consumo":
         [kpis, ...charts] = await Promise.all([
           withMovements((m) => this.kpis(q, m, ["consumo", "mermas"])),
           withMovements((m) => this.dailyUsage(q, false, m)),
           withMovements((m) => this.topProducts(q, false, m)),
+          withMovements((m) => this.departmentUsage(q, false, m)),
         ]) as [Kpi[], ...ChartSpec[]];
         break;
       case "mermas":
@@ -443,6 +418,7 @@ export class Analytics {
           withMovements((m) => this.kpis(q, m, ["mermas", "otras_salidas", "consumo"])),
           withMovements((m) => this.dailyUsage(q, true, m)),
           withMovements((m) => this.topProducts(q, true, m)),
+          withMovements((m) => this.departmentUsage(q, true, m)),
           withMovements((m) => this.exitsByKind(q, m)),
         ]) as [Kpi[], ...ChartSpec[]];
         break;
@@ -504,6 +480,26 @@ export class Analytics {
         hint: variation.gt(0) ? "Se ha comprado más de lo que ha salido: el stock sube" : variation.lt(0) ? "Ha salido más de lo que se ha comprado: el stock baja" : "Cuadra: lo comprado es lo que ha salido",
       },
     ];
+  }
+
+  /** Valor consumido o mermado repartido por departamento del catálogo. */
+  async departmentUsage(q: AnalyticsQuery, onlyWaste: boolean, movements?: MovementRaw[]): Promise<ChartSpec> {
+    const w = this.window(q);
+    const list = (movements ?? (await this.movements(q, w.from))).filter((m) => (onlyWaste ? isLossExit(m) : isUsage(m)));
+    const values = new Map<string, Decimal>();
+    for (const m of list) {
+      const day = this.dayOf(q, m);
+      if (day < w.from || day > w.to) continue;
+      values.set(m.productId, (values.get(m.productId) ?? new Decimal(0)).plus(movementValue(m)));
+    }
+    return departmentChart({
+      id: onlyWaste ? "mermas-departamento" : "consumo-departamento",
+      title: onlyWaste ? "Mermas por departamento" : "Consumo por departamento",
+      subtitle: `Valor a coste medio, ${w.label}`,
+      values,
+      products: q.ctx.products,
+      empty: "Sin datos en este periodo.",
+    });
   }
 
   /** Gasto en compras (recepciones) por proveedor en la ventana de la consulta. */
