@@ -44,19 +44,6 @@ describe("analítica (decimal.js, cifras exactas)", () => {
     expect(prices.series[0]!.points[0]).toMatchObject({ value: "10", display: "10 %" });
   });
 
-  it("cuentas: compras − salidas = variación de stock, sin contar dos veces mermas ni invitaciones", async () => {
-    const r = await analytics.view("cuentas", q({ days: 30 }));
-    const kpi = (id: string) => r.kpis.find((k) => k.id === id)!.value;
-    expect(r.kpis.map((k) => k.id)).toEqual(["compras", "consumo_productivo", "mermas_perdida", "invitaciones_personal", "variacion_stock"]);
-    // Salidas totales 1.164,80 € = consumo 1.134,00 € + pérdidas 30,80 € + invitaciones/personal 0 €.
-    expect(kpi("compras")).toBe("382,80 €");
-    expect(kpi("consumo_productivo")).toBe("1.134,00 €");
-    expect(kpi("mermas_perdida")).toBe("30,80 €");
-    expect(kpi("variacion_stock")).toBe("-782,00 €");
-    expect(r.kpis.find((k) => k.id === "mermas_perdida")!.hint).toBe("2,6 % de las salidas");
-    expect(r.charts.map((c) => c.id)).toEqual(["compras-proveedor", "consumo-producto"]);
-  });
-
   it("no devuelve una gráfica de una sola barra al chat", async () => {
     const one = await analytics.chartForTool("query_stock", q({ locationIds: [PARADOR!.id], productIds: [ctx.products[0]!.id] }), 3);
     expect(one).toBeNull();

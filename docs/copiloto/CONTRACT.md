@@ -102,7 +102,7 @@ interface NavigateEvent {
     from?: string;             // YYYY-MM-DD
     to?: string;               // YYYY-MM-DD
     q?: string;                // texto de búsqueda
-    view?: AnalyticsView;      // vista de /informes (resumen, compras, cuentas, consumo, mermas, stock, precios, reposicion, desvios)
+    view?: AnalyticsView;      // vista de /informes (resumen, compras, consumo, mermas, stock, precios, reposicion, desvios)
     days?: number;             // periodo de /informes: 7, 30 o 90
   };
   auto: boolean;               // true: navegar ya. false: mostrar botón "Ir a…"
@@ -272,7 +272,7 @@ La confirmación se ejecuta con el JWT del usuario. Las RPC y el RLS vuelven a c
 Las cifras se calculan en el servicio con decimal.js. `value` es la cadena decimal exacta y `display` el texto ya formateado en es-ES. La UI solo convierte `value` a número para posicionar las marcas.
 
 ```ts
-type AnalyticsView = "resumen" | "compras" | "cuentas" | "consumo" | "mermas" | "stock" | "precios" | "reposicion" | "desvios";
+type AnalyticsView = "resumen" | "compras" | "consumo" | "mermas" | "stock" | "precios" | "reposicion" | "desvios";
 
 interface ChartSpec {
   id: string;
@@ -318,8 +318,7 @@ Qué incluye cada vista:
 | Vista | Contenido |
 | --- | --- |
 | `resumen` | Valor del stock, consumo, mermas y bajo mínimo; consumo diario por local, stock por local y productos con más merma |
-| `compras` | Compras por departamento (primer nivel del catálogo) y familia (categoría completa), evolución diaria por departamento (hasta 4 líneas, el resto en «Otros»), día de la semana y proveedor. Cada importe sale de las líneas de los albaranes cerrados |
-| `cuentas` | Compras, consumo, pérdidas, invitaciones y personal, y variación de stock (compras − salidas); compras por proveedor y consumo por producto. Las mermas se miden sobre lo consumido |
+| `compras` | Compras por departamento (primer nivel del catálogo) y familia (categoría completa), evolución diaria por departamento (hasta 4 líneas, el resto en «Otros»), día de la semana, proveedor y productos con más consumo. Cada importe de compra sale de las líneas de los albaranes cerrados |
 | `consumo` | Consumo diario, productos con más consumo y consumo por departamento |
 | `mermas` | Mermas diarias, productos con más merma, mermas por departamento y salidas por tipo |
 | `stock` | Valor por local y productos con más valor |
