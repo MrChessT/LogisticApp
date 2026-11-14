@@ -49,3 +49,13 @@
 .import-section-head h2 { margin: 0; color: var(--ink); font: 600 20px var(--font-display), sans-serif; }
 .import-section-head p { margin: 5px 0 0; color: var(--text-3); font-size: var(--fs-md); }
 .import-products { max-height: 220px; overflow-y: auto; margin: 10px 0 0; padding: 10px; color: var(--text-2); background: var(--surface-2); border-radius: var(--r-md); font-size: var(--fs-sm); line-height: 1.6; }
+
+/* Reconocimiento de archivos subidos a la vez (import-detect.tsx). */
+.import-detect { display: grid; gap: 10px; }
+.import-detect-file { border-top: 1px solid var(--line, #e5e7eb); padding-top: 8px; }
+.import-detect-file ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.import-kind { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--surface-2, #f3f4f6); }
+.import-kind-catalogo { background: #e0f2fe; }
+.import-kind-escandallos { background: #dcfce7; }
+.import-kind-ventas { background: #fef9c3; }
+.import-kind-desconocido { background: #fee2e2; }

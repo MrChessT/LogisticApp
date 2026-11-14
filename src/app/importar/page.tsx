@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, Rotate
 import { createClient } from "@/lib/supabase/client";
 import { parseWorkbook, SHEET_LABEL, templateSheets, type ParsedImport, type RowIssue, type SheetKey } from "@/lib/catalog-import";
 import { readXlsx, writeXlsx } from "@/lib/xlsx";
+import { ImportDetect } from "@/components/importar/import-detect";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import { RecipeImportPanel } from "./recipe-import-panel";
@@ -147,6 +148,7 @@ export default function ImportarPage() {
 
         {org?.admin && (
           <>
+            <ImportDetect />
             <section className="import-steps">
               <div className="import-card">
                 <span className="import-step">1</span>
