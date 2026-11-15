@@ -5,7 +5,7 @@
 import { readAlbaran, type AlbaranRead, type OcrText } from "@/lib/albaran-reader";
 
 /** Debe coincidir con OCR_VERSION de scripts/build-ocr.mjs. */
-const OCR_VERSION = "1";
+const OCR_VERSION = "2";
 /** Lado mayor de la imagen que se lee: más grande no lee mejor y tarda bastante más. */
 const MAX_SIDE = 1800;
 
