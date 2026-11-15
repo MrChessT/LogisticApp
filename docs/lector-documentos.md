@@ -103,6 +103,16 @@ Medido con el OCR real sobre los albaranes de ejemplo del Drive y fotos de prueb
 
 No se resuelve: una foto en espejo, o un albarán alterado (sale «no cuadra», que es lo correcto).
 
+## De la foto a la recepción
+
+- **Desde el asistente:** al leer la foto, queda preparada (`pending-file.ts`). Al entrar en Recepciones, por el botón
+  del chat o por el menú, se abre Nueva recepción rellena y con la foto adjunta como justificante.
+- **Se rellena solo:** proveedor (si su nombre está en el albarán), número (`albaranNumber`), fecha y líneas.
+- **Lo que no está dado de alta se crea ahí mismo** (`receipt-new-items.tsx`, reglas en `albaran-cabecera.ts`):
+  el proveedor, con el nombre leído del albarán (editable), y cada producto sin emparejar, con el nombre de la
+  línea y su formato de compra según la unidad (kg, litro o unidad) y el IVA del albarán si es uno solo. Los
+  permisos los decide la base de datos. Nada se registra hasta pulsar «Registrar recepción».
+
 ## Factura desde foto (OCR)
 
 En **Facturas → Nueva factura** hay un botón «Leer foto de la factura». Rellena número, fecha, base (subtotal),
