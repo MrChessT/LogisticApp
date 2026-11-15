@@ -7,7 +7,7 @@ import { euros } from "@/lib/format";
 import { civilToday } from "@/lib/business-day";
 import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
 import { camposDeFactura, readDocumentPhoto } from "@/lib/documento-foto";
-import { InvoiceLinesTable, type LineaFactura } from "./invoice-lines";
+import { InvoiceLinesTable, lineProblem, type LineaFactura } from "./invoice-lines";
 import { guessSupplier } from "@/lib/albaran-ocr";
 
 // Alta y edición de una factura de proveedor: datos, albaranes que cubre (con el cuadre en vivo), archivo
@@ -58,6 +58,13 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [lines, setLines] = useState<LineaFactura[]>([]);
+  const [linesDirty, setLinesDirty] = useState(false);
+  // Albaranes de una factura que se edita: hasta que no se cargan bien, guardar no los toca.
+  const [links, setLinks] = useState<"ok" | "loading" | "error">(invoice ? "loading" : "ok");
+  const [linksTry, setLinksTry] = useState(0);
+  // Factura ya guardada en este formulario (si el adjunto falla, se reintenta sobre ella, sin crear otra).
+  const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
+  const [receiptQuery, setReceiptQuery] = useState("");
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -68,12 +75,13 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     void (async () => {
       const supabase = createClient();
       if (!supabase) return;
-      const { data } = await supabase
+      const { data, error: err } = await supabase
         .from("invoice_lines")
         .select("ref, description, qty, unit, price, discount_pct, vat_pct, amount")
         .eq("invoice_id", invoice.id)
         .order("position");
       if (cancelled) return;
+      if (err) return setError("No se pudieron leer las líneas de la factura. Si guardas, se conservan las que tiene.");
       setLines((data ?? []).map((l) => ({
         ref: l.ref, description: l.description, qty: String(l.qty), unit: l.unit, price: String(l.price),
         discountPct: l.discount_pct === null ? null : String(l.discount_pct), vatPct: l.vat_pct === null ? null : String(l.vat_pct), amount: String(l.amount),
@@ -91,22 +99,24 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     void (async () => {
       const supabase = createClient();
       if (!supabase) return;
-      const { data } = await supabase
+      const { data, error: err } = await supabase
         .from("invoice_receipts")
         .select("receipt_id, goods_receipts(id, code, doc_number, doc_date, supplier_id, locations(name), receipt_lines(packs_qty, pack_price))")
         .eq("invoice_id", invoice.id);
       if (cancelled) return;
+      if (err || !data) return setLinks("error");
       const rows = (data ?? []).map((r) => {
         const g = r.goods_receipts as unknown as { id: string; code: string; doc_number: string | null; doc_date: string; supplier_id: string; locations: { name: string } | null; receipt_lines: Array<{ packs_qty: number; pack_price: number }> };
         return { id: g.id, code: g.code, docNumber: g.doc_number, date: g.doc_date, supplierId: g.supplier_id, locationName: g.locations?.name ?? "", total: Math.round(g.receipt_lines.reduce((s, l) => s + l.packs_qty * l.pack_price, 0) * 100) / 100 };
       });
       setLinked(rows);
       setSelected(new Set(rows.map((r) => r.id)));
+      setLinks("ok");
     })();
     return () => {
       cancelled = true;
     };
-  }, [invoice]);
+  }, [invoice, linksTry]);
 
   const available = useMemo(() => {
     const own = linked.filter((r) => r.supplierId === supplierId);
@@ -165,6 +175,7 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
       if (c.vat) setVat(c.vat);
       if (c.total) setTotal(c.total);
       setLines(leida.lines);
+      setLinesDirty(true);
       setFile(photo);
       setReadNote(c.aviso);
     } catch (e) {
@@ -185,36 +196,48 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     if (b === null || v === null || t === null) return setError("Base, IVA y total tienen que ser importes.");
     if (Math.abs(t - (b + v)) > 0.05) return setError("La base más el IVA no da el total: revisa los importes.");
     if (due && due < date) return setError("El vencimiento no puede ser anterior a la fecha de la factura.");
+    if (links === "loading") return setError("Espera a que se carguen los albaranes de la factura.");
+    const bad = lines.findIndex((l) => lineProblem(l) !== null);
+    if (linesDirty && bad >= 0) return setError(`Revisa la línea ${bad + 1} de la factura: ${lineProblem(lines[bad]!)}.`);
     const supabase = createClient();
     if (!supabase) return;
     setSaving(true);
     const { data: id, error: err } = await supabase.rpc("save_invoice", {
-      p_id: invoice?.id ?? null, p_org: orgId, p_supplier: supplierId, p_number: number.trim(), p_date: date, p_due: due || null,
-      p_subtotal: b, p_vat: v, p_total: t, p_notes: notes.trim() || null, p_receipts: chosen.map((r) => r.id),
-      // Solo una factura nueva lleva líneas nuevas; en una edición las que hay se conservan.
-      p_lines: !invoice && lines.length ? lines.map((l, i) => ({
-        position: i + 1, ref: l.ref, description: l.description.trim() || "Sin descripción", qty: l.qty, unit: l.unit,
-        price: l.price, discount_pct: l.discountPct, vat_pct: l.vatPct, amount: l.amount,
+      p_id: savedId, p_org: orgId, p_supplier: supplierId, p_number: number.trim(), p_date: date, p_due: due || null,
+      p_subtotal: b, p_vat: v, p_total: t, p_notes: notes.trim() || null,
+      // Si los albaranes no se pudieron cargar, no se tocan (nulo); una lista vacía sí los quita.
+      p_receipts: links === "ok" ? chosen.map((r) => r.id) : null,
+      // Las líneas solo se envían si se han leído o cambiado; si no, las guardadas se conservan.
+      p_lines: linesDirty ? lines.map((l, i) => ({
+        position: i + 1, ref: l.ref, description: l.description.trim(), qty: l.qty.trim().replace(",", "."), unit: l.unit,
+        price: l.price.trim().replace(",", "."), discount_pct: l.discountPct?.trim().replace(",", ".") || null, vat_pct: l.vatPct, amount: l.amount.trim().replace(",", "."),
       })) : null,
     });
     if (err || !id) {
       setSaving(false);
       if (err?.code === "23505") return setError("Ese número de factura ya está registrado para este proveedor.");
-      if (err?.code === "23514") return setError("Una línea no cuadra (cantidad × precio ≠ importe). Vuelve a leer la foto o corrígela.");
+      if (err?.code === "23514") return setError("Una línea no cuadra (cantidad × precio ≠ importe). Corrígela en la tabla de líneas.");
       if (err?.message.includes("invalid_receipts")) return setError("Algún albarán ya está en otra factura o no es de este proveedor. Recarga y vuelve a probar.");
       if (err?.code === "42501") return setError("No tienes permiso para registrar facturas.");
       return setError("No se pudo guardar la factura.");
     }
+    // A partir de aquí la factura existe: un reintento la actualiza, no crea otra.
+    setSavedId(id);
+    setLinesDirty(false);
     if (file) {
       const ext = (file.name.split(".").pop() ?? "pdf").toLowerCase().replace(/[^a-z0-9]/g, "") || "pdf";
       const path = `${orgId}/${id}/factura-${crypto.randomUUID().slice(0, 8)}.${ext}`;
       const up = await supabase.storage.from("facturas").upload(path, file, { contentType: file.type || undefined });
-      if (up.error) {
+      const linkedFile = up.error ? null : await supabase.from("invoices").update({ attachment_path: path }).eq("id", id).select("id");
+      if (up.error || linkedFile?.error || !linkedFile?.data?.length) {
+        // El archivo subido sin enlazar no sirve: se retira para no dejarlo suelto.
+        if (!up.error) await supabase.storage.from("facturas").remove([path]);
         setSaving(false);
         onChanged();
-        return setError("La factura se guardó, pero no el archivo. Vuelve a adjuntarlo.");
+        return setError("La factura está guardada, pero el archivo no se pudo adjuntar. Pulsa Guardar para reintentar solo el archivo.");
       }
-      await supabase.from("invoices").update({ attachment_path: path }).eq("id", id);
+      // El archivo anterior ya no se usa.
+      if (invoice?.attachment && invoice.attachment !== path) await supabase.storage.from("facturas").remove([invoice.attachment]);
     }
     setSaving(false);
     onChanged();
@@ -234,7 +257,10 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     const win = window.open("", "_blank");
     const { data } = (await createClient()?.storage.from("facturas").createSignedUrl(invoice.attachment, 300)) ?? { data: null };
     if (data?.signedUrl && win) win.location.href = data.signedUrl;
-    else win?.close();
+    else {
+      win?.close();
+      setError("No se pudo abrir el archivo de la factura. Inténtalo de nuevo.");
+    }
   }
 
   async function remove() {
@@ -286,17 +312,22 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
             <label>Total<input value={total} inputMode="decimal" onChange={(e) => setTotal(e.target.value)} placeholder="0,00" /></label>
           </div>
 
-          <InvoiceLinesTable lines={lines} />
+          <InvoiceLinesTable lines={lines} onChange={(next) => { setLines(next); setLinesDirty(true); }} />
 
           <div className="editor-section">
             <p className="facet-title">Albaranes que cubre</p>
-            {!supplierId ? (
+            {links === "loading" ? (
+              <p className="section-hint">Cargando los albaranes de la factura…</p>
+            ) : links === "error" ? (
+              <p className="section-hint" role="alert">No se pudieron cargar los albaranes de esta factura. Si guardas ahora, se conservan los que tiene. <button type="button" className="ghost-button" onClick={() => { setLinks("loading"); setLinksTry((n) => n + 1); }}>Reintentar</button></p>
+            ) : !supplierId ? (
               <p className="section-hint">Elige el proveedor para ver sus albaranes sin facturar.</p>
             ) : available.length === 0 ? (
               <p className="section-hint">Este proveedor no tiene albaranes cerrados sin factura.</p>
             ) : (
               <div className="invoice-receipts">
-                {available.map((r) => (
+                {available.length > 5 && <input className="invoice-receipt-search" value={receiptQuery} onChange={(e) => setReceiptQuery(e.target.value)} placeholder="Buscar por nº de albarán o código…" aria-label="Buscar albarán" />}
+                {available.filter((r) => selected.has(r.id) || !receiptQuery.trim() || `${r.code} ${r.docNumber ?? ""}`.toLowerCase().includes(receiptQuery.trim().toLowerCase())).map((r) => (
                   <label key={r.id} className={`check-option invoice-receipt ${selected.has(r.id) ? "on" : ""}`}>
                     <input type="checkbox" checked={selected.has(r.id)} onChange={() => setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
                     <span><b>{r.code}</b>{r.docNumber ? ` · albarán ${r.docNumber}` : ""}<small>{new Date(r.date).toLocaleDateString("es-ES")} · {r.locationName}</small></span>
@@ -306,8 +337,8 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
               </div>
             )}
             <div className={`invoice-match ${match?.tone ?? "none"}`}>
-              <span>Albaranes marcados: <b>{euros(receiptsTotal)}</b> ({chosen.length})</span>
-              <span>Base de la factura: <b>{base === null ? "—" : euros(base)}</b></span>
+              <span>Albaranes marcados, sin IVA: <b>{euros(receiptsTotal)}</b> ({chosen.length})</span>
+              <span>Base de la factura, sin IVA: <b>{base === null ? "—" : euros(base)}</b></span>
               <strong>{match ? match.label : "Escribe la base para cuadrar"}</strong>
             </div>
             {match?.tone === "over" && <p className="section-hint">El proveedor cobra más de lo que se recibió a precio de albarán: revisa precios o reclama el abono.</p>}
@@ -342,7 +373,7 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
             )
           ) : <span />}
           <div className="footer-right">
-            <button className="catalog-primary" disabled={saving} onClick={() => void save()}>{saving ? "Guardando..." : invoice ? "Guardar cambios" : "Registrar factura"}</button>
+            <button className="catalog-primary" disabled={saving || links === "loading"} onClick={() => void save()}>{saving ? "Guardando..." : savedId ? "Guardar cambios" : "Registrar factura"}</button>
           </div>
         </footer>
       </section>

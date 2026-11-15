@@ -119,6 +119,12 @@ export function isNetworkError(error: { message?: string; code?: string } | null
   return !error.code && /fetch|network|load failed|timeout/i.test(error.message ?? "");
 }
 
+/** La sesión ha caducado: no es un rechazo de la salida; se reintenta cuando se vuelva a entrar. */
+function isAuthError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  return error.code === "PGRST301" || error.code === "401" || /jwt|token.*expired|not authenticated|invalid claim/i.test(error.message ?? "");
+}
+
 // Cola de envíos pendientes en este dispositivo ------------------------------------------------------
 
 export type QueuedMove = {
@@ -146,28 +152,41 @@ function storage(): Store | null {
 }
 
 export function readQueue(store: Store | null = storage()): QueuedMove[] {
+  let raw: string | null | undefined;
   try {
-    const raw = store?.getItem(KEY);
+    raw = store?.getItem(KEY);
     const list = raw ? (JSON.parse(raw) as QueuedMove[]) : [];
     return Array.isArray(list) ? list : [];
   } catch {
+    // Lo guardado no se puede leer: se aparta en otra clave en lugar de perderlo al escribir encima.
+    try {
+      if (raw) store?.setItem(`${KEY}:ilegible`, raw);
+    } catch {
+      // Sin sitio donde apartarlo.
+    }
     return [];
   }
 }
 
-function writeQueue(list: QueuedMove[], store: Store | null = storage()): void {
+/** Guarda la cola y comprueba que ha quedado escrita. false: este dispositivo no puede guardarla. */
+function writeQueue(list: QueuedMove[], store: Store | null = storage()): boolean {
+  if (!store) return false;
   try {
-    store?.setItem(KEY, JSON.stringify(list));
+    const text = JSON.stringify(list);
+    store.setItem(KEY, text);
+    return store.getItem(KEY) === text;
   } catch {
-    // Sin almacenamiento (modo privado): la salida se intenta enviar igualmente.
+    return false;
   }
 }
 
-export function enqueue(move: QueuedMove, store: Store | null = storage()): QueuedMove[] {
-  const list = readQueue(store).filter((m) => m.clientRef !== move.clientRef);
+/** Guarda la salida en el dispositivo. `saved` false: no ha quedado guardada (sin almacenamiento, sin espacio). */
+export function enqueue(move: QueuedMove, store: Store | null = storage()): { list: QueuedMove[]; saved: boolean } {
+  const before = readQueue(store);
+  const list = before.filter((m) => m.clientRef !== move.clientRef);
   list.push(move);
-  writeQueue(list, store);
-  return list;
+  const saved = writeQueue(list, store);
+  return { list: saved ? list : before, saved };
 }
 
 export function dequeue(clientRef: string, store: Store | null = storage()): QueuedMove[] {
@@ -191,7 +210,8 @@ export async function flushQueue(
     if (!error) {
       dequeue(move.clientRef, store);
       sent += 1;
-    } else if (isNetworkError(error)) {
+    } else if (isNetworkError(error) || isAuthError(error)) {
+      // Sin red o sin sesión: lo pendiente se queda en el dispositivo para el siguiente intento.
       break;
     } else {
       dequeue(move.clientRef, store);

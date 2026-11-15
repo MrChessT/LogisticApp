@@ -68,6 +68,9 @@ export function RecipeEditor({ recipeId, orgId, recipes, seesCosts, canEdit, onC
   const [lines, setLines] = useState<LineDraft[]>([]);
   const [unitCosts, setUnitCosts] = useState<Map<string, number | null>>(new Map());
   const [productAllergens, setProductAllergens] = useState<Map<string, string[]>>(new Map());
+  // Productos cuyos alérgenos ya se han leído bien. Los que no estén aquí son «desconocidos», no «sin alérgenos».
+  const [allergensRead, setAllergensRead] = useState<Set<string>>(new Set());
+  const [loadFailed, setLoadFailed] = useState<{ allergens: boolean; costs: boolean }>({ allergens: false, costs: false });
   const [loading, setLoading] = useState(!!recipeId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -132,10 +135,15 @@ export function RecipeEditor({ recipeId, orgId, recipes, seesCosts, canEdit, onC
         supabase.from("product_allergens").select("product_id, allergen").in("product_id", productIds),
       ]);
       if (cancelled) return;
-      setUnitCosts(new Map((costs.data ?? []).map((c) => [c.product_id, c.unit_cost === null ? null : Number(c.unit_cost)])));
+      const costsError = "error" in costs && !!costs.error;
+      setLoadFailed({ allergens: !!allergens.error, costs: costsError });
+      if (!costsError) setUnitCosts(new Map((costs.data ?? []).map((c) => [c.product_id, c.unit_cost === null ? null : Number(c.unit_cost)])));
+      // Si la lectura falla no se toca lo que había: un error no puede acabar en «sin alérgenos».
+      if (allergens.error) return;
       const byProduct = new Map<string, string[]>();
       for (const a of allergens.data ?? []) byProduct.set(a.product_id, [...(byProduct.get(a.product_id) ?? []), a.allergen]);
       setProductAllergens(byProduct);
+      setAllergensRead(new Set(productIds));
     })();
     return () => {
       cancelled = true;
@@ -165,6 +173,7 @@ export function RecipeEditor({ recipeId, orgId, recipes, seesCosts, canEdit, onC
   const eco = yq && yq.gt(0)
     ? economics({ total, yieldQty: yq, yieldUnit, salePrice: dec(salePrice), vatRate: dec(vatRate) ?? new Decimal(10), targetPct: dec(target) ?? new Decimal(30) })
     : null;
+  const allergensUnknown = lines.some((l) => l.product && !allergensRead.has(l.product.id));
   const allergens = [...new Set(lines.flatMap((l) => (l.product ? productAllergens.get(l.product.id) ?? [] : subById.get(l.subId)?.allergens ?? [])))].sort();
   const missing = computed.filter((c) => c.missingPrice).length;
   const tone = foodCostTone(eco?.foodCostPct ? eco.foodCostPct.toNumber() : null, Number(dec(target) ?? 30));
@@ -361,11 +370,15 @@ export function RecipeEditor({ recipeId, orgId, recipes, seesCosts, canEdit, onC
                 </div>
               )}
 
+              {loadFailed.costs && <p className="editor-message error" role="alert">No se han podido leer los precios de los ingredientes: el coste que se ve no es fiable. Cierra y vuelve a abrir la receta.</p>}
               <div className="editor-section">
                 <p className="facet-title">Alérgenos</p>
+                {allergensUnknown && (
+                  <p className="editor-message error" role="alert">{loadFailed.allergens ? "No se han podido leer los alérgenos de los ingredientes." : "Leyendo los alérgenos de los ingredientes…"} Hasta que se lean, esta lista puede estar incompleta: no la des por buena.</p>
+                )}
                 {allergens.length ? (
                   <div className="recipe-allergens">{allergens.map((a) => <span key={a} className="allergen-chip">{ALLERGEN_LABEL[a] ?? a}</span>)}</div>
-                ) : (
+                ) : allergensUnknown ? null : (
                   <p className="section-hint">Ninguno declarado en sus ingredientes. Los alérgenos se marcan en la ficha de cada producto (pestaña «Alérgenos»).</p>
                 )}
               </div>

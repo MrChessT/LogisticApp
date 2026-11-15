@@ -9,7 +9,7 @@ type Page<T> = PromiseLike<{ data: T[] | null; error: unknown }>;
 /**
  * Lee todas las filas de una consulta por páginas y devuelve la misma forma `{ data, error }` que una
  * consulta suelta. `page` debe ordenar por una clave única para que las páginas no se solapen.
- * Con menos de PAGE_SIZE filas es una sola petición.
+ * Con menos de PAGE_SIZE filas es una sola petición. Si hay más filas que `max`, devuelve error: nunca una lista cortada.
  */
 export async function readAll<T>(page: (from: number, to: number) => Page<T>, max = MAX_ROWS): Promise<{ data: T[] | null; error: unknown }> {
   const rows: T[] = [];
@@ -17,7 +17,8 @@ export async function readAll<T>(page: (from: number, to: number) => Page<T>, ma
     const { data, error } = await page(from, from + PAGE_SIZE - 1);
     if (error) return { data: null, error };
     rows.push(...(data ?? []));
-    if (!data || data.length < PAGE_SIZE) break;
+    if (!data || data.length < PAGE_SIZE) return { data: rows, error: null };
   }
-  return { data: rows, error: null };
+  // Se llegó al tope con páginas llenas: quedan filas sin leer. Mejor un error que un total incompleto.
+  return { data: null, error: { message: "too_many_rows" } };
 }
