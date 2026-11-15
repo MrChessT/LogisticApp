@@ -102,3 +102,33 @@ describe("leer un albarán", () => {
     expect(readAlbaran([box("Fecha 31/10/2001", 40, 20, 200)]).date).toBeNull();
   });
 });
+
+describe("casos de albaranes reales (maquetación; datos inventados)", () => {
+  it("un número partido por el OCR («0, 600», «14, 60») se une", () => {
+    const r = readAlbaran([box("QUESO FRESCO 0, 600 kg 12,950 7, 77", 40, 160, 700)]);
+    expect(r.lines).toMatchObject([{ description: "QUESO FRESCO", qty: 0.6, unit: "kg", price: 12.95, amount: 7.77 }]);
+  });
+
+  it("si el OCR no lee la columna Dto, el descuento sale de las cuentas; código corto y cifras en la descripción", () => {
+    const r = readAlbaran([
+      box("77 Junta de goma 5 vias DN50", 40, 160, 300), box("12.00", 400, 160, 60), box("25,00", 500, 160, 60), box("285,00", 680, 160, 70),
+      box("285,00", 300, 400, 70), box("59,85", 450, 400, 70), box("344,85", 680, 400, 70),
+    ]);
+    expect(r.lines).toMatchObject([{ ref: "77", description: "Junta de goma 5 vias DN50", qty: 12, price: 25, discountPct: 5, amount: 285 }]);
+    expect([r.status, r.vatRate, r.total]).toEqual(["cuadra", 21, 344.85]);
+  });
+
+  it("descuento de cabecera y varios tipos de IVA: base = subtotal − descuento y base + cuota = total", () => {
+    const r = readAlbaran([
+      box("C09456", 40, 160, 80), box("100", 330, 160, 40), box("6,00 €", 420, 160, 60), box("600,00 €", 500, 160, 80), box("10,00%", 600, 160, 60), box("660,00 €", 680, 160, 80),
+      box("D12456", 40, 200, 80), box("120", 330, 200, 40), box("10,00 €", 420, 200, 60), box("1.200,00 €", 500, 200, 80), box("10,00%", 600, 200, 60), box("1.320,00 €", 680, 200, 80),
+      box("Subtotal 1.800,00 €", 300, 400, 300),
+      box("Descuento 15,0% -270,00 €", 300, 440, 400),
+      box("Base Imponible 1.530,00 €", 300, 480, 400),
+      box("0,00 € 153,00 € 0,00 € 153,00 €", 300, 520, 400),
+      box("TOTAL ALBARÁN 1.683,00 €", 300, 580, 400),
+    ]);
+    expect(r.lines.map((l) => [l.ref, l.qty, l.price, l.amount])).toEqual([["C09456", 100, 6, 600], ["D12456", 120, 10, 1200]]);
+    expect([r.status, r.linesTotal, r.headerDiscountPct, r.base, r.vat, r.total]).toEqual(["cuadra", 1800, 15, 1530, 153, 1683]);
+  });
+});

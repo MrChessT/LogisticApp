@@ -88,6 +88,21 @@ del Drive «FACTURAS EJEMPLO»:
 No se copian al repositorio documentos reales de ningún proveedor ni de ningún negocio. Para añadir un caso,
 se escribe un documento inventado con la misma maquetación y se fija lo que debe salir.
 
+## Albarán desde foto: casos que resuelve el lector por geometría
+
+Medido con el OCR real sobre los albaranes de ejemplo del Drive y fotos de prueba (`albaran-reader.ts`):
+
+- **Números partidos por el OCR** («0, 600», «14, 60»): se unen antes de leer.
+- **Columna «Dto» sin leer:** si cantidad, precio e importe van seguidos y el importe es el bruto menos un % entero
+  (1 a 60), la línea lleva ese descuento. Si fuera falso, los totales no cuadran y sale para revisar.
+- **Códigos cortos** («77») como referencia, y **cifras dentro de la descripción** («DN50», «1/2 x 15»).
+- **Descuento de cabecera:** subtotal − descuento = base, con los tres importes escritos (`headerDiscountPct`).
+  El precio de cada línea de la recepción es el neto tras ese descuento.
+- **Varios tipos de IVA:** la cuota y el total escritos con base + cuota = total (`vatRate` queda vacío).
+- **Foto girada** (boca abajo o de lado): si no sale ninguna línea, se vuelve a leer girada 180°, 90° y 270°.
+
+No se resuelve: una foto en espejo, o un albarán alterado (sale «no cuadra», que es lo correcto).
+
 ## Factura desde foto (OCR)
 
 En **Facturas → Nueva factura** hay un botón «Leer foto de la factura». Rellena número, fecha, base (subtotal),

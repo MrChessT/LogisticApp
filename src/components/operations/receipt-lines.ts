@@ -22,8 +22,9 @@ export async function matchReadLines(result: AlbaranPhotoRead, supplierId: strin
   const opts = { locationId: locationId || null, supplierId: supplierId || null, limit: 8 };
   return Promise.all(result.lines.map(async (l): Promise<ReceiptLine> => {
     const code = lineCode(l);
-    // Con descuento, el precio que cuenta es el neto (importe / cantidad).
-    const price = l.discountPct ? Math.round((l.amount / l.qty) * 10000) / 10000 : l.price;
+    // Con descuento, el precio que cuenta es el neto (importe / cantidad), también tras el descuento de cabecera.
+    const header = 1 - (result.headerDiscountPct ?? 0) / 100;
+    const price = l.discountPct || header < 1 ? Math.round((l.amount / l.qty) * header * 10000) / 10000 : l.price;
     const read: ReadLine = { code, description: l.description, qty: l.qty, unit: l.unit, price: l.price, discountPct: l.discountPct, amount: l.amount, lot: l.lot };
     let product: LookupProduct | null = null;
     let packId = "";
