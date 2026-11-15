@@ -121,9 +121,11 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
     const assistantId = newId();
     setBusy(true);
     setItems((prev) => [...prev, { id: newId(), role: "user", text: `Foto: ${file.name || "albarán"}` }, { id: assistantId, role: "assistant", text: "", pending: true }]);
-    update(assistantId, () => ({ text: "Leyendo la foto… (la primera vez tarda un poco más)" }));
+    update(assistantId, () => ({ text: "Leyendo la foto…" }));
     try {
       const summary = await summarizeAlbaranPhoto(file);
+      // Queda preparada: al entrar en Recepciones (por el botón o por el menú) se abre rellena y con la foto adjunta.
+      if (summary.read && currentRoute(pathname) !== "/recepciones") setPendingFile("recepcion", file, summary.result);
       update(assistantId, () => ({ pending: false, text: summary.text, photo: { file, read: summary.read, result: summary.result } }));
     } catch (err) {
       // Los fallos del navegador al abrir la imagen llegan en inglés («could not be decoded»): se dice en claro.

@@ -47,6 +47,6 @@ export async function summarizeAlbaranPhoto(file: File): Promise<PhotoSummary> {
   return {
     read: true,
     result,
-    text: `Albarán${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${date}: ${lines}${total}; ${status}.${order} Ábrelo para emparejar los productos, revisar y registrar la recepción.`,
+    text: `Albarán${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${date}: ${lines}${total}; ${status}.${order} Ya está preparado en Recepciones, con la foto adjunta: revisa los productos y regístralo.`,
   };
 }

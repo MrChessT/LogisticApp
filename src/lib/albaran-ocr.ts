@@ -55,7 +55,7 @@ async function imageDataOf(file: Blob, turns: number): Promise<ImageData> {
 
 export type AlbaranPhotoRead = AlbaranRead & { texts: OcrText[] };
 
-/** Texto y cajas que el OCR saca de una foto. La primera vez descarga el lector (unos 40 MB); después queda en caché. */
+/** Texto y cajas que el OCR saca de una foto. El lector se descarga la primera vez y queda en caché. */
 export async function ocrTextos(file: Blob, turns = 0): Promise<OcrText[]> {
   if (!file.type.startsWith("image/")) throw new Error("Para leer el documento hace falta una foto (JPG o PNG).");
   const image = await imageDataOf(file, turns);

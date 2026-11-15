@@ -2,7 +2,6 @@
 
 import {
   Camera,
-  CheckCircle2,
   ChevronDown,
   CirclePlus,
   ClipboardList,
@@ -32,6 +31,9 @@ import "./operations.css";
 import "./operations-modal.css";
 import { CountModal } from "./count-modal";
 import { matchReadLines, type ReceiptLine } from "./receipt-lines";
+import { NewProduct, NewSupplier, ScanResult } from "./receipt-new-items";
+import { albaranNumber, supplierNameGuess } from "@/lib/albaran-cabecera";
+import { filasDeOcr } from "@/lib/documento-filas";
 import { loadOperations, type DisplayRow, type Location, type Metric, type OperationKind } from "./operations-data";
 import { FilePick } from "@/components/ui/file-pick";
 
@@ -388,6 +390,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         }
       }
       if (result.date) setRDocDate(result.date);
+      const number = albaranNumber(filasDeOcr(result.texts));
+      if (number && !rDocNumber.trim()) setRDocNumber(number);
       setRLines(await matchReadLines(result, supplierId, rLocation));
       setScan({ stage: "done", result });
     } catch (e) {
@@ -677,7 +681,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                 <div className="op-scan">
                   <span className="op-scan-title"><Camera size={16} aria-hidden="true" /> Leer albarán con foto</span>
                   {scan.stage === "reading" ? (
-                    <p className="op-scan-status" role="status">Leyendo el albarán… La primera vez tarda más: descarga el lector (unos 40 MB) y queda guardado.</p>
+                    <p className="op-scan-status" role="status">Leyendo el albarán…</p>
                   ) : (
                     <>
                       <FilePick file={null} onChange={(f) => void handleScanAlbaran(f)} accept="image/*" capture="environment" label={scan.stage === "done" ? "Leer otra foto" : "Hacer foto del albarán"} />
@@ -685,22 +689,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                     </>
                   )}
                   {scan.stage === "error" && <p className="op-scan-status warn" role="alert"><TriangleAlert size={15} aria-hidden="true" /> {scan.message}</p>}
-                  {scan.stage === "done" && (() => {
-                    const r = scan.result;
-                    const missing = rLines.filter((l) => l.read && !l.product).length;
-                    const lines = `${r.lines.length} ${r.lines.length === 1 ? "línea" : "líneas"}`;
-                    return (
-                      <div className={`op-scan-result ${r.status === "cuadra" ? "ok" : "warn"}`} role="status">
-                        {r.status === "cuadra" ? <CheckCircle2 size={16} aria-hidden="true" /> : <TriangleAlert size={16} aria-hidden="true" />}
-                        <span>
-                          {r.status === "cuadra" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)}{r.headerDiscountPct ? ` − ${r.headerDiscountPct} % de descuento = base ${formatCurrency(r.base!)}` : " = base del albarán"} · IVA{r.vatRate ? ` ${r.vatRate} %` : ""} {formatCurrency(r.vat!)} · total {formatCurrency(r.total!)}. Cuadra.</>}
-                          {r.status === "parcial" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)}, igual que la base del albarán, pero no he visto el total con IVA. Compáralo con el papel.</>}
-                          {r.status === "no_cuadra" && <>Leídas {lines} ({formatCurrency(r.linesTotal)}), pero las cuentas no cuadran con el albarán: puede faltar una línea o haber un número mal leído. Compáralo con el papel.</>}
-                          {missing > 0 && <> {missing === 1 ? "Una línea no tiene" : `${missing} líneas no tienen`} producto: elígelo y la próxima vez de este proveedor saldrá solo.</>}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {scan.stage === "done" && <ScanResult result={scan.result} missing={rLines.filter((l) => l.read && !l.product).length} />}
                 </div>
                 <div className="op-modal-grid">
                   <label>Local
@@ -716,6 +705,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                     </select>
                   </label>
                 </div>
+                {scan.stage === "done" && !rSupplier && (
+                  <NewSupplier key={scan.result.texts.length} suggested={supplierNameGuess(filasDeOcr(scan.result.texts)) ?? ""} orgId={orgId} onCreated={(s) => { setSuppliers([...suppliers, s].sort((x, y) => x.name.localeCompare(y.name))); setRSupplier(s.id); }} />
+                )}
                 <div className="op-modal-grid">
                   <label>Nº de albarán
                     <input value={rDocNumber} onChange={(e) => setRDocNumber(e.target.value)} placeholder="Ej. A-2841" />
@@ -752,6 +744,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                           setRLines(rLines.map((l, i) => i === index ? { ...l, product, packId: pack?.id ?? "", price: !l.read && pack?.price ? String(Number(pack.price)) : l.price } : l));
                         }}
                       />
+                      {line.read && !line.product && (
+                        <NewProduct read={line.read} orgId={orgId} vatRate={scan.stage === "done" ? scan.result.vatRate : null} onCreated={(product) => setRLines(rLines.map((l, i) => i === index ? { ...l, product, packId: product.packs[0]!.id } : l))} />
+                      )}
                       <div className="op-modal-line-row with-price">
                         <select value={line.packId} aria-label="Formato de compra" disabled={!line.product} onChange={(e) => {
                           const pack = line.product?.packs.find((k) => k.id === e.target.value);

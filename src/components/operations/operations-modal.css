@@ -134,3 +134,11 @@
 .op-read-line { margin: 0 0 6px; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.4; }
 .op-read-line b { color: var(--text-2); font-weight: 600; }
 .op-receipt-line.needs-product { box-shadow: inset 3px 0 0 var(--warn-dot); padding-left: 10px; }
+
+/* Alta del proveedor o de un producto que viene en el albarán y no está en el catálogo. */
+.op-new-item { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: var(--r-md); color: var(--text-2); font-size: var(--fs-sm); }
+.op-new-item-row { display: flex; gap: 8px; }
+.op-new-item-row input { flex: 1; min-width: 0; }
+.op-new-item button { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.op-new-item button:disabled { opacity: .6; cursor: default; }
+.op-new-item small.warn { color: var(--warn); }
