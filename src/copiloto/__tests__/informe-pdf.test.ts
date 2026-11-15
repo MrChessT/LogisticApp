@@ -16,7 +16,7 @@ async function viewsFor(ids: readonly string[]): Promise<ReportView[]> {
   const out: ReportView[] = [];
   for (const id of ids as ReportView["id"][]) {
     const r = await analytics.view(id, q);
-    out.push({ id, title: r.title, periodLabel: r.periodLabel, locationName: r.locationName, kpis: r.kpis, charts: r.charts });
+    out.push({ id, title: r.title, periodLabel: r.periodLabel, locationName: r.locationName, department: null, kpis: r.kpis, charts: r.charts });
   }
   return out;
 }
@@ -30,7 +30,7 @@ describe("informe en PDF", () => {
   });
 
   it("una vista sin datos no rompe el documento", async () => {
-    const empty: ReportView = { id: "compras", title: "Compras", periodLabel: "últimos 30 días", locationName: null, kpis: [], charts: [{ id: "x", kind: "bar", title: "Vacía", subtitle: "", format: "money", series: [{ key: "k", name: "k", points: [] }] }] };
+    const empty: ReportView = { id: "compras", title: "Compras", periodLabel: "últimos 30 días", locationName: null, department: "Bebida", kpis: [], charts: [{ id: "x", kind: "bar", title: "Vacía", subtitle: "", format: "money", series: [{ key: "k", name: "k", points: [] }] }] };
     const pdf = await buildReportPdf({ organization: "", generatedAt: NOW, views: [empty] });
     expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
   });
