@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Camera,
   ChevronDown,
   CirclePlus,
   ClipboardList,
@@ -10,7 +9,6 @@ import {
   Plus,
   Search,
   Trash2,
-  TriangleAlert,
   Truck,
   X,
   XCircle,
@@ -31,7 +29,9 @@ import "./operations.css";
 import "./operations-modal.css";
 import { CountModal } from "./count-modal";
 import { matchReadLines, type ReceiptLine } from "./receipt-lines";
-import { NewProduct, NewSupplier, ScanResult } from "./receipt-new-items";
+import { NewProduct, NewSupplier, ReceiptScan, type ScanState } from "./receipt-new-items";
+import { PhotoPick } from "./receipt-photo-pick";
+import { applyPick } from "./receipt-pick";
 import { albaranNumber, supplierNameGuess } from "@/lib/albaran-cabecera";
 import { filasDeOcr } from "@/lib/documento-filas";
 import { loadOperations, type DisplayRow, type Location, type Metric, type OperationKind } from "./operations-data";
@@ -42,7 +42,6 @@ const unitsOf = (product: LookupProduct | null): UnitChoice[] => (product ? unit
 type SupplierOption = { id: string; name: string };
 type Reference = { orgId: string; locations: Location[]; suppliers: SupplierOption[] };
 type TransferLine = { product: LookupProduct | null; qty: string; unit: string };
-type ScanState = { stage: "idle" } | { stage: "reading" } | { stage: "error"; message: string } | { stage: "done"; result: AlbaranPhotoRead };
 
 /** Locales y proveedores compartidos por las cuatro pantallas de operativa (el catálogo ya no se
  *  descarga: cada formulario busca en el servidor solo lo que se escribe). */
@@ -122,6 +121,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const agreed = agreedBySupplier && agreedBySupplier.supplierId === rSupplier ? agreedBySupplier.prices : NO_PRICES;
   const [rLines, setRLines] = useState<ReceiptLine[]>([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
   const [scan, setScan] = useState<ScanState>({ stage: "idle" });
+  const [supplierHint, setSupplierHint] = useState("");
 
   // Inventarios
   const [ivLocation, setIvLocation] = useState("");
@@ -249,6 +249,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setRLines([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
     setRPhoto(null);
     setScan({ stage: "idle" });
+    setSupplierHint("");
     setIvLocation("");
   }
 
@@ -678,19 +679,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
 
             {kind === "recepciones" && (
               <>
-                <div className="op-scan">
-                  <span className="op-scan-title"><Camera size={16} aria-hidden="true" /> Leer albarán con foto</span>
-                  {scan.stage === "reading" ? (
-                    <p className="op-scan-status" role="status">Leyendo el albarán…</p>
-                  ) : (
-                    <>
-                      <FilePick file={null} onChange={(f) => void handleScanAlbaran(f)} accept="image/*" capture="environment" label={scan.stage === "done" ? "Leer otra foto" : "Hacer foto del albarán"} />
-                      {scan.stage === "idle" && <small>Rellena las líneas solas. Se lee en este dispositivo; revísalo antes de registrar.</small>}
-                    </>
-                  )}
-                  {scan.stage === "error" && <p className="op-scan-status warn" role="alert"><TriangleAlert size={15} aria-hidden="true" /> {scan.message}</p>}
-                  {scan.stage === "done" && <ScanResult result={scan.result} missing={rLines.filter((l) => l.read && !l.product).length} />}
-                </div>
+                <ReceiptScan scan={scan} missing={rLines.filter((l) => l.read && !l.product).length} onFile={(f) => void handleScanAlbaran(f)}>
+                  {rPhoto?.type.startsWith("image/") && <PhotoPick file={rPhoto} lines={rLines} apply={(target, texts, index) => applyPick(target, texts, index, { suppliers, rSupplier, rLocation, rLines, setRLines, setRSupplier, setRDocNumber, setRDocDate, setSupplierHint })} />}
+                </ReceiptScan>
                 <div className="op-modal-grid">
                   <label>Local
                     <select value={rLocation} onChange={(e) => setRLocation(e.target.value)}>
@@ -705,8 +696,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                     </select>
                   </label>
                 </div>
-                {scan.stage === "done" && !rSupplier && (
-                  <NewSupplier key={scan.result.texts.length} suggested={supplierNameGuess(filasDeOcr(scan.result.texts)) ?? ""} orgId={orgId} onCreated={(s) => { setSuppliers([...suppliers, s].sort((x, y) => x.name.localeCompare(y.name))); setRSupplier(s.id); }} />
+                {(scan.stage === "done" || supplierHint) && !rSupplier && (
+                  <NewSupplier key={supplierHint || "leido"} suggested={supplierHint || (scan.stage === "done" ? supplierNameGuess(filasDeOcr(scan.result.texts)) : null) || ""} orgId={orgId} onCreated={(s) => { setSuppliers([...suppliers, s].sort((x, y) => x.name.localeCompare(y.name))); setRSupplier(s.id); }} />
                 )}
                 <div className="op-modal-grid">
                   <label>Nº de albarán

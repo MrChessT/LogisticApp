@@ -113,6 +113,22 @@ No se resuelve: una foto en espejo, o un albarán alterado (sale «no cuadra», 
   línea y su formato de compra según la unidad (kg, litro o unidad) y el IVA del albarán si es uno solo. Los
   permisos los decide la base de datos. Nada se registra hasta pulsar «Registrar recepción».
 
+## Señalar en la foto lo que no se detectó
+
+En Nueva recepción, con la foto adjunta, el botón «¿Falta algo? Señálalo en la foto» abre la foto a pantalla
+completa. Se dibuja un recuadro (ratón o dedo), se dice qué es y se lee solo esa zona (`ocrRecorte`, ampliada si es
+pequeña). Qué se hace con lo leído (`receipt-pick.ts`, interpretación en `albaran-recorte.ts`):
+
+| Qué se busca | Resultado |
+|---|---|
+| Proveedor | Si existe, se elige. Si no, se ofrece crearlo con el nombre leído (editable). |
+| Nº de albarán / Fecha | Se rellena el campo. |
+| Línea nueva | Cada renglón del recuadro se lee por separado; se añaden los que cuadran (cantidad × precio = importe), emparejados con el catálogo si está claro. |
+| Producto de una línea | Se pone la descripción en esa línea y se busca en el catálogo; si no está, «Crear». |
+
+Si el recuadro no se lee, se dice y se puede dibujar otro. No se guarda nada hasta «Registrar recepción».
+Límite: si la foto solo se leyó al girarla (boca abajo o de lado), el recuadro se dibuja sobre la foto sin girar.
+
 ## Factura desde foto (OCR)
 
 En **Facturas → Nueva factura** hay un botón «Leer foto de la factura». Rellena número, fecha, base (subtotal),

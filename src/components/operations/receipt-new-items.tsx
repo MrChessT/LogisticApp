@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, Plus, TriangleAlert } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Camera, CheckCircle2, Plus, TriangleAlert } from "lucide-react";
+import { FilePick } from "@/components/ui/file-pick";
 import { createClient } from "@/lib/supabase/client";
 import { euros as formatCurrency } from "@/lib/format";
 import { productDraft } from "@/lib/albaran-cabecera";
@@ -11,8 +12,30 @@ import type { LookupProduct } from "@/lib/product-lookup";
 // Lo que viene en el albarán y aún no está dado de alta: el proveedor y los productos se crean desde la propia
 // recepción, con lo que dice el papel. Los permisos los decide la base de datos.
 
+export type ScanState = { stage: "idle" } | { stage: "reading" } | { stage: "error"; message: string } | { stage: "done"; result: AlbaranPhotoRead };
+
+/** Bloque «Leer albarán con foto»: elegir la foto, el estado de la lectura y su resultado. */
+export function ReceiptScan({ scan, missing, onFile, children }: { scan: ScanState; missing: number; onFile: (file: File | null) => void; children?: ReactNode }) {
+  return (
+    <div className="op-scan">
+      <span className="op-scan-title"><Camera size={16} aria-hidden="true" /> Leer albarán con foto</span>
+      {scan.stage === "reading" ? (
+        <p className="op-scan-status" role="status">Leyendo el albarán…</p>
+      ) : (
+        <>
+          <FilePick file={null} onChange={onFile} accept="image/*" capture="environment" label={scan.stage === "done" ? "Leer otra foto" : "Hacer foto del albarán"} />
+          {scan.stage === "idle" && <small>Rellena las líneas solas. Se lee en este dispositivo; revísalo antes de registrar.</small>}
+        </>
+      )}
+      {scan.stage === "error" && <p className="op-scan-status warn" role="alert"><TriangleAlert size={15} aria-hidden="true" /> {scan.message}</p>}
+      {scan.stage === "done" && <ScanResult result={scan.result} missing={missing} />}
+      {children}
+    </div>
+  );
+}
+
 /** Resultado de leer la foto: si cuadra y cuántas líneas quedan sin producto. */
-export function ScanResult({ result: r, missing }: { result: AlbaranPhotoRead; missing: number }) {
+function ScanResult({ result: r, missing }: { result: AlbaranPhotoRead; missing: number }) {
   const lines = `${r.lines.length} ${r.lines.length === 1 ? "línea" : "líneas"}`;
   return (
     <div className={`op-scan-result ${r.status === "cuadra" ? "ok" : "warn"}`} role="status">

@@ -67,6 +67,28 @@ export async function ocrTextos(file: Blob, turns = 0): Promise<OcrText[]> {
   });
 }
 
+export type Recuadro = { x: number; y: number; w: number; h: number };
+
+/** Lee solo una zona de la foto (posición y tamaño de 0 a 1). Las zonas pequeñas se amplían para que el OCR lea bien. */
+export async function ocrRecorte(file: Blob, rect: Recuadro): Promise<OcrText[]> {
+  const bitmap = await createImageBitmap(file);
+  const sx = Math.max(0, Math.min(bitmap.width - 1, Math.round(rect.x * bitmap.width)));
+  const sy = Math.max(0, Math.min(bitmap.height - 1, Math.round(rect.y * bitmap.height)));
+  const sw = Math.max(1, Math.min(bitmap.width - sx, Math.round(rect.w * bitmap.width)));
+  const sh = Math.max(1, Math.min(bitmap.height - sy, Math.round(rect.h * bitmap.height)));
+  const scale = Math.min(3, Math.max(1, 900 / Math.max(sw, sh)));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(sw * scale);
+  canvas.height = Math.round(sh * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Este navegador no puede preparar la foto.");
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("No se pudo preparar el recuadro.");
+  return ocrTextos(blob, 0);
+}
+
 /** Lee la foto de un albarán. Si no sale ninguna línea, prueba con la foto girada (boca abajo o de lado). */
 export async function readAlbaranPhoto(file: Blob): Promise<AlbaranPhotoRead> {
   let first: AlbaranPhotoRead | null = null;
