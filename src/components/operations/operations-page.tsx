@@ -693,7 +693,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                       <div className={`op-scan-result ${r.status === "cuadra" ? "ok" : "warn"}`} role="status">
                         {r.status === "cuadra" ? <CheckCircle2 size={16} aria-hidden="true" /> : <TriangleAlert size={16} aria-hidden="true" />}
                         <span>
-                          {r.status === "cuadra" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)} = base del albarán · IVA {r.vatRate} % {formatCurrency(r.vat!)} · total {formatCurrency(r.total!)}. Cuadra.</>}
+                          {r.status === "cuadra" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)}{r.headerDiscountPct ? ` − ${r.headerDiscountPct} % de descuento = base ${formatCurrency(r.base!)}` : " = base del albarán"} · IVA{r.vatRate ? ` ${r.vatRate} %` : ""} {formatCurrency(r.vat!)} · total {formatCurrency(r.total!)}. Cuadra.</>}
                           {r.status === "parcial" && <>Leídas {lines}: suman {formatCurrency(r.linesTotal)}, igual que la base del albarán, pero no he visto el total con IVA. Compáralo con el papel.</>}
                           {r.status === "no_cuadra" && <>Leídas {lines} ({formatCurrency(r.linesTotal)}), pero las cuentas no cuadran con el albarán: puede faltar una línea o haber un número mal leído. Compáralo con el papel.</>}
                           {missing > 0 && <> {missing === 1 ? "Una línea no tiene" : `${missing} líneas no tienen`} producto: elígelo y la próxima vez de este proveedor saldrá solo.</>}

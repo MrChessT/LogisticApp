@@ -24,9 +24,12 @@ export type AlbaranRead = {
   lines: AlbaranLine[];
   linesTotal: number;
   base: number | null;
+  /** Tipo de IVA, si es uno solo de los habituales; con varios tipos mezclados, null (la cuota sí se lee). */
   vatRate: number | null;
   vat: number | null;
   total: number | null;
+  /** Descuento de cabecera (%): la base es la suma de las líneas menos este descuento. */
+  headerDiscountPct: number | null;
   /** cuadra: líneas = base y base + IVA = total · parcial: las líneas suman la base pero no se ve el total ·
    *  no_cuadra: algo no encaja · sin_lineas: no se ha reconocido ninguna línea. */
   status: "cuadra" | "parcial" | "no_cuadra" | "sin_lineas";
@@ -72,9 +75,13 @@ function tokenize(texts: OcrText[]): { tokens: Token[]; height: number } {
     heights.push(height);
     const text = t.text
       .replace(/(\d):(\d{2})(?!\d)/g, "$1,$2") // «8:90» es 8,90 mal leído
+      .replace(/(\d)([.,]) (\d{2,3})(?![\d.,])/g, "$1$2$3") // «0, 600» es 0,600 partido por el OCR
       .replace(/[€:;|＊*（）()[\]]/g, " ")
-      .replace(/(\d)([A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})/g, "$1 $2")
-      .replace(/([A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})(\d)/g, "$1 $2");
+      .replace(/(^|\s)-(?=\d)/g, "$1") // «-420,00» (un descuento) cuenta como 420,00
+      // Solo se separa la unidad pegada a la cantidad («2,100kg») y el importe pegado a su etiqueta («IVA3,13»):
+      // «DN50» o «359GCu» son parte de la descripción.
+      .replace(/(\d)(kgs?|gr|uds?|und|lts?|cl|ml)(?![A-Za-z])/gi, "$1 $2")
+      .replace(/([A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})(\d+[.,]\d)/g, "$1 $2");
     const len = Math.max(1, text.length);
     let pos = 0;
     for (const word of text.split(/\s+/).filter(Boolean)) {
@@ -119,7 +126,7 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
   }
 
   // 1) Líneas: cantidad × precio (× (1 − dto)) = importe, alineados en la foto.
-  type Cand = { dev: number; q: Num; p: Num; d: Num | null; a: Num };
+  type Cand = { dev: number; q: Num; p: Num; d: Num | null; a: Num; implied?: number };
   const cands: Cand[] = [];
   const aligned = (q: Num, mid: Num, a: Num) => {
     if (!(q.x < mid.x && mid.x < a.x)) return null;
@@ -142,12 +149,22 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
           if (dev !== null) cands.push({ dev, q, p, d: null, a });
           continue;
         }
+        let explicit = false;
         for (const d of nums) {
           if (d === q || d === p || d === a || d.value <= 0 || d.value >= 100 || !(p.x < d.x && d.x < a.x)) continue;
           if (!close(exact * (1 - d.value / 100), a.value, tol)) continue;
           const dev = aligned(q, p, a);
           // Con descuento solo si no hay lectura sin él: la columna del IVA (10, 21) también cae en medio.
-          if (dev !== null && aligned(q, d, a) !== null) cands.push({ dev: dev + h, q, p, d, a });
+          if (dev !== null && aligned(q, d, a) !== null) { cands.push({ dev: dev + h, q, p, d, a }); explicit = true; }
+        }
+        // El OCR a veces no lee la columna «Dto»: si el importe es el bruto menos un % entero (1 a 60), es un
+        // descuento. Es la lectura de menor prioridad y, si es falsa, los totales no cuadran.
+        const pct = Math.round((1 - a.value / exact) * 100);
+        if (!explicit && pct >= 1 && pct <= 60 && close(exact * (1 - pct / 100), a.value, tol)) {
+          const dev = aligned(q, p, a);
+          // Solo con cantidad, precio e importe seguidos: un número en medio en su renglón sería otra columna.
+          const between = nums.some((m) => m !== q && m !== p && m !== a && m.x > q.x && m.x < a.x && aligned(q, m, a) !== null);
+          if (dev !== null && !between) cands.push({ dev: dev + 2 * h, q, p, d: null, a, implied: pct });
         }
       }
     }
@@ -169,8 +186,10 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
     const near = (t: Token) => Math.abs(t.y - (c.q.y + slope * (t.x - c.q.x))) < 0.6 * h;
     const words = tokens.filter((t) => t.x < c.q.x - 2 && near(t) && !used.has(t as Num)).sort((a, b) => a.x - b.x);
     // La referencia va primero: «0000000192», «A-0101», «REF123».
-    const refTok = words[0] && REF.test(words[0].text) ? words[0] : undefined;
-    const desc = words.filter((t) => t !== refTok && !UNITS.has(t.text.toLowerCase()) && !isLot(t.text) && parseAmount(t.text) === null).map((t) => t.text).join(" ");
+    // También un código corto («77») si después viene la descripción.
+    const refTok = words[0] && (REF.test(words[0].text) || (/^\d{1,3}$/.test(words[0].text) && words.length > 1 && /[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(words[1]!.text))) ? words[0] : undefined;
+    // En la descripción se quedan los enteros («1/2 x 15»); los decimales sueltos son números de otra columna.
+    const desc = words.filter((t) => t !== refTok && !UNITS.has(t.text.toLowerCase()) && !isLot(t.text) && (parseAmount(t.text) === null || /^\d{1,4}$/.test(t.text))).map((t) => t.text).join(" ");
     const unitTok = tokens.find((t) => UNITS.has(t.text.toLowerCase()) && near(t) && t.x > c.q.x - 2 * h && t.x < c.p.x);
     const lotTok = tokens.find((t) => isLot(t.text) && t !== refTok && near(t) && t.x > c.p.x - h && t.x < c.a.x + h && !(refTok && t.text === refTok.text));
     return {
@@ -179,7 +198,7 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
       qty: c.q.value,
       unit: unitTok ? unitTok.text.toLowerCase() : null,
       price: c.p.value,
-      discountPct: c.d ? c.d.value : null,
+      discountPct: c.d ? c.d.value : (c.implied ?? null),
       amount: c.a.value,
       lot: lotTok?.text ?? null,
     };
@@ -211,14 +230,31 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
   let vatRate: number | null = null;
   let vat: number | null = null;
   let total: number | null = null;
+  let headerDiscountPct: number | null = null;
   if (lines.length) {
-    const baseTok = free.find((n) => close(n.value, linesTotal, 0.015));
+    const subTok = free.find((n) => close(n.value, linesTotal, 0.015));
+    // Descuento de cabecera: subtotal − descuento = base, los tres escritos, y el descuento es un % redondo.
+    let baseTok: Num | undefined;
+    let dtoTok: Num | undefined;
+    for (const d of free) {
+      if (d === subTok || d.value <= 0 || d.value > linesTotal * 0.6) continue;
+      const pct = (d.value / linesTotal) * 100;
+      const b = free.find((n) => n !== d && n !== subTok && close(n.value, round2(linesTotal - d.value), 0.015));
+      if (b && Math.abs(pct * 2 - Math.round(pct * 2)) < 0.02) {
+        baseTok = b;
+        dtoTok = d;
+        headerDiscountPct = Math.round(pct * 2) / 2;
+        break;
+      }
+    }
+    baseTok ??= subTok;
     if (baseTok) {
       base = baseTok.value;
+      const others = free.filter((n) => n !== baseTok && n !== subTok && n !== dtoTok && n.value > 0);
       for (const r of VAT_RATES) {
         const v = round2((base * r) / 100);
-        const vatTok = free.find((n) => close(n.value, v, 0.015) && n !== baseTok);
-        const totTok = free.find((n) => close(n.value, round2(base! + v), 0.015) && n !== baseTok && n !== vatTok);
+        const vatTok = others.find((n) => close(n.value, v, 0.015));
+        const totTok = others.find((n) => close(n.value, round2(base! + v), 0.015) && n !== vatTok);
         if (vatTok && totTok) {
           vatRate = r;
           vat = vatTok.value;
@@ -226,8 +262,20 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
           break;
         }
       }
+      // Varios tipos de IVA en el mismo albarán: la cuota y el total están escritos y base + cuota = total.
+      if (total === null) {
+        for (const v of others) {
+          if (v.value < base * 0.02 || v.value > base * 0.215) continue;
+          const totTok = others.find((n) => n !== v && close(n.value, round2(base! + v.value), 0.015));
+          if (totTok) {
+            vat = v.value;
+            total = totTok.value;
+            break;
+          }
+        }
+      }
     }
   }
   const status: AlbaranRead["status"] = !lines.length ? "sin_lineas" : base !== null && total !== null ? "cuadra" : base !== null ? "parcial" : "no_cuadra";
-  return { lines, linesTotal, base, vatRate, vat, total, status, date: isoDate(tokens) };
+  return { lines, linesTotal, base, vatRate, vat, total, headerDiscountPct, status, date: isoDate(tokens) };
 }

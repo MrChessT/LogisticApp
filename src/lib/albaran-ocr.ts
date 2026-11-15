@@ -34,28 +34,31 @@ function getWorker(): Worker {
   return worker;
 }
 
-async function imageDataOf(file: Blob): Promise<ImageData> {
+/** `turns`: cuartos de vuelta que se gira la foto antes de leerla (0 a 3). */
+async function imageDataOf(file: Blob, turns: number): Promise<ImageData> {
   // createImageBitmap respeta la orientación de la foto (EXIF) del móvil.
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const w = Math.round(bitmap.width * scale);
   const h = Math.round(bitmap.height * scale);
   const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = turns % 2 ? h : w;
+  canvas.height = turns % 2 ? w : h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Este navegador no puede preparar la foto.");
-  ctx.drawImage(bitmap, 0, 0, w, h);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((turns * Math.PI) / 2);
+  ctx.drawImage(bitmap, -w / 2, -h / 2, w, h);
   bitmap.close();
-  return ctx.getImageData(0, 0, w, h);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
 export type AlbaranPhotoRead = AlbaranRead & { texts: OcrText[] };
 
 /** Texto y cajas que el OCR saca de una foto. La primera vez descarga el lector (unos 40 MB); después queda en caché. */
-export async function ocrTextos(file: Blob): Promise<OcrText[]> {
+export async function ocrTextos(file: Blob, turns = 0): Promise<OcrText[]> {
   if (!file.type.startsWith("image/")) throw new Error("Para leer el documento hace falta una foto (JPG o PNG).");
-  const image = await imageDataOf(file);
+  const image = await imageDataOf(file, turns);
   const w = getWorker();
   const id = nextId++;
   return new Promise<OcrText[]>((resolve, reject) => {
@@ -64,10 +67,16 @@ export async function ocrTextos(file: Blob): Promise<OcrText[]> {
   });
 }
 
-/** Lee la foto de un albarán. */
+/** Lee la foto de un albarán. Si no sale ninguna línea, prueba con la foto girada (boca abajo o de lado). */
 export async function readAlbaranPhoto(file: Blob): Promise<AlbaranPhotoRead> {
-  const texts = await ocrTextos(file);
-  return { ...readAlbaran(texts), texts };
+  let first: AlbaranPhotoRead | null = null;
+  for (const turns of [0, 2, 1, 3]) {
+    const texts = await ocrTextos(file, turns);
+    const read = { ...readAlbaran(texts), texts };
+    if (read.lines.length) return read;
+    first ??= read;
+  }
+  return first!;
 }
 
 // Emparejar con lo nuestro -----------------------------------------------------------------------
