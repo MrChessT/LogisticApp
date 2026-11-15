@@ -447,6 +447,7 @@ export type Database = {
           doc_date: string;
           status: "open" | "closed" | "cancelled";
           attachment_path: string | null;
+          client_key: string | null;
           created_by: string | null;
           created_at: string;
           posted_by: string | null;
@@ -791,6 +792,7 @@ export type Database = {
       cancel_transfer: { Args: { p_transfer: string }; Returns: undefined };
       reorganiza_familias_productos: { Args: { p_org: string }; Returns: undefined };
       reorganiza_familias_productos_v2: { Args: { p_org: string }; Returns: undefined };
+      familias_desechables_dulces: { Args: { p_org: string }; Returns: undefined };
       cuentas_minusculas: { Args: { p_org: string }; Returns: undefined };
       renombra_comida_antigua: { Args: { p_org: string }; Returns: undefined };
       taxonomia_cuentas: { Args: { p_org: string }; Returns: undefined };

@@ -8,7 +8,7 @@ import { ArrowLeft, Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { usePermissions } from "@/lib/permissions";
 import { decimalText, euros } from "@/lib/format";
-import { INCIDENT_LABEL, isIncident, photoUrl } from "@/lib/receipt-checks";
+import { attachReceiptPhoto, INCIDENT_LABEL, isIncident, photoUrl } from "@/lib/receipt-checks";
 import { lineAmount, lineOvercharge, receiptSummary } from "@/lib/receipt-detail";
 import "./receipt-detail.css";
 
@@ -29,6 +29,8 @@ interface Head {
   docDate: string;
   status: "open" | "closed" | "cancelled";
   attachmentPath: string | null;
+  orgId: string;
+  locationId: string;
   supplier: string;
   location: string;
   lines: Line[];
@@ -38,6 +40,7 @@ const STATUS_LABEL = { open: "Abierto", closed: "Cerrado", cancelled: "Anulado" 
 
 type Raw = {
   code: string | null; doc_number: string | null; doc_date: string; status: Head["status"]; attachment_path: string | null;
+  org_id: string; location_id: string;
   suppliers: { name: string } | null; locations: { name: string } | null;
   receipt_lines: Array<{
     id: string; qty: string; price: string; expected: string | null; incident: string | null; incident_note: string | null;
@@ -50,6 +53,7 @@ export function ReceiptDetail({ id }: { id: string }) {
   const perms = usePermissions();
   const [head, setHead] = useState<Head | null>(null);
   const [state, setState] = useState<"cargando" | "listo" | "no-encontrado" | "error">("cargando");
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +61,7 @@ export function ReceiptDetail({ id }: { id: string }) {
       if (!supabase) return setState("error");
       const { data, error } = await supabase
         .from("goods_receipts")
-        .select("code, doc_number, doc_date, status, attachment_path, suppliers(name), locations(name), receipt_lines(id, qty:packs_qty::text, price:pack_price::text, expected:expected_price::text, incident, incident_note, product_packs(name, products(name)))")
+        .select("code, doc_number, doc_date, status, attachment_path, org_id, location_id, suppliers(name), locations(name), receipt_lines(id, qty:packs_qty::text, price:pack_price::text, expected:expected_price::text, incident, incident_note, product_packs(name, products(name)))")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
@@ -70,6 +74,8 @@ export function ReceiptDetail({ id }: { id: string }) {
         docDate: raw.doc_date,
         status: raw.status,
         attachmentPath: raw.attachment_path,
+        orgId: raw.org_id,
+        locationId: raw.location_id,
         supplier: raw.suppliers?.name ?? "Proveedor sin asignar",
         location: raw.locations?.name ?? "Local sin asignar",
         lines: raw.receipt_lines.map((l) => ({
@@ -89,7 +95,7 @@ export function ReceiptDetail({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [supabase, id]);
+  }, [supabase, id, reload]);
 
   if (state === "cargando") return <main className="receipt-page"><p className="receipt-muted">Cargando el albarán…</p></main>;
   if (state === "no-encontrado") return <Shell><p className="receipt-muted">No encuentro este albarán. Puede que no sea de tu organización.</p></Shell>;
@@ -107,7 +113,9 @@ export function ReceiptDetail({ id }: { id: string }) {
           <h1>{title}</h1>
           <p className="receipt-meta">{head.supplier} · {head.location} · {new Date(head.docDate).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}</p>
         </div>
-        {head.attachmentPath && <PhotoButton supabase={supabase} path={head.attachmentPath} />}
+        {head.attachmentPath
+          ? <PhotoButton supabase={supabase} path={head.attachmentPath} />
+          : <AttachPhoto supabase={supabase} receipt={{ id, orgId: head.orgId, locationId: head.locationId }} onDone={() => setReload((n) => n + 1)} />}
       </div>
 
       <div className="receipt-totals">
@@ -179,5 +187,28 @@ function PhotoButton({ supabase, path }: { supabase: ReturnType<typeof createCli
     <button type="button" className="receipt-photo" onClick={open}>
       <Camera size={15} /> Ver foto del albarán
     </button>
+  );
+}
+
+/** La recepción no tiene foto: se puede adjuntar después (el justificante no siempre se sube al registrar). */
+function AttachPhoto({ supabase, receipt, onDone }: { supabase: ReturnType<typeof createClient>; receipt: { id: string; orgId: string; locationId: string }; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function attach(file: File | undefined) {
+    if (!file || !supabase) return;
+    setBusy(true);
+    const problem = await attachReceiptPhoto(supabase, receipt, file);
+    setBusy(false);
+    if (problem) return setError(problem);
+    onDone();
+  }
+  return (
+    <div className="receipt-attach">
+      <label className="receipt-photo">
+        <Camera size={15} /> {busy ? "Subiendo…" : "Adjuntar foto del albarán"}
+        <input type="file" hidden accept="image/*,application/pdf" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void attach(f); }} />
+      </label>
+      {error && <small className="receipt-error" role="alert">{error}</small>}
+    </div>
   );
 }
