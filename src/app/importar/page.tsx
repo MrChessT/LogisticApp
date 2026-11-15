@@ -1,5 +1,6 @@
 "use client";
 
+import { civilToday } from "@/lib/business-day";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, RotateCcw, Upload } from "lucide-react";
@@ -42,7 +43,7 @@ function download(bytes: Uint8Array, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => civilToday();
 
 export default function ImportarPage() {
   const [org, setOrg] = useState<{ id: string; name: string; admin: boolean } | null>(null);

@@ -5,7 +5,7 @@ import { Camera, CheckCircle2, Plus, TriangleAlert } from "lucide-react";
 import { FilePick } from "@/components/ui/file-pick";
 import { createClient } from "@/lib/supabase/client";
 import { euros as formatCurrency } from "@/lib/format";
-import { productDraft } from "@/lib/albaran-cabecera";
+import { MEASURES, productDraft } from "@/lib/albaran-cabecera";
 import type { AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import type { LookupProduct } from "@/lib/product-lookup";
 
@@ -79,7 +79,11 @@ export function NewSupplier({ suggested, orgId, onCreated }: { suggested: string
   );
 }
 
-/** Crea el producto de una línea del albarán (con su formato de compra) y lo devuelve listo para la línea. */
+/**
+ * Crea el producto de una línea del albarán con su formato de compra, de una vez. La medida (kilo, gramo, litro,
+ * unidad…) sale de la unidad escrita en la línea y se puede cambiar antes de crear: la cantidad de la línea se
+ * contará en esa medida.
+ */
 export function NewProduct({ read, orgId, vatRate, onCreated }: {
   read: { description: string; unit: string | null; qty: number };
   orgId: string;
@@ -87,38 +91,37 @@ export function NewProduct({ read, orgId, vatRate, onCreated }: {
   onCreated: (product: LookupProduct) => void;
 }) {
   const draft = productDraft(read);
+  const [packName, setPackName] = useState(draft?.packName ?? "Unidad");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   if (!draft) return null;
+  const measure = MEASURES.find((m) => m.packName === packName) ?? draft;
   async function create() {
     const supabase = createClient();
     if (!supabase || !draft) return;
     setBusy(true);
     setError("");
-    const { data: product, error: err } = await supabase
-      .from("products")
-      .insert({ org_id: orgId, name: draft.name, dimension: draft.dimension, ...(vatRate !== null ? { vat_rate: vatRate } : {}) })
-      .select("id, name, dimension, base_unit")
-      .single();
-    if (err || !product) {
-      setBusy(false);
-      return setError(err?.code === "23505" ? "Ya existe un producto con ese nombre: búscalo arriba." : err?.code === "42501" ? "No tienes permiso para crear productos." : "No se pudo crear el producto.");
-    }
-    const { data: pack, error: packErr } = await supabase
-      .from("product_packs")
-      .insert({ product_id: product.id, name: draft.packName, qty_base: draft.qtyBase, is_purchase_default: true, is_count_default: true })
-      .select("id, name, qty_base")
-      .single();
+    const { data, error: err } = await supabase.rpc("create_product_with_pack", {
+      p_org: orgId, p_name: draft.name, p_dimension: measure.dimension, p_pack_name: measure.packName, p_qty_base: measure.qtyBase, p_vat_rate: vatRate,
+    });
     setBusy(false);
-    if (packErr || !pack) return setError("El producto se creó, pero no su formato de compra. Búscalo arriba y revísalo en Productos.");
+    const row = data as { id: string; name: string; dimension: LookupProduct["dimension"]; base_unit: string; pack_id: string; pack_name: string; qty_base: number } | null;
+    if (err || !row) return setError(err?.code === "23505" ? "Ya existe un producto con ese nombre: búscalo arriba." : err?.code === "42501" ? "No tienes permiso para crear productos." : "No se pudo crear el producto. No se ha guardado nada.");
     onCreated({
-      id: product.id, name: product.name, dimension: product.dimension, base_unit: product.base_unit, category: null, family: null, in_location: false, stock: null,
-      packs: [{ id: pack.id, name: pack.name, qty: String(pack.qty_base), count: true, purchase: true, price: null }],
+      id: row.id, name: row.name, dimension: row.dimension, base_unit: row.base_unit, category: null, family: null, in_location: false, stock: null,
+      packs: [{ id: row.pack_id, name: row.pack_name, qty: String(row.qty_base), count: true, purchase: true, price: null }],
     });
   }
   return (
     <div className="op-new-item">
-      <button type="button" onClick={() => void create()} disabled={busy}><Plus size={14} /> {busy ? "Creando…" : `Crear «${draft.name}» (por ${draft.packName.toLowerCase()})`}</button>
+      <div className="op-new-item-row">
+        <span className="op-new-item-label">Crear «{draft.name}», medido por</span>
+        <select value={packName} onChange={(e) => setPackName(e.target.value)} aria-label="Medida del producto nuevo">
+          {MEASURES.map((m) => <option key={m.packName} value={m.packName}>{m.packName}</option>)}
+        </select>
+        <button type="button" onClick={() => void create()} disabled={busy}><Plus size={14} /> {busy ? "Creando…" : "Crear producto"}</button>
+      </div>
+      {draft.assumed && <small>La línea no dice la unidad: comprueba que la cantidad ({read.qty}) viene en {measure.packName.toLowerCase()}.</small>}
       {error && <small className="warn" role="alert">{error}</small>}
     </div>
   );

@@ -809,6 +809,15 @@ export type Database = {
         }>;
       };
       post_receipt: { Args: { p_receipt: string }; Returns: undefined };
+      register_receipt: {
+        Args: { p_key: string; p_org: string; p_location: string; p_supplier: string | null; p_doc_number: string | null; p_doc_date: string; p_lines: Json };
+        Returns: string;
+      };
+      save_recipe: { Args: { p_id: string | null; p_org: string; p_recipe: Json; p_lines: Json }; Returns: string };
+      create_product_with_pack: {
+        Args: { p_org: string; p_name: string; p_dimension: "mass" | "volume" | "count"; p_pack_name: string; p_qty_base: number; p_vat_rate?: number | null };
+        Returns: Json;
+      };
       set_receipt_attachment: { Args: { p_receipt: string; p_path: string | null }; Returns: undefined };
       catalog_health: {
         Args: { p_location?: string | null };
@@ -900,7 +909,7 @@ export type Database = {
       save_invoice: {
         Args: {
           p_id: string | null; p_org: string; p_supplier: string; p_number: string; p_date: string; p_due: string | null;
-          p_subtotal: number; p_vat: number; p_total: number; p_notes: string | null; p_receipts: string[]; p_lines?: Json | null;
+          p_subtotal: number; p_vat: number; p_total: number; p_notes: string | null; p_receipts: string[] | null; p_lines?: Json | null;
         };
         Returns: string;
       };

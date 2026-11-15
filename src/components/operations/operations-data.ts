@@ -1,5 +1,6 @@
 // Datos de las cuatro pantallas de operativa (recepciones, traspasos, inventarios, mermas): las filas
 // de la lista y las cifras de resumen de cada una. La pantalla (operations-page) solo pinta y abre formularios.
+import { civilToday } from "@/lib/business-day";
 import Decimal from "decimal.js";
 import type { createClient } from "@/lib/supabase/client";
 import { readAll } from "@/lib/supabase/read-all";
@@ -31,8 +32,8 @@ function wasteAmount(qty: number, packs: ReturnType<typeof countingPacks>) {
 }
 
 function daysAgo(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
+  const d = new Date(`${civilToday()}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
 

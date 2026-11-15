@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Camera, CheckCircle2, FileText, Paperclip, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
+import { civilToday } from "@/lib/business-day";
 import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
 import { camposDeFactura, readDocumentPhoto } from "@/lib/documento-foto";
 import { InvoiceLinesTable, type LineaFactura } from "./invoice-lines";
@@ -20,7 +21,7 @@ export type InvoiceRow = {
 export type UnbilledReceipt = { id: string; code: string; docNumber: string | null; date: string; supplierId: string; locationName: string; total: number };
 export type SupplierOption = { id: string; name: string; paymentTerms: string | null };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => civilToday();
 const dec = (s: string) => {
   const t = s.replace(/\s|€/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
   return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : null;

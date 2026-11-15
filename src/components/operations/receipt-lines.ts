@@ -1,7 +1,7 @@
 // Líneas de una recepción y cómo se rellenan desde la foto de un albarán: cada línea leída se empareja
 // con un producto del catálogo (primero lo aprendido de ese proveedor; si no, por nombre, solo si está claro).
 import { createClient } from "@/lib/supabase/client";
-import { bestProduct, lineCode, packForUnit, searchTerms, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
+import { bestProduct, lineCode, packForRead, searchTerms, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import { lookupProducts, purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import type { Incident } from "@/lib/receipt-checks";
 
@@ -42,7 +42,7 @@ export async function matchReadLines(result: AlbaranPhotoRead, supplierId: strin
     } catch {
       product = null;
     }
-    if (product && !packId) packId = (packForUnit(product.packs, product.dimension, l.unit, l.qty) ?? purchasePack(product))?.id ?? "";
+    if (product && !packId) packId = packForRead(product.packs, product.dimension, l.unit, l.qty, purchasePack(product) ?? null)?.id ?? "";
     return { product, packId, qty: String(l.qty), price: String(price), incident: "", read };
   }));
 }

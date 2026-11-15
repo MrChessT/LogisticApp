@@ -33,3 +33,11 @@ export function businessDay(occurredAt: Date, timezone: string, cutoff: string):
   if (localMinutes < cutoffHour * 60 + cutoffMinute) date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().slice(0, 10);
 }
+
+/**
+ * La fecha de hoy en el calendario del negocio (no en UTC): a las 00:30 de Madrid ya es el día siguiente, aunque en
+ * UTC siga siendo el anterior. Para las fechas por defecto de albaranes, facturas, pagos e importaciones.
+ */
+export function civilToday(timezone = "Europe/Madrid", now: Date = new Date()): string {
+  return businessDay(now, timezone, "00:00");
+}

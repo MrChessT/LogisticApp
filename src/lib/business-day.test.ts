@@ -12,3 +12,12 @@ describe("businessDay", () => {
     expect(businessDay(new Date("2026-10-25T04:30:00Z"), "Europe/Madrid", "06:00")).toBe("2026-10-24");
   });
 });
+
+describe("civilToday", () => {
+  it("usa el calendario del negocio, no UTC: a las 00:30 de Madrid ya es el día siguiente", async () => {
+    const { civilToday } = await import("./business-day");
+    expect(civilToday("Europe/Madrid", new Date("2026-11-14T23:30:00Z"))).toBe("2026-11-15");
+    expect(civilToday("Europe/Madrid", new Date("2026-07-14T21:59:00Z"))).toBe("2026-07-14");
+    expect(civilToday("Europe/Madrid", new Date("2026-07-14T22:01:00Z"))).toBe("2026-07-15");
+  });
+});

@@ -2,6 +2,7 @@
 // El OCR corre en un Web Worker (public/ocr, ver scripts/build-ocr.mjs); aquí se prepara la imagen, se le
 // pasa al worker y su texto se convierte en líneas con readAlbaran.
 
+import { unitMeasure } from "@/lib/albaran-cabecera";
 import { readAlbaran, type AlbaranRead, type OcrText } from "@/lib/albaran-reader";
 
 /** Debe coincidir con OCR_VERSION de scripts/build-ocr.mjs. */
@@ -174,9 +175,20 @@ export function searchTerms(description: string): string[] {
  */
 export function packForUnit<P extends { id: string; qty: string }>(packs: P[], dimension: string, unit: string | null, qty?: number): P | null {
   const byQty = (q: number) => packs.find((k) => Number(k.qty) === q) ?? null;
+  const measure = unitMeasure(unit);
+  // La unidad escrita manda, con su factor exacto: «500 g» no son 500 kilos ni 500 cajas.
+  if (measure) return measure.dimension === dimension ? byQty(measure.qtyBase) : null;
   const fractional = qty !== undefined && !Number.isInteger(qty);
-  if (dimension === "mass" && ((unit && /^(kg|kgs|k)$/.test(unit)) || (!unit && fractional))) return byQty(1000);
-  if (dimension === "volume" && ((unit && /^(l|lt|lts)$/.test(unit)) || (!unit && fractional))) return byQty(1000);
-  if (dimension === "count" && unit && /^(ud|uds|u|un|und)$/.test(unit)) return byQty(1);
+  if (!unit && fractional && (dimension === "mass" || dimension === "volume")) return byQty(1000);
   return null;
+}
+
+/**
+ * Formato de una línea leída para un producto: el que dice su unidad. Si la unidad es una medida («g», «cl») y el
+ * producto no tiene ese formato, no se pone ninguno (lo elige la persona); el formato de compra habitual solo vale
+ * cuando la línea no trae una medida.
+ */
+export function packForRead<P extends { id: string; qty: string }>(packs: P[], dimension: string, unit: string | null, qty: number, usual: P | null): P | null {
+  const exact = packForUnit(packs, dimension, unit, qty);
+  return exact ?? (unitMeasure(unit) ? null : usual);
 }

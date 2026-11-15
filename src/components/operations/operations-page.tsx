@@ -21,7 +21,8 @@ import { euros as formatCurrency, quantity } from "@/lib/format";
 import { toBaseQty, unitChoices, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import { onPendingFile, takePendingFile, takePendingRead } from "@/lib/pending-file";
-import { guessSupplier, packForUnit, readAlbaranPhoto, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
+import { guessSupplier, packForRead, readAlbaranPhoto, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
+import { civilToday } from "@/lib/business-day";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, priceCheck, type Incident } from "@/lib/receipt-checks";
 import { EXIT_KIND_LABEL, EXIT_KIND_REASONS, EXIT_KINDS, type ExitKind } from "@/lib/exit-kinds";
@@ -32,6 +33,7 @@ import { matchReadLines, type ReceiptLine } from "./receipt-lines";
 import { NewProduct, NewSupplier, ReceiptScan, type ScanState } from "./receipt-new-items";
 import { PhotoPick } from "./receipt-photo-pick";
 import { applyPick } from "./receipt-pick";
+import { checkReceiptLines } from "./receipt-save";
 import { albaranNumber, supplierNameGuess } from "@/lib/albaran-cabecera";
 import { filasDeOcr } from "@/lib/documento-filas";
 import { loadOperations, type DisplayRow, type Location, type Metric, type OperationKind } from "./operations-data";
@@ -114,7 +116,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   const [rLocation, setRLocation] = useState("");
   const [rSupplier, setRSupplier] = useState("");
   const [rDocNumber, setRDocNumber] = useState("");
-  const [rDocDate, setRDocDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [rDocDate, setRDocDate] = useState(() => civilToday());
+  const [receiptKey, setReceiptKey] = useState(() => crypto.randomUUID());
   const [rPhoto, setRPhoto] = useState<File | null>(null);
   /** Último precio de cada formato con el proveedor elegido: lo pactado con lo que se compara el albarán. */
   const [agreedBySupplier, setAgreedBySupplier] = useState<{ supplierId: string; prices: Map<string, number> } | null>(null);
@@ -245,7 +248,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setRLocation("");
     setRSupplier("");
     setRDocNumber("");
-    setRDocDate(new Date().toISOString().slice(0, 10));
+    setRDocDate(civilToday());
+    setReceiptKey(crypto.randomUUID());
     setRLines([{ product: null, packId: "", qty: "", price: "", incident: "" }]);
     setRPhoto(null);
     setScan({ stage: "idle" });
@@ -267,6 +271,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setFormError("");
     if (!trFrom || !trTo) { setFormError("Elige local de origen y destino."); return; }
     if (trFrom === trTo) { setFormError("El origen y el destino deben ser distintos."); return; }
+    const incomplete = trLines.find((line) => (line.product && !(Number(line.qty) > 0)) || (!line.product && line.qty.trim() !== ""));
+    if (incomplete) { setFormError(incomplete.product ? `Revisa la cantidad de ${incomplete.product.name}: tiene que ser mayor que 0.` : "Hay una línea con cantidad y sin producto: elígelo o quita la línea."); return; }
     const validLines = trLines
       .filter((line) => line.product && Number(line.qty) > 0)
       .map((line) => ({ productId: line.product!.id, qty: toBaseQty(unitsOf(line.product), line.qty, line.unit) }));
@@ -291,7 +297,9 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
       validLines.map((line) => ({ transfer_id: transfer.id, product_id: line.productId, qty_sent: line.qty })),
     );
     if (linesError) {
-      setFormError("El traspaso se creó pero no se pudieron guardar las líneas.");
+      // Sin líneas el traspaso no sirve: se retira para no dejar un borrador vacío.
+      await supabase.from("transfers").delete().eq("id", transfer.id);
+      setFormError("No se pudo guardar el traspaso. No se ha creado nada: puedes volver a intentarlo.");
       setSaving(false);
       return;
     }
@@ -403,61 +411,33 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   async function handleCreateReceipt() {
     setFormError("");
     if (!rLocation) { setFormError("Elige un local."); return; }
-    // Sin precio no se guarda a 0 €: un 0 tapaba el precio bueno del proveedor y valoraba el stock a 0 €.
-    // Una línea leída de la foto sin producto no se descarta en silencio: o se elige, o se quita.
-    const unmatched = rLines.find((line) => line.read && !line.packId);
-    if (unmatched) { setFormError(`Elige el producto de «${unmatched.read!.description || "una línea del albarán"}» o quita esa línea.`); return; }
-    const unpriced = rLines.find((line) => line.packId && Number(line.qty) > 0 && line.price.trim() === "");
-    if (unpriced) { setFormError(`Falta el precio de ${unpriced.product?.name ?? "una línea"}: escríbelo como viene en el albarán.`); return; }
-    const validLines = rLines.filter((line) => line.packId && Number(line.qty) > 0 && Number(line.price) >= 0);
-    if (validLines.length === 0) { setFormError("Añade al menos una línea con cantidad y precio."); return; }
+    const checked = checkReceiptLines(rLines);
+    if ("error" in checked) { setFormError(checked.error); return; }
 
     setSaving(true);
     const supabase = createClient();
     if (!supabase) { setFormError("Supabase no está configurado."); setSaving(false); return; }
-
-    const { data: receipt, error: receiptError } = await supabase
-      .from("goods_receipts")
-      .insert({
-        org_id: orgId,
-        location_id: rLocation,
-        supplier_id: rSupplier || null,
-        doc_number: rDocNumber.trim() || null,
-        doc_date: rDocDate,
-      })
-      .select("id")
-      .single();
-    if (receiptError || !receipt) {
-      setFormError("No se pudo crear la recepción.");
-      setSaving(false);
-      return;
-    }
-
-    const { error: linesError } = await supabase.from("receipt_lines").insert(
-      validLines.map((line) => ({ receipt_id: receipt.id, pack_id: line.packId, packs_qty: Number(line.qty), pack_price: Number(line.price), incident: line.incident || null })),
-    );
-    if (linesError) {
-      setFormError("La recepción se creó pero no se pudieron guardar las líneas.");
-      setSaving(false);
-      return;
-    }
-
-    const { error: postError } = await supabase.rpc("post_receipt", { p_receipt: receipt.id });
-    if (postError) {
-      setFormError("La recepción se guardó pero no se pudo confirmar el stock.");
+    // Cabecera, líneas y stock entran juntos o no entra nada. La clave del intento no cambia al reintentar: si la
+    // respuesta se perdió y la recepción ya estaba registrada, se recupera esa en vez de crear otra.
+    const { data: receiptId, error } = await supabase.rpc("register_receipt", {
+      p_key: receiptKey, p_org: orgId, p_location: rLocation, p_supplier: rSupplier || null,
+      p_doc_number: rDocNumber.trim() || null, p_doc_date: rDocDate, p_lines: checked.lines,
+    });
+    if (error || !receiptId) {
+      setFormError(error?.code === "42501" ? "No tienes permiso para registrar recepciones en este local." : "No se pudo registrar la recepción. No se ha guardado nada: puedes volver a intentarlo.");
       setSaving(false);
       return;
     }
     // Lo leído de la foto se recuerda para este proveedor: la próxima vez la línea sale sola.
-    const learned = validLines
-      .filter((line) => line.read?.code && line.product)
+    const learned = rLines
+      .filter((line) => line.read?.code && line.product && line.packId)
       .map((line) => ({ code: line.read!.code, description: line.read!.description, product_id: line.product!.id, pack_id: line.packId || null }));
     if (rSupplier && learned.length > 0) await supabase.rpc("remember_supplier_codes", { p_supplier: rSupplier, p_items: learned });
     if (rPhoto) {
-      const photoError = await attachReceiptPhoto(supabase, { id: receipt.id, orgId, locationId: rLocation }, rPhoto);
+      const photoError = await attachReceiptPhoto(supabase, { id: receiptId, orgId, locationId: rLocation }, rPhoto);
       if (photoError) {
         // La recepción ya está registrada: se avisa y se cierra igualmente para no duplicarla.
-        setLoadError(`Recepción registrada, pero ${photoError.charAt(0).toLowerCase()}${photoError.slice(1)}`);
+        setLoadError(`Recepción registrada, pero ${photoError.charAt(0).toLowerCase()}${photoError.slice(1)} Puedes adjuntarla desde la ficha de la recepción.`);
       }
     }
 
@@ -731,7 +711,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                         onChange={(product) => {
                           // Una línea leída de la foto: el formato según cómo viene en el albarán (por kilos, por
                           // unidades) y el precio del albarán, que es lo que se ha pagado.
-                          const pack = product ? (line.read ? packForUnit(product.packs, product.dimension, line.read.unit, line.read.qty) : null) ?? purchasePack(product) : null;
+                          const usual = product ? purchasePack(product) ?? null : null;
+                          const pack = product && line.read ? packForRead(product.packs, product.dimension, line.read.unit, line.read.qty, usual) : usual;
                           setRLines(rLines.map((l, i) => i === index ? { ...l, product, packId: pack?.id ?? "", price: !l.read && pack?.price ? String(Number(pack.price)) : l.price } : l));
                         }}
                       />
@@ -743,7 +724,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
                           const pack = line.product?.packs.find((k) => k.id === e.target.value);
                           setRLines(rLines.map((l, i) => i === index ? { ...l, packId: e.target.value, price: pack?.price ? String(Number(pack.price)) : l.price } : l));
                         }}>
-                          {!line.product && <option value="">Formato</option>}
+                          {(!line.product || !line.packId) && <option value="">{line.product ? "Elige formato" : "Formato"}</option>}
                           {(line.product?.packs ?? []).map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
                         </select>
                         <input type="number" min="0" step="any" placeholder="Uds." value={line.qty} onChange={(e) => setRLines(rLines.map((l, i) => i === index ? { ...l, qty: e.target.value } : l))} />

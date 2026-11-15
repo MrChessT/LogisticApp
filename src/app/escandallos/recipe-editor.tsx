@@ -191,44 +191,26 @@ export function RecipeEditor({ recipeId, orgId, recipes, seesCosts, canEdit, onC
     if (!supabase) return;
     setSaving(true);
     setError("");
-    const row = {
-      org_id: orgId,
-      name: name.trim(),
-      kind,
-      category: category.trim() || null,
-      yield_qty: yq!.toNumber(),
-      yield_unit: yieldUnit,
-      sale_price: dec(salePrice)?.toNumber() ?? null,
-      vat_rate: dec(vatRate)!.toNumber(),
-      target_food_cost: dec(target)!.toNumber(),
-      instructions: instructions.trim() || null,
-    };
-    let id = recipeId;
-    if (id) {
-      const { error: err } = await supabase.from("recipes").update(row).eq("id", id);
-      if (err) return fail(err);
-    } else {
-      const { data, error: err } = await supabase.from("recipes").insert(row).select("id").single();
-      if (err || !data) return fail(err);
-      id = data.id;
-    }
-    // Las líneas se guardan de nuevo enteras: es una receta, no un historial.
-    const { error: delErr } = await supabase.from("recipe_lines").delete().eq("recipe_id", id!);
-    if (delErr) return fail(delErr);
-    const rows = computed
-      .filter((c) => c.filled && c.qty)
-      .map((c, i) => ({
-        recipe_id: id!,
-        product_id: c.line.product?.id ?? null,
-        sub_recipe_id: c.line.product ? null : c.line.subId,
-        qty: c.qty!.toNumber(),
-        waste_pct: c.waste!.toNumber(),
-        sort_order: i + 1,
-      }));
-    if (rows.length) {
-      const { error: insErr } = await supabase.from("recipe_lines").insert(rows);
-      if (insErr) return fail(insErr);
-    }
+    // Cabecera e ingredientes se guardan juntos en la base de datos: si algo falla, la receta queda como estaba.
+    const { error: err } = await supabase.rpc("save_recipe", {
+      p_id: recipeId ?? null,
+      p_org: orgId,
+      p_recipe: {
+        name: name.trim(),
+        kind,
+        category: category.trim() || null,
+        yield_qty: yq!.toString(),
+        yield_unit: yieldUnit,
+        sale_price: dec(salePrice)?.toString() ?? null,
+        vat_rate: dec(vatRate)!.toString(),
+        target_food_cost: dec(target)!.toString(),
+        instructions: instructions.trim() || null,
+      },
+      p_lines: computed
+        .filter((c) => c.filled && c.qty)
+        .map((c) => ({ product_id: c.line.product?.id ?? null, sub_recipe_id: c.line.product ? null : c.line.subId, qty: c.qty!.toString(), waste_pct: c.waste!.toString() })),
+    });
+    if (err) return fail(err);
     setSaving(false);
     onChanged();
     onClose();
