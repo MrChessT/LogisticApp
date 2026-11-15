@@ -10,7 +10,7 @@ const LIMIT = 600;
 const BASELINE = {
   "src/app/equipo/page.tsx": 780,
   "src/app/productos/product-editor.tsx": 880,
-  "src/components/operations/operations-page.tsx": 820,
+  "src/components/operations/operations-page.tsx": 811,
   "src/copiloto/drafts/catalog-builder.ts": 875,
   "src/copiloto/tools/tools.ts": 790,
 };

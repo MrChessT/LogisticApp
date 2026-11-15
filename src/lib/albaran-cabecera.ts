@@ -34,6 +34,13 @@ export function supplierNameGuess(text: string): string | null {
   return null;
 }
 
+/** Un nombre leído de un recuadro: sin espacios de más ni signos al final, y con mayúsculas normales si venía todo en ellas. */
+export function cleanName(text: string): string | null {
+  const t = text.replace(/\s+/g, " ").replace(/^[\s:;,.\-]+|[\s:;,.\-]+$/g, "");
+  if (t.length < 2 || t.length > 120 || !/[A-Za-zÁÉÍÓÚÑáéíóúñ]{2}/.test(t)) return null;
+  return t === t.toUpperCase() ? titleCase(t) : t;
+}
+
 const MINOR = new Set(["de", "del", "la", "las", "el", "los", "y", "e", "en", "con", "para"]);
 function titleCase(s: string): string {
   return s.toLowerCase().split(/\s+/).map((w, i) => (i > 0 && MINOR.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
