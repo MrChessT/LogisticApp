@@ -20,7 +20,7 @@ import { usePermissions } from "@/lib/permissions";
 import { euros as formatCurrency, quantity } from "@/lib/format";
 import { toBaseQty, unitChoices, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
-import { onPendingFile, takePendingFile, takePendingRead } from "@/lib/pending-file";
+import { onPendingFile, takePending } from "@/lib/pending-file";
 import { guessSupplier, packForRead, readAlbaranPhoto, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import { civilToday } from "@/lib/business-day";
 import { ProductPicker } from "@/components/product-picker/product-picker";
@@ -216,8 +216,8 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
   useEffect(() => {
     if (kind !== "recepciones") return;
     const pick = () => {
-      const photo = takePendingFile("recepcion");
-      if (photo) { setPhotoToScan(photo); setPhotoRead(takePendingRead<AlbaranPhotoRead>("recepcion")); }
+      const entry = takePending<AlbaranPhotoRead>("recepcion");
+      if (entry) { setPhotoToScan(entry.file); setPhotoRead(entry.read); }
     };
     void Promise.resolve().then(pick);
     return onPendingFile("recepcion", pick);

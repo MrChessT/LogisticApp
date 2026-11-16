@@ -35,7 +35,8 @@ function sqlValues(row: string): Array<string | null> {
 }
 
 export function viveroRows(root = process.cwd()): ViveroRow[] {
-  const sql = readFileSync(join(root, "supabase/seed/03_catalogo_vivero55.sql"), "utf8");
+  // En Windows git puede dejar el fichero con saltos CRLF: se lee siempre como LF.
+  const sql = readFileSync(join(root, "supabase/seed/03_catalogo_vivero55.sql"), "utf8").replace(/\r\n/g, "\n");
   const categories = new Map<string, string>();
   const catBlock = /insert into tmp_cat values([\s\S]*?);/.exec(sql)?.[1] ?? "";
   for (const m of catBlock.matchAll(/\('([^']*)','((?:[^']|'')*)',\d+\)/g)) categories.set(m[1]!, m[2]!.replace(/''/g, "'"));

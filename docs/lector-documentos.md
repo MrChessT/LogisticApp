@@ -88,6 +88,14 @@ del Drive «FACTURAS EJEMPLO»:
 No se copian al repositorio documentos reales de ningún proveedor ni de ningún negocio. Para añadir un caso,
 se escribe un documento inventado con la misma maquetación y se fija lo que debe salir.
 
+## Espacios entre palabras
+
+El reconocedor casi nunca emite el carácter «espacio» y la librería pegaba las palabras («COSTILLADECERDO»). Al
+compilar el worker (`scripts/build-ocr.mjs`) se aplica `scripts/ocr/espacios.mjs`: mete un espacio donde la
+probabilidad de espacio del modelo pasa de 0,10, sin partir números. El umbral se midió con los albaranes de
+ejemplo: recupera las separaciones reales y no parte palabras. Si la librería cambia, el build falla en vez de salir
+sin el parche.
+
 ## Albarán desde foto: casos que resuelve el lector por geometría
 
 Medido con el OCR real sobre los albaranes de ejemplo del Drive y fotos de prueba (`albaran-reader.ts`):
@@ -108,6 +116,11 @@ No se resuelve: una foto en espejo, o un albarán alterado (sale «no cuadra», 
 - **Desde el asistente:** al leer la foto, queda preparada (`pending-file.ts`). Al entrar en Recepciones, por el botón
   del chat o por el menú, se abre Nueva recepción rellena y con la foto adjunta como justificante.
 - **Se rellena solo:** proveedor (si su nombre está en el albarán), número (`albaranNumber`), fecha y líneas.
+- **Unidades exactas:** la unidad escrita en la línea manda, con su factor: «kg» son 1000 g, «g» es 1 g, «cl» son
+  10 ml (`unitMeasure`). Si el producto no tiene un formato con ese factor, no se pone ninguno y lo elige la
+  persona; sin unidad no se adivina la medida. Al crear un producto, la medida se ve y se puede cambiar.
+- **Registro en una sola operación:** `register_receipt` (migración 0051) guarda cabecera, líneas y stock a la vez,
+  con una clave del intento: reintentar no duplica la recepción. Ninguna línea con datos se descarta en silencio.
 - **Lo que no está dado de alta se crea ahí mismo** (`receipt-new-items.tsx`, reglas en `albaran-cabecera.ts`):
   el proveedor, con el nombre leído del albarán (editable), y cada producto sin emparejar, con el nombre de la
   línea y su formato de compra según la unidad (kg, litro o unidad) y el IVA del albarán si es uno solo. Los
@@ -172,8 +185,8 @@ corrige antes de guardar nada.
 ## Pendiente (fases siguientes)
 
 1. Integrar el lector de texto en la lectura de PDF y de texto copiado.
-2. Hecho: factura desde foto en Nueva factura, sin guardar, con proveedor sugerido y cuadre con sus albaranes.
-   Falta: marcar los albaranes automáticamente cuando la suma cuadra, y guardar las líneas (fase 3).
-3. Hecho: las líneas de la factura se guardan en `invoice_lines` (migración 0050). Falta que el asistente
-   responda con ellas: qué albaranes hay, con qué productos y cuánto.
+2. Hecho: factura desde foto en Nueva factura, con proveedor sugerido, cuadre con sus albaranes (sin IVA en los dos
+   lados) y líneas editables. Falta: marcar los albaranes automáticamente cuando la suma cuadra.
+3. Hecho: las líneas de la factura se guardan en `invoice_lines` (migración 0050) y se pueden corregir al editar.
+   Falta que el asistente responda con ellas: qué albaranes hay, con qué productos y cuánto.
 4. Mostrar en el chat la foto del albarán o de la factura guardada.

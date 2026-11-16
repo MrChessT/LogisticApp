@@ -122,7 +122,8 @@ export async function loadOperations(kind: OperationKind, deps: LoadDeps): Promi
           }]
         : [],
     }));
-    const month = records.filter((r) => r.doc_date >= daysAgo(METRIC_DAYS));
+    // Solo cuentan las recepciones registradas: una abierta o anulada no es una compra.
+    const month = records.filter((r) => r.status === "closed" && r.doc_date >= daysAgo(METRIC_DAYS));
     const total = month.reduce((sum, r) => sum + r.receipt_lines.reduce((s, l) => s + l.packs_qty * l.pack_price, 0), 0);
     const overcharged = month.filter((r) => overcharge(r) > 0);
     const extra = overcharged.reduce((sum, r) => sum + overcharge(r), 0);
@@ -223,7 +224,8 @@ export async function loadOperations(kind: OperationKind, deps: LoadDeps): Promi
       };
     });
     const openCount = records.filter((c) => c.status === "open").length;
-    const lastClosed = records.find((c) => c.status === "closed");
+    // El último cerrado es el de cierre más reciente, que no siempre es el que empezó más tarde.
+    const lastClosed = records.filter((c) => c.status === "closed" && c.closed_at).sort((a, b) => b.closed_at!.localeCompare(a.closed_at!))[0];
     const daysSince = lastClosed?.closed_at ? Math.floor((Date.now() - new Date(lastClosed.closed_at).getTime()) / 86_400_000) : null;
     metrics = [
     { label: "En curso", value: String(openCount), hint: openCount ? "se pueden seguir contando" : "ninguno abierto" },

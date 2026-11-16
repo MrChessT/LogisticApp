@@ -1,5 +1,8 @@
 # Parador Eventos: cobertura y alcance
 
+> **Documento histórico.** Describe el estado de una fase anterior: pedidos, recetas, ventas y facturas ya están
+> implementados. Para el estado actual, ver [ARQUITECTURA.md](ARQUITECTURA.md) y el README.
+
 ## Contexto de negocio
 
 Parador Eventos gestiona cuatro locales: Parador, Pickels, Vivero y La Oliva. El objetivo no es solo saber cuánto stock queda: es relacionar compras, gasto, consumo, mermas, horas, traspasos e ingresos para decidir dónde invertir y qué locales son rentables.

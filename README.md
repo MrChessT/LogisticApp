@@ -84,6 +84,9 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0040, 0042 | Ventas del TPV con coste teórico; PVP de los platos según lo cobrado |
 | 0041 | Memoria de códigos de proveedor para el lector de albaranes |
 | 0043–0044 | Registro de errores de la aplicación (solo con sesión o desde el servidor) |
+| 0045–0049, 0052 | Cuentas y familias del catálogo, y sus retoques |
+| 0050 | Líneas de las facturas de proveedor |
+| 0051 | Guardados atómicos: recetas, recepciones (con clave del intento), alta de producto con formato; `save_invoice` sin tocar albaranes cuando no se indican |
 
 La cabecera de cada migración explica qué añade y por qué.
 
