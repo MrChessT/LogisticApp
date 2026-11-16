@@ -87,6 +87,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0045–0049, 0052 | Cuentas y familias del catálogo, y sus retoques |
 | 0050 | Líneas de las facturas de proveedor |
 | 0051 | Guardados atómicos: recetas, recepciones (con clave del intento), alta de producto con formato; `save_invoice` sin tocar albaranes cuando no se indican |
+| 0053 | PVP del TPV en Escandallos: permiso una vez, no por cada línea de ventas (`tpv_sale_prices` con security definer) |
 
 La cabecera de cada migración explica qué añade y por qué.
 
