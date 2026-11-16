@@ -11,6 +11,8 @@ export interface ReportView {
   title: string;
   periodLabel: string;
   locationName: string | null;
+  /** Departamento por el que se ha filtrado; null si son todos. */
+  department: string | null;
   kpis: Kpi[];
   charts: ChartSpec[];
 }
@@ -106,7 +108,7 @@ function viewSection(doc: Doc, view: ReportView, first: boolean) {
   setText(doc, 16, COLOR.ink, true);
   line(doc, view.title, MARGIN, doc.y);
   setText(doc, 8.5, COLOR.muted);
-  line(doc, `${view.locationName ?? "Todos los locales"} · ${view.periodLabel}`, MARGIN, doc.y + 21);
+  line(doc, `${view.locationName ?? "Todos los locales"} · ${view.department ?? "Todos los departamentos"} · ${view.periodLabel}`, MARGIN, doc.y + 21);
   doc.y += 40;
   rule(doc, doc.y - 6, COLOR.brand, 1);
   if (view.kpis.length > 0) kpiRow(doc, view.kpis.map((k) => ({ label: k.label, value: k.value, hint: k.hint })));
@@ -154,7 +156,7 @@ export function buildReportPdf(input: ReportInput): Promise<Buffer> {
   line(doc, input.views.length === 1 ? `Informe de ${first?.title ?? ""}` : "Informe completo de inventario y compras", MARGIN, doc.y);
   doc.y += 32;
   setText(doc, 9, COLOR.muted);
-  line(doc, `Local: ${first?.locationName ?? "Todos los locales"} · Periodo: ${first?.periodLabel ?? ""} · Generado el ${DATE_TIME.format(input.generatedAt)}`, MARGIN, doc.y);
+  line(doc, `Local: ${first?.locationName ?? "Todos los locales"} · Departamento: ${first?.department ?? "todos"} · Periodo: ${first?.periodLabel ?? ""} · Generado el ${DATE_TIME.format(input.generatedAt)}`, MARGIN, doc.y);
   doc.y += 20;
   rule(doc, doc.y, COLOR.brand, 1.5);
   doc.y += 16;

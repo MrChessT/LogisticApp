@@ -1,5 +1,6 @@
 "use client";
 
+import { readAll } from "@/lib/supabase/read-all";
 import { useEffect, useMemo, useState } from "react";
 import { CirclePlus, FileText, Paperclip, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -52,8 +53,8 @@ export default function InvoicesPage() {
     setOrgId(org);
     if (!org) return setInvoices([]);
     const [inv, unb, sup] = await Promise.all([
-      supabase.from("v_invoices").select("*").eq("org_id", org).order("invoice_date", { ascending: false }),
-      supabase.from("v_unbilled_receipts").select("*").eq("org_id", org).order("doc_date"),
+      readAll((from, to) => supabase.from("v_invoices").select("*").eq("org_id", org).order("invoice_date", { ascending: false }).order("id").range(from, to)),
+      readAll((from, to) => supabase.from("v_unbilled_receipts").select("*").eq("org_id", org).order("doc_date").order("id").range(from, to)),
       supabase.from("suppliers").select("id, name, payment_terms").eq("org_id", org).eq("active", true).order("name"),
     ]);
     if (inv.error || unb.error || sup.error) return setError("No se pudieron cargar las facturas.");

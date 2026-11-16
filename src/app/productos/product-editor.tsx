@@ -369,7 +369,7 @@ export function ProductEditor({ productId, onClose, onChanged }: { productId: st
       const { error: err } = await supabase.from("product_packs").delete().eq("id", old.id!);
       if (err?.code === "23503") {
         // Ya aparece en albaranes: se conserva el historial y se desactiva.
-        await supabase.from("product_packs").update({ active: false, is_purchase_default: false, is_count_default: false }).eq("id", old.id!);
+        if (!(await supabase.from("product_packs").update({ active: false, is_purchase_default: false, is_count_default: false }).eq("id", old.id!).select("id")).data?.length) return fail(`No se pudo desactivar el formato «${old.name}».`);
         warnings.push(`El formato «${old.name}» aparece en albaranes: se ha desactivado en lugar de borrarse.`);
       } else if (err) {
         return fail(friendlyError(err, `No se pudo eliminar el formato «${old.name}».`));

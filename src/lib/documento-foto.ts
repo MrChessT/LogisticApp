@@ -18,12 +18,15 @@ export type CamposLeidos = {
 const importe = (v: Decimal.Value) => new Decimal(v).toFixed(2).replace(".", ",");
 
 /**
- * Qué campos del formulario de factura rellena una lectura. La base es el subtotal (o la base escrita, o la suma
- * de las líneas) y el IVA es la suma de sus tipos. Si la lectura no cuadra o no tiene líneas, se avisa: no se
+ * Qué campos del formulario de factura rellena una lectura. La base es la base imponible (sin IVA y tras el
+ * descuento de cabecera) y el IVA es la suma de sus tipos. Si la lectura no cuadra o no tiene líneas, se avisa: no se
  * inventa nada y el importe que falte se deja vacío.
  */
 export function camposDeFactura(r: DocRead): CamposLeidos {
-  const base = r.subtotal ?? r.base ?? (r.lines.length ? r.linesTotal : null);
+  // La base es la base imponible escrita; si no, el subtotal menos el descuento de cabecera; si no, la suma de las
+  // líneas. Siempre sin IVA: es lo que se compara con los albaranes.
+  const sub = r.subtotal ?? (r.lines.length ? r.linesTotal : null);
+  const base = r.base ?? (sub !== null && r.discountPct !== null ? new Decimal(sub).mul(new Decimal(1).minus(new Decimal(r.discountPct).div(100))).toFixed(2) : sub);
   const aviso: CamposLeidos["aviso"] =
     r.status === "cuadra" ? { ok: true, text: "Lectura cuadrada. Revisa los datos antes de registrar." }
       : r.status === "revisar" ? { ok: false, text: `La lectura no cuadra: ${r.issues.join(" ")} Revisa antes de registrar.` }

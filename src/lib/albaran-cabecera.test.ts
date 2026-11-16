@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { albaranNumber, productDraft, supplierNameGuess } from "./albaran-cabecera";
+import { albaranNumber, productDraft, supplierNameGuess, unitMeasure } from "./albaran-cabecera";
 
 describe("número del albarán", () => {
   it.each([
@@ -23,13 +23,21 @@ describe("nombre del proveedor", () => {
 });
 
 describe("alta de un producto desde una línea", () => {
-  it("por kilos, por litros o por unidades según la unidad", () => {
-    expect(productDraft({ description: "COSTILLA DE CERDO", unit: "kg", qty: 2.1 })).toEqual({ name: "Costilla de cerdo", dimension: "mass", packName: "Kg", qtyBase: 1000 });
-    expect(productDraft({ description: "Aceite girasol", unit: "l", qty: 5 })).toMatchObject({ dimension: "volume", packName: "Litro" });
-    expect(productDraft({ description: "Válvula DN50", unit: null, qty: 20 })).toMatchObject({ name: "Válvula DN50", dimension: "count", qtyBase: 1 });
+  it.each([
+    ["kg", "mass", "Kg", 1000], ["g", "mass", "g", 1], ["gr", "mass", "g", 1],
+    ["l", "volume", "Litro", 1000], ["cl", "volume", "cl", 10], ["ml", "volume", "ml", 1],
+    ["ud", "count", "Unidad", 1], ["uds", "count", "Unidad", 1],
+  ])("la unidad %s conserva su medida y su factor", (unit, dimension, packName, qtyBase) => {
+    expect(productDraft({ description: "COSTILLA DE CERDO", unit })).toEqual({ name: "Costilla de cerdo", dimension, packName, qtyBase, assumed: false });
   });
-  it("sin unidad y con decimales es peso; sin descripción no se da de alta", () => {
-    expect(productDraft({ description: "QUESO", unit: null, qty: 0.6 })?.dimension).toBe("mass");
-    expect(productDraft({ description: " ", unit: null, qty: 1 })).toBeNull();
+  it("sin unidad (o con una que no es de medida) no se adivina: se propone «Unidad» y queda por confirmar", () => {
+    expect(productDraft({ description: "QUESO", unit: null })).toMatchObject({ dimension: "count", packName: "Unidad", qtyBase: 1, assumed: true });
+    expect(productDraft({ description: "Válvula DN50", unit: "caja" })).toMatchObject({ name: "Válvula DN50", assumed: true });
+  });
+  it("sin descripción no se da de alta", () => {
+    expect(productDraft({ description: " ", unit: null })).toBeNull();
+  });
+  it("unitMeasure: lo que no es una medida da null", () => {
+    expect([unitMeasure("bot"), unitMeasure(null), unitMeasure("")]).toEqual([null, null, null]);
   });
 });

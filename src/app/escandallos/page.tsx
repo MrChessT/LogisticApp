@@ -1,5 +1,6 @@
 "use client";
 
+import { readAll } from "@/lib/supabase/read-all";
 import { useEffect, useState } from "react";
 import { AlertTriangle, ChefHat, CirclePlus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -50,8 +51,8 @@ export default function RecipesPage() {
     setOrgId(org);
     if (!org) return setRows([]);
     const [{ data: recipes, error: err }, { data: costs, error: costErr }] = await Promise.all([
-      supabase.from("recipes").select("*").eq("org_id", org).order("name"),
-      supabase.rpc("recipe_costs", { p_org: org }),
+      readAll((from, to) => supabase.from("recipes").select("*").eq("org_id", org).order("name").order("id").range(from, to)),
+      readAll((from, to) => supabase.rpc("recipe_costs", { p_org: org }).order("recipe_id").range(from, to)),
     ]);
     if (err || costErr) return setError("No se pudieron cargar los escandallos.");
     const byId = new Map((costs ?? []).map((c) => [c.recipe_id, c]));

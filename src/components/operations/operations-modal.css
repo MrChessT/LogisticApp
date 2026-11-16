@@ -142,3 +142,6 @@
 .op-new-item button { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap; }
 .op-new-item button:disabled { opacity: .6; cursor: default; }
 .op-new-item small.warn { color: var(--warn); }
+.op-new-item-row { align-items: center; flex-wrap: wrap; }
+.op-new-item-label { color: var(--text); }
+.op-new-item-row select { width: auto; min-width: 96px; }

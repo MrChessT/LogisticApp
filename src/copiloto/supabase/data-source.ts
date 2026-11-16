@@ -34,6 +34,16 @@ function check<T>(what: string, result: { data: T | null; error: unknown }): T {
 const str = (v: unknown): string => (v === null || v === undefined ? "0" : String(v));
 const strOrNull = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
 
+// PostgREST recibe los filtros en la URL: con cientos de identificadores (todo un departamento) la petición se
+// rechaza por larga. Las listas cortas se filtran en la base de datos; las largas, aquí, después de leer.
+const MAX_IDS_IN_URL = 120;
+const short = (ids?: string[] | null): ids is string[] => !!ids && ids.length <= MAX_IDS_IN_URL;
+function keepOnly(rows: Row[], ids: string[] | null | undefined, key: string): Row[] {
+  if (!ids || ids.length <= MAX_IDS_IN_URL) return rows;
+  const wanted = new Set(ids);
+  return rows.filter((r) => wanted.has(String(r[key])));
+}
+
 export class SupabaseDataSource implements InventoryDataSource {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -59,18 +69,18 @@ export class SupabaseDataSource implements InventoryDataSource {
 
   async supplierPrices(packIds: string[]): Promise<SupplierPriceRaw[]> {
     if (packIds.length === 0) return [];
-    const rows = await readAll<Row>("los últimos precios", (from, to) =>
-      this.db
+    const all = await readAll<Row>("los últimos precios", (from, to) => {
+      const q = this.db
         .from("supplier_prices")
         .select("supplier_id,pack_id,last_price:last_price::text,last_price_at,supplier:suppliers(name)")
-        .in("pack_id", packIds)
-        .not("last_price", "is", null)
+        .not("last_price", "is", null);
+      return (short(packIds) ? q.in("pack_id", packIds) : q)
         .order("last_price_at", { ascending: false })
         .order("supplier_id")
         .order("pack_id")
-        .range(from, to),
-    );
-    return rows.map((r) => ({
+        .range(from, to);
+    });
+    return keepOnly(all, packIds, "pack_id").map((r) => ({
       supplierId: String(r.supplier_id),
       supplierName: (r.supplier as { name?: string } | null)?.name ?? "proveedor",
       packId: String(r.pack_id),
@@ -100,19 +110,19 @@ export class SupabaseDataSource implements InventoryDataSource {
     if (filter.locationIds.length === 0) return [];
     const rows = await readAll<Row>("el stock", (from, to) => {
       let q = this.db.from("stock_balances").select("location_id,product_id,qty:qty::text,avg_cost:avg_cost::text").in("location_id", filter.locationIds);
-      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      if (short(filter.productIds)) q = q.in("product_id", filter.productIds);
       return q.order("location_id").order("product_id").range(from, to);
     });
-    return rows.map((r) => ({ locationId: String(r.location_id), productId: String(r.product_id), qty: str(r.qty), avgCost: str(r.avg_cost) }));
+    return keepOnly(rows, filter.productIds, "product_id").map((r) => ({ locationId: String(r.location_id), productId: String(r.product_id), qty: str(r.qty), avgCost: str(r.avg_cost) }));
   }
 
   async areaBalances(areaId: string, productIds?: string[]): Promise<AreaBalanceRaw[]> {
     const rows = await readAll<Row>("el stock por espacio", (from, to) => {
       let q = this.db.from("stock_area_balances").select("area_id,product_id,qty:qty::text,avg_cost:avg_cost::text").eq("area_id", areaId);
-      if (productIds) q = q.in("product_id", productIds);
+      if (short(productIds)) q = q.in("product_id", productIds);
       return q.order("product_id").range(from, to);
     });
-    return rows.map((r) => ({ areaId: String(r.area_id), productId: String(r.product_id), qty: str(r.qty), avgCost: str(r.avg_cost) }));
+    return keepOnly(rows, productIds, "product_id").map((r) => ({ areaId: String(r.area_id), productId: String(r.product_id), qty: str(r.qty), avgCost: str(r.avg_cost) }));
   }
 
   async locationProducts(filter: DataFilter): Promise<LocationProductRaw[]> {
@@ -123,10 +133,10 @@ export class SupabaseDataSource implements InventoryDataSource {
         .select("location_id,product_id,min_qty:min_qty::text,par_qty:par_qty::text")
         .in("location_id", filter.locationIds)
         .eq("active", true);
-      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      if (short(filter.productIds)) q = q.in("product_id", filter.productIds);
       return q.order("location_id").order("product_id").range(from, to);
     });
-    return rows.map((r) => ({ locationId: String(r.location_id), productId: String(r.product_id), minQty: str(r.min_qty), parQty: str(r.par_qty) }));
+    return keepOnly(rows, filter.productIds, "product_id").map((r) => ({ locationId: String(r.location_id), productId: String(r.product_id), minQty: str(r.min_qty), parQty: str(r.par_qty) }));
   }
 
   async movements(filter: DataFilter & { since: string }): Promise<MovementRaw[]> {
@@ -139,10 +149,10 @@ export class SupabaseDataSource implements InventoryDataSource {
         .gte("occurred_at", filter.since)
         .order("id")
         .range(from, to);
-      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      if (short(filter.productIds)) q = q.in("product_id", filter.productIds);
       return q;
     });
-    return rows.map((r) => ({
+    return keepOnly(rows, filter.productIds, "product_id").map((r) => ({
       locationId: String(r.location_id),
       productId: String(r.product_id),
       areaId: strOrNull(r.area_id),
@@ -163,10 +173,10 @@ export class SupabaseDataSource implements InventoryDataSource {
         .order("recorded_at")
         .order("id")
         .range(from, to);
-      if (packIds) q = q.in("pack_id", packIds);
+      if (short(packIds)) q = q.in("pack_id", packIds);
       return q;
     });
-    return rows.map((r) => ({
+    return keepOnly(rows, packIds, "pack_id").map((r) => ({
       supplierId: String(r.supplier_id),
       supplierName: (r.supplier as { name?: string } | null)?.name ?? "proveedor",
       packId: String(r.pack_id),
@@ -314,10 +324,10 @@ export class SupabaseDataSource implements InventoryDataSource {
         .in("count.location_id", filter.locationIds)
         .eq("count.status", "closed")
         .gte("count.closed_at", filter.since);
-      if (filter.productIds) q = q.in("product_id", filter.productIds);
+      if (short(filter.productIds)) q = q.in("product_id", filter.productIds);
       return q.order("count_id").order("product_id").range(from, to);
     });
-    return rows.map((r) => {
+    return keepOnly(rows, filter.productIds, "product_id").map((r) => {
       const count = r.count as { location_id: string; closed_at: string };
       return {
         countId: String(r.count_id),

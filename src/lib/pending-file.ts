@@ -5,27 +5,27 @@
 export type FileTarget = "recepcion" | "factura";
 
 const EVENT = "logisticapp:archivo-pendiente";
-const pending = new Map<FileTarget, File>();
-/** Lo que ya se leyó del archivo (una foto de albarán): la pantalla no vuelve a leerlo. */
-const pendingRead = new Map<FileTarget, unknown>();
+/**
+ * El archivo y lo que ya se leyó de él (una foto de albarán: la pantalla no vuelve a leerla) van juntos en una
+ * sola entrada: así la lectura de una foto nunca acaba aplicada a otra.
+ */
+const pending = new Map<FileTarget, { file: File; read: unknown }>();
 
 export function setPendingFile(target: FileTarget, file: File, read?: unknown): void {
-  pending.set(target, file);
-  if (read !== undefined) pendingRead.set(target, read);
+  pending.set(target, { file, read: read ?? null });
   window.dispatchEvent(new CustomEvent(EVENT, { detail: target }));
 }
 
-export function takePendingRead<T>(target: FileTarget): T | null {
-  const read = pendingRead.get(target) ?? null;
-  pendingRead.delete(target);
-  return read as T | null;
+/** El archivo pendiente para esa pantalla con su lectura, si la tiene (una sola vez). */
+export function takePending<T>(target: FileTarget): { file: File; read: T | null } | null {
+  const entry = pending.get(target) ?? null;
+  pending.delete(target);
+  return entry as { file: File; read: T | null } | null;
 }
 
 /** El archivo pendiente para esa pantalla (una sola vez). */
 export function takePendingFile(target: FileTarget): File | null {
-  const file = pending.get(target) ?? null;
-  pending.delete(target);
-  return file;
+  return takePending(target)?.file ?? null;
 }
 
 /** Avisa cuando llega un archivo para esa pantalla ya abierta. Devuelve la función para dejar de escuchar. */

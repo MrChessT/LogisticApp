@@ -123,7 +123,7 @@ export default function AlmacenPage() {
       setToast({ text: result.sent === 1 ? "Enviada 1 salida guardada sin conexión." : `Enviadas ${result.sent} salidas guardadas sin conexión.`, at: Date.now() });
       void loadQueue(locationId);
     }
-    if (result.failed.length) setError(`No se pudo enviar «${result.failed[0]!.move.label}»: ${result.failed[0]!.message}`);
+    if (result.failed.length) setError(result.failed.map((f) => `No se pudo enviar «${f.move.label}»: ${f.message}`).join(" · "));
   }, [locationId, loadQueue]);
 
   useEffect(() => {
@@ -249,8 +249,11 @@ export default function AlmacenPage() {
     setBusy(false);
     const text = `${move.label} → ${areaName(move.toArea)}`;
     if (err && isNetworkError(err)) {
-      setQueued(enqueue(move));
+      const { list, saved } = enqueue(move);
       setOffline(true);
+      // Si el dispositivo no puede guardarla, no se dice que está guardada: la salida sigue en pantalla para repetirla.
+      if (!saved) return setError("No hay conexión y este dispositivo no puede guardar la salida (sin almacenamiento o sin espacio). No se ha apuntado: repítela cuando vuelva la conexión.");
+      setQueued(list);
       setToast({ text: `Guardada sin conexión: ${text}. Se enviará sola.`, clientRef: move.clientRef, at: Date.now(), tone: "warn" });
     } else if (err) {
       return setError(warehouseError(err));

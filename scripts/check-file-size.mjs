@@ -27,8 +27,10 @@ function* walk(dir) {
 
 const problems = [];
 const shrunk = [];
-for (const file of walk("src")) {
-  const lines = readFileSync(file, "utf8").split("\n").length;
+for (const path of walk("src")) {
+  // En Windows las rutas llevan «\» y la lista de excepciones usa «/».
+  const file = path.replaceAll("\\", "/");
+  const lines = readFileSync(path, "utf8").split("\n").length;
   const allowed = BASELINE[file] ?? LIMIT;
   if (lines > allowed) problems.push(`${file}: ${lines} líneas (tope ${allowed})`);
   else if (BASELINE[file] && lines <= LIMIT) shrunk.push(`${file} ya cabe en ${LIMIT}: quítalo de BASELINE`);

@@ -29,3 +29,14 @@ describe("campos de factura desde una lectura", () => {
     expect(c.aviso.text).toMatch(/^La lectura no cuadra/);
   });
 });
+
+describe("la base de la factura es la base imponible, sin IVA", () => {
+  it("con descuento de cabecera, la base es la escrita y no el subtotal", () => {
+    const r = readDocumentText(["Factura F-7", "2 Harina 50,00 100,00", "Subtotal 100,00", "Descuento 15%", "Base imponible 85,00", "IVA 10% 8,50", "Total 93,50"].join("\n"));
+    expect([camposDeFactura(r).subtotal, camposDeFactura(r).total]).toEqual(["85,00", "93,50"]);
+  });
+  it("sin base escrita, el subtotal menos el descuento", () => {
+    const r = readDocumentText(["Factura F-8", "2 Harina 50,00 100,00", "Subtotal 100,00", "Descuento 15%", "Total 93,50"].join("\n"));
+    expect(camposDeFactura(r).subtotal).toBe("85,00");
+  });
+});

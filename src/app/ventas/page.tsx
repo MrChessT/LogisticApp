@@ -1,5 +1,6 @@
 "use client";
 
+import { readAll } from "@/lib/supabase/read-all";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link2, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -53,14 +54,19 @@ export default function SalesPage() {
   const [upload, setUpload] = useState<Upload | null>(null);
   const [editing, setEditing] = useState<SalesItemRow | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  // Número de la última carga pedida: las respuestas de cargas anteriores se descartan.
+  const lastLoad = useRef(0);
 
   const load = useCallback(async (org: string, from: string, to: string, loc: string) => {
     const supabase = createClient();
     if (!supabase) return;
+    const request = ++lastLoad.current;
     const [rep, ds] = await Promise.all([
-      supabase.rpc("sales_report", { p_org: org, p_from: from, p_to: to, p_location: loc || null }),
-      supabase.from("sales_days").select("id, sale_date, location_id, total_amount, file_name").eq("org_id", org).gte("sale_date", from).lte("sale_date", to).order("sale_date", { ascending: false }),
+      readAll((a, b) => supabase.rpc("sales_report", { p_org: org, p_from: from, p_to: to, p_location: loc || null }).order("item_id").range(a, b)),
+      readAll((a, b) => supabase.from("sales_days").select("id, sale_date, location_id, total_amount, file_name").eq("org_id", org).gte("sale_date", from).lte("sale_date", to).order("sale_date", { ascending: false }).order("id").range(a, b)),
     ]);
+    // Una respuesta que llega tarde (se cambió de local o de fechas mientras tanto) no pisa la actual.
+    if (request !== lastLoad.current) return;
     if (rep.error || ds.error) return setError("No se pudieron cargar las ventas.");
     setItems((rep.data ?? []).map((r) => ({
       id: r.item_id, code: r.code, name: r.name, link: r.link, linkName: r.link_name, qtyPerSale: Number(r.qty_per_sale),
@@ -84,8 +90,8 @@ export default function SalesPage() {
       const [locs, last, recs, prods] = await Promise.all([
         supabase.from("locations").select("id, name").eq("org_id", org).eq("active", true).order("name"),
         supabase.from("sales_days").select("sale_date").eq("org_id", org).order("sale_date", { ascending: false }).limit(1).maybeSingle(),
-        supabase.from("recipes").select("id, name, kind, yield_unit").eq("org_id", org).eq("active", true).order("name").range(0, 4999),
-        supabase.from("products").select("id, name, dimension").eq("org_id", org).eq("active", true).order("name").range(0, 4999),
+        readAll((a, b) => supabase.from("recipes").select("id, name, kind, yield_unit").eq("org_id", org).eq("active", true).order("name").order("id").range(a, b)),
+        readAll((a, b) => supabase.from("products").select("id, name, dimension").eq("org_id", org).eq("active", true).order("name").order("id").range(a, b)),
       ]);
       setLocations((locs.data ?? []).map((l) => ({ id: l.id, name: l.name })));
       setTargets([

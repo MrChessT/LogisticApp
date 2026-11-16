@@ -1,5 +1,6 @@
 // Endpoints del asistente como funciones de la app (sin servidor aparte). Cada petición trabaja con el
 // JWT del usuario: RLS activo, sin service role. El contrato está en docs/copiloto/CONTRACT.md.
+import { civilToday } from "@/lib/business-day";
 import { reportError } from "../lib/report-error";
 import { formatStock } from "./entities/units";
 import { randomUUID } from "node:crypto";
@@ -258,11 +259,11 @@ async function analyticsPdf(url: URL, user: RequestUser): Promise<Response> {
   const views: ReportView[] = [];
   for (const id of ids) {
     const result = await engine.view(id, common);
-    views.push({ id, title: result.title, periodLabel: result.periodLabel, locationName: result.locationName, kpis: result.kpis, charts: result.charts });
+    views.push({ id, title: result.title, periodLabel: result.periodLabel, locationName: result.locationName, department: parsed.data.departamento ?? null, kpis: result.kpis, charts: result.charts });
   }
   const { data: org } = await scope.db.from("organizations").select("name").eq("id", user.orgId).maybeSingle();
   const pdf = await buildReportPdf({ organization: org?.name ?? "", generatedAt: new Date(), views });
-  const filename = `informe-${parsed.data.vista}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const filename = `informe-${parsed.data.vista}-${civilToday()}.pdf`;
   return new Response(new Uint8Array(pdf), {
     headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store" },
   });

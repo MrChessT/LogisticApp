@@ -80,3 +80,31 @@ describe("cola sin cobertura", () => {
     expect(warehouseError({ message: "cannot_cancel" })).toMatch(/Ya no se puede deshacer/);
   });
 });
+
+describe("cola sin conexión: lo que el dispositivo no puede guardar no se da por guardado", () => {
+  const item = (n: number): QueuedMove => ({ clientRef: `r-${n}`, locationId: "l", fromArea: "a", toArea: "b", productId: "p", qty: "1", input: "1", kind: "salida", label: `Producto ${n}`, at: 0 } as unknown as QueuedMove);
+  it("si setItem falla (sin espacio), saved es false y la cola no cambia", () => {
+    const data = new Map<string, string>();
+    const full = { getItem: (k: string) => data.get(k) ?? null, setItem: () => { throw new Error("QuotaExceededError"); }, removeItem: () => {} };
+    expect(enqueue(item(1), full as never)).toEqual({ list: [], saved: false });
+  });
+  it("sin almacenamiento, saved es false", () => {
+    expect(enqueue(item(1), null).saved).toBe(false);
+  });
+  it("un contenido ilegible se aparta en otra clave en vez de perderse", () => {
+    const data = new Map<string, string>();
+    const store = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
+    enqueue(item(1), store as never);
+    const key = [...data.keys()][0]!;
+    data.set(key, "{roto");
+    expect(readQueue(store as never)).toEqual([]);
+    expect(data.get(`${key}:ilegible`)).toBe("{roto");
+  });
+  it("una sesión caducada no descarta lo pendiente", async () => {
+    const data = new Map<string, string>();
+    const store = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
+    enqueue(item(1), store as never);
+    const r = await flushQueue(async () => ({ message: "JWT expired", code: "PGRST301" }), store as never);
+    expect([r.sent, r.failed.length, r.left]).toEqual([0, 0, 1]);
+  });
+});
