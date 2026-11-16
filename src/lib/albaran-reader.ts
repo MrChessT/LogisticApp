@@ -116,6 +116,26 @@ function isoDate(tokens: Token[]): string | null {
   return null;
 }
 
+const REF_HEADER = /^(ref\.?|referencia|c[oó]d\.?|c[oó]digo)$/i;
+const COLUMN_HEADER = /^(cant|precio|importe|descrip|art[ií]c)/i;
+
+/**
+ * Columna de la referencia según la cabecera de la tabla («Ref.», «Referencia», «Cód. artículo»…): va desde esa
+ * cabecera hasta la de la descripción (a mitad de camino entre las dos). Solo cuenta una cabecera que esté en
+ * la misma fila que otras columnas de la tabla, para no confundirla con un «Cód. cliente» suelto. null si el
+ * albarán no trae cabecera: entonces la referencia se deduce de lo que hay a la izquierda de cada línea.
+ */
+function refColumn(tokens: Token[], h: number, firstLineY: number): { from: number; to: number } | null {
+  const above = tokens.filter((t) => t.y < firstLineY - 0.5 * h);
+  for (const head of above.filter((t) => REF_HEADER.test(t.text))) {
+    const row = above.filter((t) => Math.abs(t.y - head.y) < 0.6 * h);
+    if (!row.some((t) => COLUMN_HEADER.test(t.text))) continue;
+    const desc = row.find((t) => /^descrip/i.test(t.text));
+    return desc ? { from: head.x - 2 * h, to: (head.x + desc.x) / 2 } : { from: head.x - 2 * h, to: head.x + 3 * h };
+  }
+  return null;
+}
+
 export function readAlbaran(texts: OcrText[]): AlbaranRead {
   const { tokens, height: h } = tokenize(texts);
   const nums: Num[] = [];
@@ -181,13 +201,17 @@ export function readAlbaran(texts: OcrText[]): AlbaranRead {
   // 2) Descripción y referencia: lo escrito a la izquierda de la cantidad, en su renglón.
   const qtyColumn = picked.length ? Math.min(...picked.map((c) => c.q.x)) : 0;
   const slopeOf = (c: Cand) => (c.a.y - c.q.y) / (c.a.x - c.q.x);
+  const refCol = picked.length ? refColumn(tokens, h, Math.min(...picked.map((c) => c.q.y))) : null;
   const lines: AlbaranLine[] = picked.map((c) => {
     const slope = slopeOf(c);
     const near = (t: Token) => Math.abs(t.y - (c.q.y + slope * (t.x - c.q.x))) < 0.6 * h;
     const words = tokens.filter((t) => t.x < c.q.x - 2 && near(t) && !used.has(t as Num)).sort((a, b) => a.x - b.x);
-    // La referencia va primero: «0000000192», «A-0101», «REF123».
-    // También un código corto («77») si después viene la descripción.
-    const refTok = words[0] && (REF.test(words[0].text) || (/^\d{1,3}$/.test(words[0].text) && words.length > 1 && /[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(words[1]!.text))) ? words[0] : undefined;
+    // Con cabecera de referencia, el código es lo que cae bajo ella (puede no haber ninguno en esa línea).
+    // Sin cabecera, la referencia va primero: «0000000192», «A-0101», «REF123», o un código corto («77») si
+    // después viene la descripción.
+    const refTok = refCol
+      ? words.find((t) => t.x >= refCol.from && t.x < refCol.to)
+      : words[0] && (REF.test(words[0].text) || (/^\d{1,3}$/.test(words[0].text) && words.length > 1 && /[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(words[1]!.text))) ? words[0] : undefined;
     // En la descripción se quedan los enteros («1/2 x 15»); los decimales sueltos son números de otra columna.
     const desc = words.filter((t) => t !== refTok && !UNITS.has(t.text.toLowerCase()) && !isLot(t.text) && (parseAmount(t.text) === null || /^\d{1,4}$/.test(t.text))).map((t) => t.text).join(" ");
     const unitTok = tokens.find((t) => UNITS.has(t.text.toLowerCase()) && near(t) && t.x > c.q.x - 2 * h && t.x < c.p.x);

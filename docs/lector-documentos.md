@@ -41,6 +41,12 @@ números: el 5 y el 285,00.
 Un código al principio de la línea («000113», «77») es la **referencia** si le sigue una palabra (la descripción):
 se quita antes de leer la línea, así no se toma por un importe.
 
+Si el albarán trae una **cabecera de referencia** («Ref.», «Referencia», «Cód. artículo»…) en la misma fila que las
+columnas de la tabla, la referencia de cada línea es lo que cae bajo esa cabecera, aunque no tenga forma de código
+(`refColumn` en `albaran-reader.ts`). La columna va desde la cabecera hasta la mitad entre ella y «Descripción». Una
+línea sin nada bajo la cabecera queda sin referencia. Sin cabecera, se usa la regla de arriba. Si el OCR ha leído el
+albarán en renglones mezclados (foto torcida), manda la lectura por texto, que ya los ordena.
+
 ## Reglas de línea
 
 Una línea de producto cumple siempre **cantidad × precio = importe**. Formas admitidas:
@@ -121,6 +127,9 @@ No se resuelve: una foto en espejo, o un albarán alterado (sale «no cuadra», 
   persona; sin unidad no se adivina la medida. Al crear un producto, la medida se ve y se puede cambiar.
 - **Registro en una sola operación:** `register_receipt` (migración 0051) guarda cabecera, líneas y stock a la vez,
   con una clave del intento: reintentar no duplica la recepción. Ninguna línea con datos se descarta en silencio.
+- **Emparejar con el producto:** la referencia leída se busca primero en la memoria del proveedor (`supplier_item_codes`,
+  aprendida al registrar una recepción anterior): si está, el producto y el formato salen solos. Si no, se busca por
+  nombre y solo se elige si está claro (`receipt-lines.ts`). Lo que la persona elija queda aprendido al guardar.
 - **Lo que no está dado de alta se crea ahí mismo** (`receipt-new-items.tsx`, reglas en `albaran-cabecera.ts`):
   el proveedor, con el nombre leído del albarán (editable), y cada producto sin emparejar, con el nombre de la
   línea y su formato de compra según la unidad (kg, litro o unidad) y el IVA del albarán si es uno solo. Los

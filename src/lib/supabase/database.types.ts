@@ -793,6 +793,7 @@ export type Database = {
       reorganiza_familias_productos: { Args: { p_org: string }; Returns: undefined };
       reorganiza_familias_productos_v2: { Args: { p_org: string }; Returns: undefined };
       familias_desechables_dulces: { Args: { p_org: string }; Returns: undefined };
+      reordena_familias_catalogo: { Args: { p_org: string }; Returns: undefined };
       cuentas_minusculas: { Args: { p_org: string }; Returns: undefined };
       renombra_comida_antigua: { Args: { p_org: string }; Returns: undefined };
       taxonomia_cuentas: { Args: { p_org: string }; Returns: undefined };

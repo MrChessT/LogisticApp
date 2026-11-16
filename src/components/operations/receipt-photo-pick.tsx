@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { Crop, X } from "lucide-react";
+import { useRef, useState, type PointerEvent } from "react";
+import { Crop, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { ocrRecorte, type Recuadro } from "@/lib/albaran-ocr";
+import { rotarFoto } from "@/lib/foto-girar";
 import type { OcrText } from "@/lib/albaran-reader";
 import type { ReceiptLine } from "./receipt-lines";
 import type { PickTarget } from "./receipt-pick";
@@ -10,6 +11,8 @@ import "./receipt-photo-pick.css";
 
 // Cuando el lector no detecta algo, se señala en la foto: se dibuja un recuadro, se dice qué es y se lee solo esa
 // zona. Sirve para el proveedor, el número y la fecha del albarán, una línea entera o el producto de una línea.
+// Si la foto está torcida se endereza antes (el giro se aplica a la imagen que se dibuja y a la que se lee), y se
+// puede ampliar para rodear letras pequeñas.
 
 const TARGETS: Array<{ id: PickTarget; label: string; help: string }> = [
   { id: "line", label: "Línea nueva", help: "Rodea la línea entera, de la descripción al importe (o varias a la vez)." },
@@ -20,6 +23,8 @@ const TARGETS: Array<{ id: PickTarget; label: string; help: string }> = [
 ];
 
 const MIN = 0.015;
+const ZOOMS = [1, 1.5, 2, 3] as const;
+const MAX_TURN = 20;
 
 export function PhotoPick({ file, lines, apply }: {
   file: File;
@@ -28,24 +33,56 @@ export function PhotoPick({ file, lines, apply }: {
 }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
+  const [source, setSource] = useState<Blob>(file);
+  const [angle, setAngle] = useState(0);
+  const [zoomIndex, setZoomIndex] = useState(0);
+  const [turning, setTurning] = useState(false);
   const [target, setTarget] = useState<PickTarget>("line");
   const [lineIndex, setLineIndex] = useState(0);
   const [rect, setRect] = useState<Recuadro | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const start = useRef<{ x: number; y: number } | null>(null);
+  const urlRef = useRef("");
+  const turnId = useRef(0);
 
-  // La dirección de la foto se crea al abrir y se libera al cerrar (o al cambiar de foto).
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  // La dirección de la foto que se muestra se crea al cambiarla y se libera al cambiar o al cerrar.
+  function showing(blob: Blob) {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = URL.createObjectURL(blob);
+    setUrl(urlRef.current);
+    setSource(blob);
+  }
   function show() {
-    setUrl(URL.createObjectURL(file));
+    showing(file);
+    setAngle(0);
+    setZoomIndex(0);
     setRect(null);
     setMessage("");
     setOpen(true);
   }
   function hide() {
     setOpen(false);
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = "";
     setUrl("");
+  }
+
+  // Girar siempre parte de la foto original (no se acumulan giros). Si llega otro giro mientras se gira, gana el último.
+  async function turn(grados: number) {
+    const id = ++turnId.current;
+    setAngle(grados);
+    setRect(null);
+    setMessage("");
+    setTurning(true);
+    try {
+      const blob = grados === 0 ? file : await rotarFoto(file, grados);
+      if (id === turnId.current) showing(blob);
+    } catch {
+      if (id === turnId.current) setMessage("No se pudo girar la foto.");
+    } finally {
+      if (id === turnId.current) setTurning(false);
+    }
   }
 
   const point = (e: PointerEvent<HTMLDivElement>) => {
@@ -67,13 +104,14 @@ export function PhotoPick({ file, lines, apply }: {
 
   const ready = !!rect && rect.w >= MIN && rect.h >= MIN;
   const help = TARGETS.find((t) => t.id === target)!.help;
+  const zoom = ZOOMS[zoomIndex]!;
 
   async function read() {
     if (!rect || !ready) return;
     setBusy(true);
     setMessage("");
     try {
-      const texts = await ocrRecorte(file, rect);
+      const texts = await ocrRecorte(source, rect);
       setMessage(texts.length === 0 ? "No he leído texto en el recuadro. Ajústalo y prueba otra vez." : await apply(target, texts, lineIndex));
     } catch {
       setMessage("No se pudo leer el recuadro.");
@@ -102,19 +140,32 @@ export function PhotoPick({ file, lines, apply }: {
                 </select>
               )}
             </div>
+            <div className="pick-tools">
+              <label className="pick-turn">
+                <span>Enderezar {angle > 0 ? `+${angle}` : angle}°</span>
+                <input type="range" min={-MAX_TURN} max={MAX_TURN} step={0.5} value={angle} disabled={turning}
+                  onChange={(e) => void turn(Number(e.target.value))} aria-label="Girar la foto" />
+              </label>
+              <button type="button" onClick={() => void turn(0)} disabled={angle === 0 || turning} className="pick-tool"><RotateCcw size={14} aria-hidden="true" /> Sin girar</button>
+              <div className="pick-zoom" role="group" aria-label="Zoom">
+                <button type="button" className="pick-tool" onClick={() => setZoomIndex((i) => Math.max(0, i - 1))} disabled={zoomIndex === 0} aria-label="Alejar"><Minus size={14} aria-hidden="true" /></button>
+                <button type="button" className="pick-tool" onClick={() => setZoomIndex(0)} disabled={zoomIndex === 0}>{Math.round(zoom * 100)}%</button>
+                <button type="button" className="pick-tool" onClick={() => setZoomIndex((i) => Math.min(ZOOMS.length - 1, i + 1))} disabled={zoomIndex === ZOOMS.length - 1} aria-label="Acercar"><Plus size={14} aria-hidden="true" /></button>
+              </div>
+            </div>
             <p className="pick-help">{help} Arrastra sobre la foto para dibujar el recuadro.</p>
             <div className="pick-scroll">
               <div className="pick-stage">
                 {/* eslint-disable-next-line @next/next/no-img-element -- foto local del albarán, solo en este dispositivo */}
-                {url && <img src={url} alt="Foto del albarán" draggable={false} />}
+                {url && <img src={url} alt="Foto del albarán" draggable={false} className={zoom > 1 ? "zoomed" : ""} style={zoom > 1 ? { width: `${zoom * 100}%` } : undefined} />}
                 <div className="pick-overlay" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
                   {rect && <div className="pick-rect" style={{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }} />}
                 </div>
               </div>
             </div>
             <footer>
-              <p role="status" className="pick-message">{busy ? "Leyendo el recuadro…" : message}</p>
-              <button type="button" className="pick-read" disabled={!ready || busy} onClick={() => void read()}>Leer recuadro</button>
+              <p role="status" className="pick-message">{busy ? "Leyendo el recuadro…" : turning ? "Girando la foto…" : message}</p>
+              <button type="button" className="pick-read" disabled={!ready || busy || turning} onClick={() => void read()}>Leer recuadro</button>
               <button type="button" className="pick-done" onClick={hide}>Listo</button>
             </footer>
           </section>
