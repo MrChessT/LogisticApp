@@ -19,3 +19,11 @@
 .pick-read { background: var(--brand, #1f7a4d); border-color: var(--brand, #1f7a4d); color: #fff; }
 .pick-read:disabled { opacity: .5; cursor: default; }
 .pick-done { background: var(--surface-2); color: var(--ink); }
+.pick-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pick-turn { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 0; color: var(--text); font-size: var(--fs-sm); }
+.pick-turn span { white-space: nowrap; font-weight: 600; }
+.pick-turn input { flex: 1 1 140px; min-width: 0; accent-color: var(--brand, #1f7a4d); }
+.pick-tool { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.pick-tool:disabled { opacity: .45; cursor: default; }
+.pick-zoom { display: inline-flex; gap: 4px; align-items: center; }
+.pick-stage img.zoomed { max-width: none; max-height: none; }
