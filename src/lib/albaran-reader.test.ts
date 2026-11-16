@@ -103,6 +103,31 @@ describe("leer un albarán", () => {
   });
 });
 
+describe("columna de referencia según la cabecera de la tabla", () => {
+  const cabecera = [
+    box("Ref.", 40, 120, 50), box("Descripción", 110, 120, 200), box("Cant.", 330, 120, 60), box("Precio", 450, 120, 60), box("Importe", 680, 120, 70),
+  ];
+
+  it("el código es lo que cae bajo «Ref.», aunque no tenga forma de referencia; una línea sin código queda sin ref", () => {
+    const r = readAlbaran([
+      ...cabecera,
+      box("PX-77", 40, 160, 50), box("QUESO FRESCO", 110, 160, 200), box("0,600 kg", 330, 160, 90), box("12,950", 450, 160, 60), box("7,77", 680, 160, 70),
+      box("JAMON SERRANO", 110, 200, 200), box("2 ud", 330, 200, 90), box("5,40", 450, 200, 60), box("10,80", 680, 200, 70),
+    ]);
+    expect(r.lines.map((l) => [l.ref, l.description, l.qty, l.amount])).toEqual([
+      ["PX-77", "QUESO FRESCO", 0.6, 7.77],
+      [null, "JAMON SERRANO", 2, 10.8],
+    ]);
+  });
+
+  it("sin cabecera, la referencia se deduce como antes", () => {
+    const r = readAlbaran([
+      box("PX-77", 40, 160, 50), box("QUESO FRESCO", 110, 160, 200), box("0,600 kg", 330, 160, 90), box("12,950", 450, 160, 60), box("7,77", 680, 160, 70),
+    ]);
+    expect(r.lines).toMatchObject([{ ref: null, description: "PX-77 QUESO FRESCO" }]);
+  });
+});
+
 describe("casos de albaranes reales (maquetación; datos inventados)", () => {
   it("un número partido por el OCR («0, 600», «14, 60») se une", () => {
     const r = readAlbaran([box("QUESO FRESCO 0, 600 kg 12,950 7, 77", 40, 160, 700)]);
