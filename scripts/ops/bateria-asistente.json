@@ -2,72 +2,72 @@
   {
     "nombre": "Seguimientos de stock",
     "turnos": [
-      { "usuario": "¿cuánta tónica queda en el Parador?", "espera": "Stock de" },
-      { "usuario": "¿y en Pickles?", "espera": "Pickles", "sinAclarar": true },
-      { "usuario": "lo mismo pero en el Vivero", "espera": "Vivero", "sinAclarar": true },
-      { "usuario": "¿cuánto se gastó de eso la semana pasada?", "espera": "Entiendo: .*tónica.*semana pasada", "no": "\\d+ productos|y \\d+ más" }
+      { "usuario": "¿cuánta tónica queda en el Parador?", "espera": "Stock de", "especialista": "almacen" },
+      { "usuario": "¿y en Pickles?", "espera": "Pickles", "sinAclarar": true, "especialista": "almacen" },
+      { "usuario": "lo mismo pero en el Vivero", "espera": "Vivero", "sinAclarar": true, "especialista": "almacen" },
+      { "usuario": "¿cuánto se gastó de eso la semana pasada?", "espera": "Entiendo: .*tónica.*semana pasada", "no": "\\d+ productos|y \\d+ más", "especialista": "almacen" }
     ]
   },
   {
     "nombre": "Ventas",
     "turnos": [
-      { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer |^No hay ventas importadas de ayer" },
-      { "usuario": "¿y el sábado?", "espera": "^El sábado \\d|^No hay ventas importadas de (el )?sábado" },
-      { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada" }
+      { "usuario": "¿cuánto se vendió ayer?", "espera": "^Ayer |^No hay ventas importadas de ayer", "especialista": "ventas" },
+      { "usuario": "¿y el sábado?", "espera": "^El sábado \\d|^No hay ventas importadas de (el )?sábado", "especialista": "ventas" },
+      { "usuario": "lo mismo pero de la semana pasada", "espera": "^La semana pasada", "especialista": "ventas" }
     ]
   },
   {
     "nombre": "Cómo va el mes",
     "turnos": [
-      { "usuario": "cómo vamos este mes", "espera": "^En \\w+ \\(del 1 al" },
-      { "usuario": "y comparado con el mes pasado?", "espera": "^Frente al mismo tramo" }
+      { "usuario": "cómo vamos este mes", "espera": "^En \\w+ \\(del 1 al", "especialista": "informes" },
+      { "usuario": "y comparado con el mes pasado?", "espera": "^Frente al mismo tramo", "especialista": "informes" }
     ]
   },
   {
     "nombre": "Jerga y erratas",
     "turnos": [
-      { "usuario": "kuanto ron ai en la oliva", "espera": "Stock de ron en La Oliva" },
-      { "usuario": "cuanta ginebra hay en la oliva", "espera": "Stock de ginebra en La Oliva" },
-      { "usuario": "¿cuánto ron se gastó en el Vivero la semana pasada?", "espera": "de ron en Vivero", "no": "\\d+ productos|y \\d+ más" },
-      { "usuario": "xq no ai cocas en el vivero?", "no": "Qué quieres hacer|No estoy seguro" },
-      { "usuario": "lo + caro q tenemos", "espera": "Lo más caro" },
-      { "usuario": "facturas pendientes de pagar", "espera": "Pendiente de pago|No hay facturas" },
-      { "usuario": "qué me falta pa mañana en el parador", "espera": "reponer|No falta nada" }
+      { "usuario": "kuanto ron ai en la oliva", "espera": "Stock de ron en La Oliva", "especialista": "almacen" },
+      { "usuario": "cuanta ginebra hay en la oliva", "espera": "Stock de ginebra en La Oliva", "especialista": "almacen" },
+      { "usuario": "¿cuánto ron se gastó en el Vivero la semana pasada?", "espera": "de ron en Vivero", "no": "\\d+ productos|y \\d+ más", "especialista": "almacen" },
+      { "usuario": "xq no ai cocas en el vivero?", "no": "Qué quieres hacer|No estoy seguro", "especialista": "almacen" },
+      { "usuario": "lo + caro q tenemos", "espera": "Lo más caro", "especialista": "compras" },
+      { "usuario": "facturas pendientes de pagar", "espera": "Pendiente de pago|No hay facturas", "especialista": "facturas" },
+      { "usuario": "qué me falta pa mañana en el parador", "espera": "reponer|No falta nada", "especialista": "compras" }
     ]
   },
   {
     "nombre": "Preguntas generales",
     "turnos": [
-      { "usuario": "qué significa trabajar con FIFO en cocina", "espera": "Respuesta general", "sinAclarar": true },
-      { "usuario": "qué food cost es razonable para un restaurante", "espera": "Respuesta general", "no": "elaboraciones" },
-      { "usuario": "¿Quién ganó el mundial de 2010?", "espera": "Solo puedo ayudarte con el negocio" }
+      { "usuario": "qué significa trabajar con FIFO en cocina", "espera": "Respuesta general", "sinAclarar": true, "especialista": "conversacion" },
+      { "usuario": "qué food cost es razonable para un restaurante", "espera": "Respuesta general", "no": "elaboraciones", "especialista": "conversacion" },
+      { "usuario": "¿Quién ganó el mundial de 2010?", "espera": "Solo puedo ayudarte con el negocio", "especialista": "conversacion" }
     ]
   },
   {
     "nombre": "Charla y ayuda",
     "turnos": [
-      { "usuario": "hola", "espera": "^¡Hola!" },
-      { "usuario": "qué sabes hacer", "espera": "Te respondo sobre stock" },
-      { "usuario": "gracias crack", "espera": "De nada" }
+      { "usuario": "hola", "espera": "^¡Hola!", "especialista": "conversacion" },
+      { "usuario": "qué sabes hacer", "espera": "Te respondo sobre stock", "especialista": "conversacion" },
+      { "usuario": "gracias crack", "espera": "De nada", "especialista": "conversacion" }
     ]
   },
   {
     "nombre": "Cambio de tema: no arrastra el contexto",
     "turnos": [
-      { "usuario": "¿cuánta coca-cola queda en el Vivero?", "espera": "Vivero" },
-      { "usuario": "¿qué facturas vencen esta semana?", "espera": "Pendiente de pago|No hay facturas", "no": "Entiendo" },
-      { "usuario": "¿cómo voy este mes?", "espera": "^En \\w+ \\(del 1 al", "no": "Entiendo" }
+      { "usuario": "¿cuánta coca-cola queda en el Vivero?", "espera": "Vivero", "especialista": "almacen" },
+      { "usuario": "¿qué facturas vencen esta semana?", "espera": "Pendiente de pago|No hay facturas", "no": "Entiendo", "especialista": "facturas" },
+      { "usuario": "¿cómo voy este mes?", "espera": "^En \\w+ \\(del 1 al", "no": "Entiendo", "especialista": "informes" }
     ]
   },
   {
     "nombre": "Opiniones 12/11: preguntas de más (Oskar)",
     "turnos": [
-      { "usuario": "cuantas mermas han habido en la oliva", "espera": "La Oliva", "sinAclarar": true },
-      { "usuario": "y en vivero", "espera": "Vivero", "sinAclarar": true, "no": "[Tt]raspaso" },
+      { "usuario": "cuantas mermas han habido en la oliva", "espera": "La Oliva", "sinAclarar": true, "especialista": "almacen" },
+      { "usuario": "y en vivero", "espera": "Vivero", "sinAclarar": true, "no": "[Tt]raspaso", "especialista": "almacen" },
       { "usuario": "resumen de operaciones", "sinAclarar": true, "no": "¿Qué quieres hacer\\?" },
       { "usuario": "cuanto se espera ganar", "espera": "No hago previsiones", "sinAclarar": true },
-      { "usuario": "que categoría tiene el pacharan", "espera": "[Pp]achar", "sinAclarar": true },
-      { "usuario": "dame los nombres dle personal", "espera": "\\(propiedad|\\(administración|\\(encargado|\\(personal", "sinAclarar": true },
+      { "usuario": "que categoría tiene el pacharan", "espera": "[Pp]achar", "sinAclarar": true, "especialista": "catalogo" },
+      { "usuario": "dame los nombres dle personal", "espera": "\\(propiedad|\\(administración|\\(encargado|\\(personal", "sinAclarar": true, "especialista": "equipo" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo", "sinAclarar": true },
       { "usuario": "se ha consumido los siguientes productos: 10 cajas de cocacola y 3 fantas de naranja", "espera": "recuentos", "sinAclarar": true }
     ]
@@ -83,19 +83,19 @@
   {
     "nombre": "Almacén, facturas y ficha sin pantalla",
     "turnos": [
-      { "usuario": "¿hay salidas de almacén pendientes de validar?", "espera": "almacén pendientes? de validar", "sinAclarar": true },
+      { "usuario": "¿hay salidas de almacén pendientes de validar?", "espera": "almacén pendientes? de validar", "sinAclarar": true, "especialista": "almacen" },
       { "usuario": "¿cuándo pedimos tónica por última vez?", "espera": "último pedido|No consta|Último pedido", "sinAclarar": true },
-      { "usuario": "¿quién nos trae la ginebra?", "espera": "trae|proveedor", "sinAclarar": true },
-      { "usuario": "paga la factura", "espera": "¿Qué factura marco como pagada\\?|Marcar pagada|No hay facturas pendientes" },
+      { "usuario": "¿quién nos trae la ginebra?", "espera": "trae|proveedor", "sinAclarar": true, "especialista": "compras" },
+      { "usuario": "paga la factura", "espera": "¿Qué factura marco como pagada\\?|Marcar pagada|No hay facturas pendientes", "especialista": "facturas" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Gestión desde el chat (solo borradores, sin confirmar)",
     "turnos": [
-      { "usuario": "pon el PVP de las croquetas a 10 €", "espera": "Cambiar PVP|¿De qué plato cambio el PVP\\?|No encuentro ese plato" },
+      { "usuario": "pon el PVP de las croquetas a 10 €", "espera": "Cambiar PVP|¿De qué plato cambio el PVP\\?|No encuentro ese plato", "especialista": "escandallos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
-      { "usuario": "el pedido mínimo de Makro ahora es 200 €", "espera": "Condiciones de|No encuentro ese proveedor", "no": "proveedores activos" },
+      { "usuario": "el pedido mínimo de Makro ahora es 200 €", "espera": "Condiciones de|No encuentro ese proveedor", "no": "proveedores activos", "especialista": "compras" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
@@ -104,35 +104,35 @@
     "turnos": [
       { "usuario": "registra una merma", "espera": "Me faltan unos datos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
-      { "usuario": "merma de 2 botellas de larios 12", "espera": "¿En qué local\\?|Revísalo", "no": "Me faltan unos datos" },
+      { "usuario": "merma de 2 botellas de larios 12", "espera": "¿En qué local\\?|Revísalo", "no": "Me faltan unos datos", "especialista": "almacen" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Salida de almacén desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "saca 2 botellas de larios 12 a la barra del Parador", "espera": "Salida en|¿En qué local\\?|¿A qué zona va\\?|¿De qué almacén sale\\?|¿Cuál de estos productos\\?|no tiene zonas" },
+      { "usuario": "saca 2 botellas de larios 12 a la barra del Parador", "espera": "Salida en|¿En qué local\\?|¿A qué zona va\\?|¿De qué almacén sale\\?|¿Cuál de estos productos\\?|no tiene zonas", "especialista": "almacen" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Ficha de producto desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "la tónica lleva sulfitos", "espera": "Revísalo y confírmalo|Ficha:|¿A cuál de estos productos\\?|No encuentro" },
+      { "usuario": "la tónica lleva sulfitos", "espera": "Revísalo y confírmalo|Ficha:|¿A cuál de estos productos\\?|No encuentro", "especialista": "catalogo" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Zona nueva desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Revísalo y confírmalo|Zona nueva en|ya tiene una zona|¿En qué local\\?" },
+      { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Revísalo y confírmalo|Zona nueva en|ya tiene una zona|¿En qué local\\?", "especialista": "almacen" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Escandallo nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "crea el plato Sangría de prueba con PVP 6,50: 1 l de Ron Barceló Añejo 70 cl", "espera": "Revísalo y confírmalo|Ya hay un escandallo|No encuentro" },
+      { "usuario": "crea el plato Sangría de prueba con PVP 6,50: 1 l de Ron Barceló Añejo 70 cl", "espera": "Revísalo y confírmalo|Ya hay un escandallo|No encuentro", "especialista": "escandallos" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
@@ -145,7 +145,7 @@
   {
     "nombre": "Proveedor asociado a un producto desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "el proveedor de Tónica Schweppes 20 cl es Bebidas Mar Menor", "espera": "Revísalo y confírmalo|ya es proveedor|No encuentro|¿A cuál|¿En qué formato" },
+      { "usuario": "el proveedor de Tónica Schweppes 20 cl es Bebidas Mar Menor", "espera": "Revísalo y confírmalo|ya es proveedor|No encuentro|¿A cuál|¿En qué formato", "especialista": "compras" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
@@ -159,23 +159,23 @@
   {
     "nombre": "Seguimiento de proveedores: quién tiene menos datos y el último dado de alta (reporte /zonas 14/11)",
     "turnos": [
-      { "usuario": "que proveedores hay", "espera": "proveedores activos" },
-      { "usuario": "cual es el que menos informacion tiene", "espera": "le falta|Empatan|Todos los proveedores", "no": "proveedores activos" },
-      { "usuario": "cual es el ultimo en ser creado", "espera": "El último dado de alta es", "no": "proveedores activos" }
+      { "usuario": "que proveedores hay", "espera": "proveedores activos", "especialista": "compras" },
+      { "usuario": "cual es el que menos informacion tiene", "espera": "le falta|Empatan|Todos los proveedores", "no": "proveedores activos", "especialista": "compras" },
+      { "usuario": "cual es el ultimo en ser creado", "espera": "El último dado de alta es", "no": "proveedores activos", "especialista": "compras" }
     ]
   },
   {
     "nombre": "Archivar un producto: el nombre escrito a la pregunta (reporte /productos 13/11)",
     "turnos": [
       { "usuario": "quiero archivar un producto", "espera": "Qué producto quieres archivar" },
-      { "usuario": "Coca-Cola 20 cl", "espera": "Revísalo y confírmalo|Archivar|No encuentro|He preparado un borrador", "no": "Qué quieres hacer|No estoy seguro" },
+      { "usuario": "Coca-Cola 20 cl", "espera": "Revísalo y confírmalo|Archivar|No encuentro|He preparado un borrador", "no": "Qué quieres hacer|No estoy seguro", "especialista": "catalogo" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },
   {
     "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
-      { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro" },
+      { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro", "especialista": "catalogo" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   }

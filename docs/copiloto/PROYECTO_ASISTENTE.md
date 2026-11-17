@@ -190,7 +190,7 @@ baterías de evaluación (ver sección 6) y sugerencias de siguientes pasos.
 | Medida | Qué comprueba | Estado al cierre |
 |--------|---------------|------------------|
 | `npm run copiloto:bateria` (`eval/bateria.ts`) | troceo de cantidades, búsqueda de productos en el catálogo de prueba, lectura de respuestas escritas | 102/102 |
-| `scripts/ops/bateria-asistente.mjs` + `bateria-asistente.json` | conversaciones de varios turnos contra una app real: lo que debe aparecer («espera»), lo que no («no»), si pide aclaración sin necesidad («sinAclarar») | producción 62/67 (línea base); local 61/67 |
+| `scripts/ops/bateria-asistente.mjs` + `bateria-asistente.json` | conversaciones de varios turnos contra una app real: lo que debe aparecer («espera»), lo que no («no»), si pide aclaración sin necesidad («sinAclarar») y qué especialista lo atiende («especialista», resumen «Enrutado: X/Y») | producción 62/67 (línea base); local 61/67 |
 | `eval/run-eval.ts`, `probe.ts`, `calibration.ts` | decisiones de Jev con frases etiquetadas (`frases.jsonl`, 220): ¿cuándo dice 0,9 acierta el 90 %? | requiere claves de IA |
 | `eval/conversaciones.ts` | conversaciones completas etiquetadas | requiere claves de IA |
 
@@ -223,7 +223,7 @@ por especialista (`especialistas/`, ver `ESPECIALISTAS.md`, sección 4).
 Pendiente del proyecto, por prioridad:
 1. Mover el código a cada especialista: informes, después almacén, después catálogo (dividir `catalog-builder.ts`).
 2. Alcance por cuenta de análisis y local (`docs/roles.md`, fases 2 a 5): cuentas en el manifiesto y filtro de cifras en el origen de datos.
-3. Evaluación del enrutador con los `ejemplos` del registro y `eval/frases.jsonl`.
+3. ~~Evaluación del enrutador~~: hecha en la batería (`"especialista"` por turno, resumen «Enrutado: X/Y»), 45/45.
 4. Caché compartida (sustituir el LRU en memoria cuando haya varias réplicas) y revisión de cachés por persona.
 5. La batería de varios turnos es débil para ventas y facturas: comprueba la forma de la respuesta, no las cifras. Añadir comprobaciones de contenido.
 

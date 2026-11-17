@@ -102,8 +102,10 @@ Pruebas: `especialistas/especialistas.test.ts` (registro, mapa y puerta) y
    `catalog-builder.ts`), de modo que cada carpeta tenga sus herramientas, borradores, textos y pruebas.
 4. **Alcance por cuenta de análisis y local** (`roles.md`, fase 5): añadir al manifiesto las cuentas que usa
    cada especialista y filtrar las cifras por cuenta y local en el origen de datos.
-5. **Evaluación del enrutador**: con los `ejemplos` del registro y las frases etiquetadas de
-   `eval/frases.jsonl`, medir qué parte de los mensajes llega al especialista correcto.
+5. ~~**Evaluación del enrutador**~~: hecho. Cada respuesta lleva su especialista en el evento `decision`, y los
+   turnos de `scripts/ops/bateria-asistente.json` con `"especialista"` lo comprueban; la batería imprime
+   «Enrutado: X/Y» por especialista. Avisos: por la ruta de su pantalla. Aclaraciones: por la acción o la
+   herramienta que Jev ya eligió. Estado: 45/45.
 
 Para cada paso: `npm run check`, batería antes y después, y documento actualizado en el mismo cambio.
 

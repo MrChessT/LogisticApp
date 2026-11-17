@@ -78,6 +78,8 @@ export interface DecisionEvent {
   intent: Decision;
   decisions: Decision[];
   shortcut: boolean;
+  /** Especialista que atiende el mensaje (especialistas/registro.ts): para medir el enrutado y para el panel. */
+  especialista: string;
 }
 
 interface TextEvent {

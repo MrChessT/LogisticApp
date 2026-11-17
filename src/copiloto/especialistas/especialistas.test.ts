@@ -44,9 +44,20 @@ describe("mapa de planes", () => {
     expect(especialistaDe({ type: "tarea", tarea: "pedidos", locationIds: [] })).toBe("compras");
   });
 
-  it("charla, aclaraciones y avisos son de conversación", () => {
+  it("charla y avisos sin pantalla son de conversación", () => {
     expect(especialistaDe({ type: "conversar" })).toBe("conversacion");
     expect(especialistaDe({ type: "aviso", text: "hola" })).toBe("conversacion");
+  });
+
+  it("un aviso es del dominio de la pantalla que enlaza («¿quién nos trae la ginebra?» → Proveedores)", () => {
+    expect(especialistaDe({ type: "aviso", text: "Los trae Makro", route: "/proveedores" })).toBe("compras");
+    expect(especialistaDe({ type: "aviso", text: "Está en Destilados", route: "/productos" })).toBe("catalogo");
+  });
+
+  it("una aclaración es del dominio de la acción que Jev ya eligió", () => {
+    const merma = [{ id: "tipo_accion", label: "Operación", value: "merma", valueLabel: "Merma", probability: 0.9, confidence: 0.9, gate: "actuar" as const }];
+    expect(especialistaDe({ type: "clarify", field: "cantidad", question: "¿Cuántas?", options: [] }, merma)).toBe("almacen");
+    expect(especialistaDe({ type: "clarify", field: "intent", question: "¿Qué quieres hacer?", options: [] })).toBe("conversacion");
   });
 });
 

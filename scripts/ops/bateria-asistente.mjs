@@ -8,7 +8,8 @@
 // · La cuenta debe ser de pruebas (modo pruebas del asistente): nunca la de un usuario real.
 // · Sale con código 1 si alguna respuesta no cumple: sirve antes y después de cambiar el asistente.
 // Los casos están en scripts/ops/bateria-asistente.json («espera» y «no» son expresiones regulares;
-// «sinAclarar»: la respuesta no puede ser una pregunta de aclaración).
+// «sinAclarar»: la respuesta no puede ser una pregunta de aclaración; «especialista»: quién debe atenderlo, según
+// src/copiloto/especialistas/registro.ts. Al final se resume el acierto del enrutado por especialista).
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
@@ -41,6 +42,7 @@ async function ask(sessionId, message, pending) {
   const raw = await res.text();
   let text = "";
   let clarify = null;
+  let especialista = null;
   let event = null;
   for (const line of raw.split("\n")) {
     if (line.startsWith("event:")) event = line.slice(6).trim();
@@ -53,15 +55,18 @@ async function ask(sessionId, message, pending) {
       }
       if (event === "text") text = data.reset ? data.delta : text + data.delta;
       else if (event === "clarify") clarify = data;
+      else if (event === "decision") especialista = data.especialista ?? null;
       else if (event === "error") text = `ERROR: ${data.message}`;
     }
   }
-  return { status: res.status, ms: Date.now() - started, text: clarify?.question ?? text, clarified: clarify !== null, clarify };
+  return { status: res.status, ms: Date.now() - started, text: clarify?.question ?? text, clarified: clarify !== null, clarify, especialista };
 }
 
 const cases = JSON.parse(readFileSync(process.argv[2] ?? new URL("./bateria-asistente.json", import.meta.url), "utf8"));
 let total = 0;
 const failures = [];
+/** Enrutado por especialista esperado: aciertos y total. */
+const routing = new Map();
 for (const conversation of cases) {
   console.log(`\n▸ ${conversation.nombre}`);
   const sessionId = randomUUID();
@@ -75,6 +80,13 @@ for (const conversation of cases) {
     if (turn.espera && !new RegExp(turn.espera, "is").test(r.text)) why.push(`falta /${turn.espera}/`);
     if (turn.no && new RegExp(turn.no, "is").test(r.text)) why.push(`sobra /${turn.no}/`);
     if (turn.sinAclarar && r.clarified) why.push("pidió aclaración");
+    if (turn.especialista) {
+      const tally = routing.get(turn.especialista) ?? { ok: 0, total: 0 };
+      tally.total += 1;
+      if (r.especialista === turn.especialista) tally.ok += 1;
+      else why.push(`especialista ${r.especialista ?? "ninguno"} en vez de ${turn.especialista}`);
+      routing.set(turn.especialista, tally);
+    }
     console.log(`  ${why.length ? "✗" : "✓"} [${r.ms} ms] ${turn.usuario}\n      → ${r.text.replace(/\s+/g, " ").slice(0, 170)}${why.length ? `\n      ✗ ${why.join(" · ")}` : ""}`);
     if (why.length) failures.push(`${conversation.nombre} · «${turn.usuario}»: ${why.join(" · ")}`);
     // El chat admite 20 mensajes por minuto.
@@ -82,6 +94,11 @@ for (const conversation of cases) {
   }
 }
 console.log(`\n${total - failures.length}/${total} respuestas correctas.`);
+if (routing.size) {
+  const ok = [...routing.values()].reduce((s, t) => s + t.ok, 0);
+  const all = [...routing.values()].reduce((s, t) => s + t.total, 0);
+  console.log(`Enrutado: ${ok}/${all} al especialista esperado · ${[...routing].map(([id, t]) => `${id} ${t.ok}/${t.total}`).join(" · ")}`);
+}
 if (failures.length) {
   console.log(failures.map((f) => `  ✗ ${f}`).join("\n"));
   process.exit(1);

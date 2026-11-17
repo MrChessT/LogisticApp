@@ -250,7 +250,7 @@ export class Agent {
         { id: "intent", label: "Intención", value: intent, valueLabel: label(intent), probability: 1, confidence: 1, gate: "actuar" };
       await emit({
         event: "decision",
-        data: { messageId, intent: intentDecision, decisions: decisions.filter((d) => d.id !== "intent"), shortcut },
+        data: { messageId, intent: intentDecision, decisions: decisions.filter((d) => d.id !== "intent"), shortcut, especialista: especialistaDe(plan, decisions) },
       });
 
       const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft, skipGeneral, ...(understoodAs ? { understoodAs } : {}) });
@@ -493,7 +493,7 @@ export class Agent {
     // Puerta por especialista: lo que el perfil no puede usar recibe un aviso sin cifras (especialistas/puerta.ts).
     const fuera = fueraDeAlcance(plan, ctx);
     if (fuera) return this.execute(fuera, env);
-    this.deps.metrics.recordEspecialista(especialistaDe(plan));
+    this.deps.metrics.recordEspecialista(especialistaDe(plan, env.decisions));
     switch (plan.type) {
       case "clarify":
         return this.clarify(plan, env);
