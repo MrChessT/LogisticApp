@@ -22,6 +22,7 @@ export function nextFocus(plan: Plan, outcome: ReportOutcome, previous: Focus | 
       tool: plan.tool,
       locationIds: plan.locationsDefaulted ? [] : plan.locationIds,
       productIds: plan.products.map((p) => p.product.id),
+      ...(plan.familia ? { familia: plan.familia } : {}),
       periodo: plan.periodo,
       at: now,
     };
