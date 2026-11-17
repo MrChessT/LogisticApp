@@ -1,5 +1,6 @@
 // Endpoints del asistente como funciones de la app (sin servidor aparte). Cada petición trabaja con el
 // JWT del usuario: RLS activo, sin service role. El contrato está en docs/copiloto/CONTRACT.md.
+import { sinGraficasFueraDeInformes } from "./analytics/informes-graficas";
 import { civilToday } from "@/lib/business-day";
 import { reportError } from "../lib/report-error";
 import { formatStock } from "./entities/units";
@@ -228,8 +229,9 @@ async function analytics(url: URL, user: RequestUser): Promise<Response> {
     now: new Date(),
     ...(parsed.data.departamento ? { department: parsed.data.departamento } : {}),
   });
-  return json({ ...result, locations: ctx.locations.map((l) => ({ id: l.id, name: l.name })), departments: departmentsOf(ctx.products) });
+  return json({ ...sinGraficasFueraDeInformes(result), locations: ctx.locations.map((l) => ({ id: l.id, name: l.name })), departments: departmentsOf(ctx.products) });
 }
+
 
 /** Informe en PDF: una vista, o «todas» (informe completo). Mismos permisos, filtros y límites que la pantalla. */
 const PdfQuery = AnalyticsQuery.extend({ vista: z.enum([...ANALYTICS_VIEWS, "todas"]).default("resumen") });
@@ -258,7 +260,7 @@ async function analyticsPdf(url: URL, user: RequestUser): Promise<Response> {
   const ids = parsed.data.vista === "todas" ? [...ANALYTICS_VIEWS] : [parsed.data.vista];
   const views: ReportView[] = [];
   for (const id of ids) {
-    const result = await engine.view(id, common);
+    const result = sinGraficasFueraDeInformes(await engine.view(id, common));
     views.push({ id, title: result.title, periodLabel: result.periodLabel, locationName: result.locationName, department: parsed.data.departamento ?? null, kpis: result.kpis, charts: result.charts });
   }
   const { data: org } = await scope.db.from("organizations").select("name").eq("id", user.orgId).maybeSingle();
