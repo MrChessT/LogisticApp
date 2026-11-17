@@ -25,9 +25,15 @@ export class Metrics {
   contextCacheHits = 0;
   readonly gates: Record<GateOutcome, number> = { actuar: 0, confirmar: 0, preguntar: 0 };
   readonly writer = { llm: 0, plantilla: 0, regenerado: 0 };
+  /** Mensajes atendidos por cada especialista (especialistas/registro.ts): dónde está el uso y dónde crecer. */
+  readonly especialistas: Record<string, number> = {};
   readonly #latency = new Map<Stage, number[]>();
 
   constructor(private readonly pricePerMtokUsd: string) {}
+
+  recordEspecialista(id: string): void {
+    this.especialistas[id] = (this.especialistas[id] ?? 0) + 1;
+  }
 
   recordLatency(stage: Stage, ms: number): void {
     const samples = this.#latency.get(stage) ?? [];
@@ -66,6 +72,7 @@ export class Metrics {
       latencyMs,
       gates: { ...this.gates },
       writer: { ...this.writer },
+      especialistas: { ...this.especialistas },
       shortcuts: this.shortcuts,
       caches: { embeddings: this.embedCacheHits, context: this.contextCacheHits },
     };
