@@ -155,6 +155,8 @@ function escapeRegex(text: string): string {
 const GENERIC_SUPPLIER_WORDS = new Set([
   "distribuciones", "distribucion", "bebidas", "comercial", "comerciales", "alimentacion", "hosteleria", "grupo", "hermanos",
   "hnos", "sociedad", "limitada", "sl", "sa", "slu", "del", "los", "las", "sur", "norte",
+  // «el proveedor de X es Y»: la palabra «proveedor» de la frase no señala a «Proveedor Ejemplo S.L.».
+  "proveedor", "proveedores", "suministros", "suministro",
 ]);
 
 /** Proveedor nombrado en el mensaje (nombre completo o una palabra distintiva de 4+ letras). */
@@ -162,12 +164,18 @@ export function mentionedSupplier(message: string, suppliers: NamedRef[]): Named
   const text = ` ${normalize(message).replace(/[^a-z0-9]+/g, " ")} `;
   const full = suppliers.find((s) => text.includes(` ${normalize(s.name).replace(/[^a-z0-9]+/g, " ").trim()} `));
   if (full) return full;
-  const hits = suppliers.filter((s) =>
-    normalize(s.name)
-      .split(/[^a-z0-9]+/)
-      .some((w) => w.length >= 4 && !GENERIC_SUPPLIER_WORDS.has(w) && text.includes(` ${w} `)),
-  );
-  return hits.length === 1 ? hits[0]! : null;
+  // Varios con alguna palabra distintiva: gana el que coincide en más, si es el único con ese número.
+  const scored = suppliers
+    .map((s) => ({
+      s,
+      hits: normalize(s.name)
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length >= 4 && !GENERIC_SUPPLIER_WORDS.has(w) && text.includes(` ${w} `)).length,
+    }))
+    .filter((x) => x.hits > 0)
+    .sort((a, b) => b.hits - a.hits);
+  if (scored.length === 0) return null;
+  return scored.length === 1 || scored[0]!.hits > scored[1]!.hits ? scored[0]!.s : null;
 }
 
 /** Formato del producto que nombra el mensaje ("la caja", "botella"), si solo encaja uno. */

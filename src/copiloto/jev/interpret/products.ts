@@ -6,7 +6,7 @@ import { asNoul, gateNoulYes } from "../gates/gate";
 import { label, NINGUNO, VARIOS } from "../catalog";
 import { relevant, slotSpec, type ContextKey } from "../gates/policy";
 import { namesProduct, unexplainedWords } from "../../entities/mentions";
-import { familyOf, type Family } from "../../entities/family";
+import { familyOf, nameGroupOf, type Family } from "../../entities/family";
 import { formatDecimal } from "../../entities/units";
 import { isUnitWord } from "../../entities/quantity-parser";
 import { tokenize } from "../../entities/normalize";
@@ -19,11 +19,15 @@ function wholeMessage(segment: { text: string; productText: string }): boolean {
 }
 
 /** Familia del catálogo que nombra el fragmento («ron», «cervezas»), para consultas. */
-function catalogFamily(r: JevReading, segmentIndex: number): Family | null {
+function catalogFamily(r: JevReading, segmentIndex: number, byName = true): Family | null {
   const rs = r.meta.segments[segmentIndex];
   if (!rs) return null;
   const text = tokenize(rs.segment.productText || rs.segment.text).filter((w) => !r.placeWords.has(w)).join(" ");
-  return familyOf(text, r.ctx.products);
+  // Sin familia del catálogo con ese nombre («ron» dentro de «Destilados y Licores»), el grupo por nombre. Solo
+  // si Jev no apunta a un producto concreto: si duda entre Barceló y Brugal, se pregunta cuál.
+  // Las unidades no forman grupo: «¿cuántas botellas quedan?» habla del producto de antes, no de «botellas».
+  const named = tokenize(text).filter((w) => !isUnitWord(w)).join(" ");
+  return familyOf(text, r.ctx.products) ?? (byName && named ? nameGroupOf(named, r.ctx.products) : null);
 }
 
 /** Candidatos parecidos al mejor (≥ 50 % de su puntuación de recuperación), como mucho 10. */
@@ -116,7 +120,8 @@ export function resolveProducts(r: JevReading, context: ContextKey, forAction: b
     // revisar (el propio borrador es la confirmación). Por debajo de ask, o "ninguno", se pregunta.
     if (g.choice === NINGUNO || g.outcome === "preguntar") {
       // En una consulta sin cantidad, la duda entre "ninguno" y "varios" no bloquea: sin filtro, o la familia.
-      const whole = !forAction && rs.segment.amount === null ? catalogFamily(r, i) : null;
+      const vague = g.ranked[0]?.option === NINGUNO || g.ranked[0]?.option === VARIOS;
+      const whole = !forAction && rs.segment.amount === null ? catalogFamily(r, i, vague) : null;
       if (whole) {
         // «¿cuántas cervezas quedan?»: la familia entera, aunque Jev dude entre «ninguno» y «varios».
         r.familia = whole.label;

@@ -1,4 +1,5 @@
 // Bucle del agente por mensaje: Jev DECIDE → el código CALCULA y EJECUTA → la LLM REDACTA.
+import { corregirJerga } from "../entities/jerga";
 import { randomUUID } from "node:crypto";
 import type { EntryType } from "@typesafe-ai/sdk";
 import type { AuditSink } from "../audit/audit";
@@ -106,7 +107,8 @@ export class Agent {
    * @param scope Recursos de la petición con el JWT del usuario (herramientas y auditoría).
    *              Sin ellos se usan los de `deps` (desarrollo y tests).
    */
-  async handle(req: ChatRequest, ctx: SessionContext, emit: Emit, scope: RequestScope = {}): Promise<void> {
+  async handle(input: ChatRequest, ctx: SessionContext, emit: Emit, scope: RequestScope = {}): Promise<void> {
+    const req: ChatRequest = { ...input, message: corregirJerga(input.message) }; // capa de entrada: jerga de chat
     const toolset = scope.tools ?? this.deps.tools;
     if (!toolset) throw new Error("Faltan las herramientas de datos");
     const deps = {
