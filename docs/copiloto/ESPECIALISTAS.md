@@ -67,22 +67,47 @@ Reglas:
 - **Un especialista no importa a otro.** Si dos dominios necesitan lo mismo, va al núcleo.
 - **Cada cambio pasa la batería antes y después** y añade un caso por cada fallo que arregle.
 
-Primer paso concreto (sin cambiar comportamiento): un registro de especialistas que lea los manifiestos
-existentes (`tools/`, `drafts/`, `analytics/`) y lo exponga al enrutador. Después, extraer un dominio cada vez,
-empezando por el que menos toca: **informes** (ya tiene vistas separadas).
+El registro, el mapa y la puerta ya existen (sección 4). Lo siguiente es mover el código a cada especialista,
+uno cada vez, empezando por el que menos toca: **informes** (ya tiene vistas separadas).
 
-## 4. Orden de trabajo
+## 4. Lo que ya está construido
 
-1. Arreglar los cinco fallos de la línea base, cada uno con su caso de batería.
-2. Registro de especialistas (sin mover código).
-3. Extraer **informes**, luego **almacén**, luego **catálogo** (el más grande: dividir `catalog-builder.ts`).
-4. Permisos por perfil en el manifiesto (depende de la fase 2 de `roles.md`).
-5. Evaluación por especialista: el enrutador se mide con un conjunto de frases etiquetadas con el especialista
-   esperado (aciertos sobre el total), además de la batería de respuestas.
+`src/copiloto/especialistas/`:
+
+| Fichero | Qué hace |
+|---------|----------|
+| `registro.ts` | Manifiesto de cada especialista: `id`, `nombre`, `descripcion`, `requiere` (rol mínimo y «ve costes»), `sinPermiso` (texto para quien no cumple) y `ejemplos` (frases reales). Nueve especialistas: almacén, compras, facturas, escandallos, ventas, catálogo, equipo, informes y conversación. |
+| `mapa.ts` | `especialistaDe(plan)`: qué especialista atiende cada plan. Los mapas son **exhaustivos por tipo** (herramientas de Jev, temas de información, acciones, órdenes de oficina y tareas): una herramienta nueva sin especialista **no compila**. |
+| `puerta.ts` | `fueraDeAlcance(plan, ctx)`: antes de ejecutar una lectura, comprueba el permiso del especialista y, si no se cumple, devuelve un aviso sin cifras. Los borradores siguen comprobando su permiso en su constructor, con el mensaje de la acción. |
+
+En el bucle (`agent/loop.ts`, `execute`): la puerta va antes de ejecutar cualquier plan, y cada mensaje atendido se
+cuenta por especialista (`metrics.especialistas`, visible en el resumen de métricas). Las reglas de permiso son
+las mismas que las del menú de la app, así que el asistente no ofrece lo que la pantalla esconde.
+
+Pruebas: `especialistas/especialistas.test.ts` (registro, mapa y puerta) y
+`__tests__/especialistas-agente.test.ts` (el mismo mensaje de facturas para personal y para un encargado).
+
+### Cómo se añade un especialista
+
+1. Añadir su `id` a `ESPECIALISTAS` y su manifiesto a `REGISTRO` (con `sinPermiso` si tiene requisitos).
+2. El compilador marcará en `mapa.ts` qué herramientas, acciones u órdenes hay que asignarle o reasignar.
+3. Añadir sus casos a `scripts/ops/bateria-asistente.json` y pasar la batería antes y después.
+4. Documentarlo aquí y en `PROYECTO_ASISTENTE.md`.
+
+## 5. Orden de trabajo (lo que queda)
+
+1. ~~Arreglar los fallos de la línea base~~: hecho, 70/70 en producción.
+2. ~~Registro de especialistas, mapa exhaustivo, puerta y métricas~~: hecho.
+3. **Mover el código a cada especialista**: extraer informes, después almacén, después catálogo (dividiendo
+   `catalog-builder.ts`), de modo que cada carpeta tenga sus herramientas, borradores, textos y pruebas.
+4. **Alcance por cuenta de análisis y local** (`roles.md`, fase 5): añadir al manifiesto las cuentas que usa
+   cada especialista y filtrar las cifras por cuenta y local en el origen de datos.
+5. **Evaluación del enrutador**: con los `ejemplos` del registro y las frases etiquetadas de
+   `eval/frases.jsonl`, medir qué parte de los mensajes llega al especialista correcto.
 
 Para cada paso: `npm run check`, batería antes y después, y documento actualizado en el mismo cambio.
 
-## 5. Ideas consideradas
+## 6. Ideas consideradas
 
 Fuentes consultadas (todas de práctica profesional, no de estudios revisados por pares):
 

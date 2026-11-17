@@ -1,5 +1,4 @@
 // Bucle del agente por mensaje: Jev DECIDE → el código CALCULA y EJECUTA → la LLM REDACTA.
-import { corregirJerga } from "../entities/jerga";
 import { randomUUID } from "node:crypto";
 import type { EntryType } from "@typesafe-ai/sdk";
 import type { AuditSink } from "../audit/audit";
@@ -33,6 +32,10 @@ import { nextFocus } from "./focus";
 import { multiTaskTurn } from "./multi-task";
 import { runQuery } from "./run-query";
 import { tokenize } from "../entities/normalize";
+import { corregirJerga } from "../entities/jerga";
+import { especialistaDe } from "../especialistas/mapa";
+import { fueraDeAlcance } from "../especialistas/puerta";
+import { dropStaleDraft } from "./stale-draft";
 import { smallTalk } from "./topics";
 import { runInfo, type InfoSource } from "../tools/info";
 import { preroute } from "./preroute";
@@ -139,7 +142,7 @@ export class Agent {
       let shortcut = false;
 
       // Un borrador que ya se confirmó (con el botón), se descartó o caducó no espera respuesta.
-      await this.dropStaleDraft(session, ctx, deps.drafts);
+      await dropStaleDraft(session, ctx, deps.drafts, this.now());
 
       // Botón de seguimiento («Precios», «Consumo del mes»…): consulta ya resuelta, sin Jev.
       const followUp = req.followUpId ? session.followUps?.find((f) => f.id === req.followUpId) : undefined;
@@ -347,17 +350,6 @@ export class Agent {
     return { plan: interpretation.plan, intent: interpretation.intent, decisions: interpretation.decisions, routing: { meta: built.meta, jev }, shortcut: false };
   }
 
-  private async dropStaleDraft(session: Session, ctx: SessionContext, drafts: DraftStore): Promise<void> {
-    const draftId = session.focus?.draftId;
-    if (!draftId || !session.focus) return;
-    const stored = await drafts.get(draftId, ctx.userId, ctx.orgId).catch(() => undefined);
-    if (stored && stored.status === "pendiente" && new Date(stored.draft.expiresAt).getTime() >= this.now().getTime()) return;
-    const { draftId: _draftId, draftTitle: _draftTitle, ...rest } = session.focus;
-    void _draftId;
-    void _draftTitle;
-    session.focus = rest;
-  }
-
   private async clarify(plan: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
     // Operación clara con dos datos o más por saber: se piden juntos en un miniformulario.
     const form = formFor(plan, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
@@ -498,6 +490,10 @@ export class Agent {
 
   private async execute(plan: Plan, env: ExecEnv): Promise<ReportOutcome> {
     const { ctx, emit } = env;
+    // Puerta por especialista: lo que el perfil no puede usar recibe un aviso sin cifras (especialistas/puerta.ts).
+    const fuera = fueraDeAlcance(plan, ctx);
+    if (fuera) return this.execute(fuera, env);
+    this.deps.metrics.recordEspecialista(especialistaDe(plan));
     switch (plan.type) {
       case "clarify":
         return this.clarify(plan, env);

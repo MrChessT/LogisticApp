@@ -17,8 +17,8 @@ Pegar esto al empezar. El documento completo y `roles.md` son la fuente de verda
 > `docs/roles.md` (alcance = cuenta de análisis × local, perfiles y matriz); 3) `docs/ARQUITECTURA.md`;
 > 4) `docs/copiloto/JEV.md` y `docs/copiloto/ESPECIALISTAS.md`. Después, en orden:
 >
-> 1. **Fallos de la batería de producción** (sección 7 del proyecto): cerrar los seis casos, cada uno con su
->    caso en `scripts/ops/bateria-asistente.json`, sin romper los demás. Medir primero: levantar la rama en local
+> 1. **Mantener la batería de producción en 70/70** (sección 7) y añadir un caso por cada fallo que aparezca,
+>    en `scripts/ops/bateria-asistente.json`, sin romper los demás. Medir primero: levantar la rama en local
 >    contra la base de producción (`npx next dev -p 3100`) y pasar `scripts/ops/bateria-asistente.mjs` con
 >    `BATERIA_URL=http://localhost:3100`. Sin pasarla antes y después no se da nada por bueno.
 > 2. **Alcance por rol en el asistente** (`roles.md`, fase 5): cada herramienta, lectura o borrador, declara
@@ -86,6 +86,9 @@ mismo cambio. Los datos del negocio, claves y SQL con datos nunca van al reposit
 │ Decisión    jev/ : request.ts (prepara), catalog/ (preguntas y criterios),  │
 │             interpret/ (lee la intención), gates/ (umbrales: actuar,        │
 │             preguntar, no entender). Produce un plan (agent/plans.ts)       │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Especialist. especialistas/ : registro (manifiestos), mapa (plan →        │
+│             especialista, exhaustivo), puerta (permisos de lectura)         │
 ├────────────────────────────────────────────────────────────────────────────┤
 │ Ejecución   agent/loop.ts (orquesta), agent/run-query.ts, tools/ (lecturas),│
 │             analytics/ (vistas de informes), drafts/ (borradores y su       │
@@ -198,27 +201,31 @@ Nota importante (corregida en el último cambio): la batería de varios turnos m
 aclaración con su identificador, como el panel del chat. Antes la probaba por un camino que el panel no usa al
 escribir, y daba resultados engañosos.
 
-## 7. Estado actual y fallos abiertos
+## 7. Estado actual y pendientes
 
-Línea base de producción: 62/67. Local (misma base de datos de producción, rama `claude/amazing-hamilton-kx3iae`):
-61/67. Los fallos abiertos, con su causa conocida y lo que falta:
+**Batería de producción: 70/70** (era 62/67 al empezar; tres casos nuevos añadidos). En local, contra la base de
+producción, 67/70: los tres restantes necesitan la IA de apoyo, que solo funciona en el despliegue.
 
-| # | Caso (usuario) | Esperado | Causa conocida | Siguiente paso |
-|---|----------------|----------|----------------|----------------|
-| 1 | «¿cuánto se gastó de eso la semana pasada?» (tras hablar de tónica) | «Entiendo: … tónica … semana pasada», sin listar «N productos» | la reescritura de seguimiento no conserva el producto; la respuesta lista de más | revisar `comprehension.ts` y el foco de sesión (`focus.ts`) |
-| 2 | «kuanto ron ai en la oliva» | «Stock de ron en La Oliva» | la erratas («kuanto», «ai») impiden reconocer la familia «ron»; responde «Stock de 10 productos» | normalización de erratas en `entities/` o `free-text`; caso nuevo en el catálogo de pruebas |
-| 3 | «qué significa trabajar con FIFO en cocina» | «Respuesta general» | pide aclaración en lugar de responder en general. Local: probablemente sin clave de la IA de apoyo; en producción pasa | comprobar con clave; si es Jev, revisar umbral de «no entiendo» (`gates/`) |
-| 4 | «qué food cost es razonable para un restaurante» | «Respuesta general» | igual que el 3 | igual que el 3 |
-| 5 | «el proveedor de Tónica Schweppes 20 cl es Bebidas Mar Menor» | borrador «Revísalo y confírmalo», o «No encuentro», o pregunta por el formato | responde «Ninguno de estos productos tiene proveedor apuntado»: la orden de asociar no se reconoce como borrador | `drafts/supplier-link-builder.ts` y la interpretación de «es proveedor de» en `jev/interpret/` |
-| 6 | «Coca-Cola 20 cl» (respuesta a «¿Qué producto quieres archivar?») | «Revísalo y confírmalo» o «Archivar» | la aclaración se retoma, pero el nombre no se convierte en el producto a archivar | `agent/clarify-answer.ts` (rama de «producto») y `drafts/catalog-builder.ts` (archivar) |
+Lo que se arregló, con la causa real de cada fallo:
+
+| Caso | Causa | Arreglo |
+|------|-------|---------|
+| «quiero archivar un producto» | «un producto» se leía como cantidad | `entities/quantity-parser.ts`: palabras genéricas («producto», «artículo»…) no son producto |
+| «Coca-Cola 20 cl» tras «¿Qué producto quieres archivar?» | la aclaración no se retomaba sin ruta de Jev; la batería además no mandaba el `clarifyId` como el panel | `agent/clarify-answer.ts` y `scripts/ops/bateria-asistente.mjs` |
+| «kuanto ron ai en la oliva», «¿cuánta tónica queda?» | desde la taxonomía por cuentas, «Ron» y «Tónicas» ya no son familias | `entities/family.ts` (`nameGroupOf`, grupo por nombre o notas) en la lectura de Jev y en la vía rápida; capa de jerga `entities/jerga.ts` |
+| «¿cuánto se gastó de eso la semana pasada?» | el foco no guardaba el titular del grupo y las palabras de la frase rompían el grupo | `Focus.familia` y `nameGroupOf` ignora palabras que no están en ningún producto |
+| «el proveedor de … es Bebidas Mar Menor» | los proveedores «Proveedor prueba NN» tapaban al real | `entities/catalog-parser.ts`: «proveedor» es genérica y gana el de más coincidencias |
+| FIFO, food cost | dependían de la IA de apoyo | pasan en producción |
+
+Arquitectura ya construida: registro de especialistas, mapa exhaustivo de planes, puerta de permisos y métricas
+por especialista (`especialistas/`, ver `ESPECIALISTAS.md`, sección 4).
 
 Pendiente del proyecto, por prioridad:
-1. Cerrar los seis fallos anteriores, con su caso en la batería cada uno.
-2. Registro de especialistas sin mover código (`ESPECIALISTAS.md`, paso 2).
-3. Extraer especialistas: informes, después almacén, después catálogo (dividir `catalog-builder.ts`, 871 líneas).
-4. Alcance por rol en herramientas (`docs/roles.md`, fases 2 a 5).
-5. Caché compartida (sustituir el LRU en memoria cuando haya varias réplicas) y revisión de cachés por persona.
-6. Evaluación del enrutador: frases etiquetadas con el especialista esperado, medida de aciertos.
+1. Mover el código a cada especialista: informes, después almacén, después catálogo (dividir `catalog-builder.ts`).
+2. Alcance por cuenta de análisis y local (`docs/roles.md`, fases 2 a 5): cuentas en el manifiesto y filtro de cifras en el origen de datos.
+3. Evaluación del enrutador con los `ejemplos` del registro y `eval/frases.jsonl`.
+4. Caché compartida (sustituir el LRU en memoria cuando haya varias réplicas) y revisión de cachés por persona.
+5. La batería de varios turnos es débil para ventas y facturas: comprueba la forma de la respuesta, no las cifras. Añadir comprobaciones de contenido.
 
 ## 8. Mapa de ficheros grandes (candidatos a dividir)
 
