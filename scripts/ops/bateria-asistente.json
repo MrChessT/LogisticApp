@@ -28,6 +28,7 @@
     "turnos": [
       { "usuario": "kuanto ron ai en la oliva", "espera": "Stock de ron en La Oliva" },
       { "usuario": "cuanta ginebra hay en la oliva", "espera": "Stock de ginebra en La Oliva" },
+      { "usuario": "¿cuánto ron se gastó en el Vivero la semana pasada?", "espera": "de ron en Vivero", "no": "\\d+ productos|y \\d+ más" },
       { "usuario": "xq no ai cocas en el vivero?", "no": "Qué quieres hacer|No estoy seguro" },
       { "usuario": "lo + caro q tenemos", "espera": "Lo más caro" },
       { "usuario": "facturas pendientes de pagar", "espera": "Pendiente de pago|No hay facturas" },
