@@ -27,6 +27,8 @@
     "nombre": "Jerga y erratas",
     "turnos": [
       { "usuario": "kuanto ron ai en la oliva", "espera": "Stock de ron en La Oliva" },
+      { "usuario": "cuanta ginebra hay en la oliva", "espera": "Stock de ginebra en La Oliva" },
+      { "usuario": "xq no ai cocas en el vivero?", "no": "Qué quieres hacer|No estoy seguro" },
       { "usuario": "lo + caro q tenemos", "espera": "Lo más caro" },
       { "usuario": "facturas pendientes de pagar", "espera": "Pendiente de pago|No hay facturas" },
       { "usuario": "qué me falta pa mañana en el parador", "espera": "reponer|No falta nada" }
@@ -165,7 +167,7 @@
     "nombre": "Archivar un producto: el nombre escrito a la pregunta (reporte /productos 13/11)",
     "turnos": [
       { "usuario": "quiero archivar un producto", "espera": "Qué producto quieres archivar" },
-      { "usuario": "Coca-Cola 20 cl", "espera": "Revísalo y confírmalo|Archivar|No encuentro", "no": "Qué quieres hacer|No estoy seguro" },
+      { "usuario": "Coca-Cola 20 cl", "espera": "Revísalo y confírmalo|Archivar|No encuentro|He preparado un borrador", "no": "Qué quieres hacer|No estoy seguro" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
   },

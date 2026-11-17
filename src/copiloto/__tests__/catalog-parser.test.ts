@@ -54,6 +54,9 @@ describe("extracción para acciones de catálogo", () => {
     expect(mentionedSupplier("en Distribuciones Canarias", SUPPLIERS)?.name).toBe("Distribuciones Canarias");
     expect(mentionedSupplier("el de canarias", SUPPLIERS)?.name).toBe("Distribuciones Canarias");
     expect(mentionedSupplier("el ron a 15 €", SUPPLIERS)).toBeNull();
+    // «el proveedor de X es Y» con proveedores que se llaman «Proveedor …»: gana el que coincide en más palabras.
+    const conPrueba = [...SUPPLIERS, { id: "p1", name: "Proveedor prueba 01" }, { id: "p2", name: "Proveedor prueba 02" }, { id: "mm", name: "Bebidas Mar Menor S.L." }];
+    expect(mentionedSupplier("el proveedor de Tónica Schweppes 20 cl es Bebidas Mar Menor", conPrueba)?.name).toBe("Bebidas Mar Menor S.L.");
     expect(mentionedPack("la caja de Barceló a 90 €", BARCELO)?.name).toBe("Caja 6 botellas");
     expect(mentionedPack("la botella a 15 €", BARCELO)?.name).toBe("Botella 70 cl");
     expect(mentionedPack("el Barceló a 15 €", BARCELO)).toBeNull();

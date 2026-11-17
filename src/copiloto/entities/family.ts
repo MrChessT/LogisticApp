@@ -75,3 +75,20 @@ export function familyOf(text: string, products: Product[], options: { exact?: b
   const label = matched.length === 1 ? names.get(matched[0]!)!.toLowerCase() : words.filter((w) => used.has(w)).join(" ");
   return { label, products: members };
 }
+
+/**
+ * Grupo por nombre cuando ninguna familia del catálogo lo nombra. Desde la taxonomía por cuentas, «ron» o
+ * «ginebra» ya no son familias (están dentro de «Destilados y Licores»), pero la gente sigue preguntando así.
+ * Entran los productos con todas las palabras buscadas en el nombre o en las notas (marca, tipo). null si no
+ * hay al menos dos o si son todo el catálogo: un solo producto lo resuelve la búsqueda normal.
+ */
+export function nameGroupOf(text: string, products: Product[]): Family | null {
+  const words = tokenize(text).filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+  if (words.length === 0 || words.length > 2) return null;
+  const members = products.filter((p) => {
+    const own = tokenize(`${p.name} ${p.notes ?? ""}`);
+    return words.every((w) => own.some((t) => sameWord(w, t)));
+  });
+  if (members.length < 2 || members.length === products.length) return null;
+  return { label: words.join(" "), products: members };
+}
