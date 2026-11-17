@@ -25,6 +25,16 @@ describe("nameGroupOf", () => {
     expect(nameGroupOf("tonica", tonicas)?.label).toBe("tónica");
   });
 
+  it("las palabras de la frase que no están en ningún producto no cuentan («ron pasada»)", () => {
+    expect(nameGroupOf("ron gasto pasada", catalog)?.products.map((p) => p.id)).toEqual(["1", "2"]);
+  });
+
+  it("una palabra de la frase que está por casualidad en otro producto no rompe el grupo", () => {
+    const conRuido = [...catalog, product("6", "Gasto de envío", "Oficina › Papelería e Imprenta")];
+    expect(nameGroupOf("ron gasto", conRuido)?.products.map((p) => p.id)).toEqual(["1", "2"]);
+    expect(nameGroupOf("ron gasto", conRuido, { exact: true })).toBeNull();
+  });
+
   it("un solo producto no es un grupo: lo resuelve la búsqueda normal", () => {
     expect(nameGroupOf("ginebra", catalog)).toBeNull();
   });

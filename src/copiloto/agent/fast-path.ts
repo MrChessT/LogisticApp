@@ -37,7 +37,7 @@ export async function fastStockPlan(message: string, ctx: SessionContext, retrie
   const all = ctx.locations.map((l) => l.id);
   // «¿hay agua en Pickles?», «stock de ron»: una familia del catálogo, entera (no solo los que se llaman así).
   // Sin familia del catálogo con ese nombre («tónica» dentro de «Aguas, Refrescos y Zumos»), el grupo por nombre.
-  const whole = familyOf(rest.join(" "), ctx.products, { exact: true }) ?? nameGroupOf(rest.filter((w) => !isUnitWord(w)).join(" "), ctx.products);
+  const whole = familyOf(rest.join(" "), ctx.products, { exact: true }) ?? nameGroupOf(rest.filter((w) => !isUnitWord(w)).join(" "), ctx.products, { exact: true });
   if (whole) {
     return {
       type: "consultar",

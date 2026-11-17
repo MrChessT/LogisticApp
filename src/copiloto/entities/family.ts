@@ -82,14 +82,26 @@ export function familyOf(text: string, products: Product[], options: { exact?: b
  * Entran los productos con todas las palabras buscadas en el nombre o en las notas (marca, tipo). null si no
  * hay al menos dos o si son todo el catálogo: un solo producto lo resuelve la búsqueda normal.
  */
-export function nameGroupOf(text: string, products: Product[]): Family | null {
-  const words = tokenize(text).filter((w) => w.length >= 3 && !STOPWORDS.has(w));
-  if (words.length === 0 || words.length > 2) return null;
-  const members = products.filter((p) => {
-    const own = tokenize(`${p.name} ${p.notes ?? ""}`);
-    return words.every((w) => own.some((t) => sameWord(w, t)));
-  });
-  if (members.length < 2 || members.length === products.length) return null;
+export function nameGroupOf(text: string, products: Product[], options: { exact?: boolean } = {}): Family | null {
+  const tokensOf = new Map(products.map((p) => [p.id, tokenize(`${p.name} ${p.notes ?? ""}`)]));
+  const inSome = (w: string) => products.some((p) => tokensOf.get(p.id)!.some((t) => sameWord(w, t)));
+  // Solo cuentan las palabras que están en algún producto: «pasada» (de «la semana pasada») o «gastó» son de la
+  // frase, no del grupo.
+  const asked = tokenize(text).filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+  // exact: el texto no dice nada más que el grupo («¿cuánto dinero tenemos en ginebra?» no es solo «ginebra»).
+  if (options.exact && !asked.every(inSome)) return null;
+  const groupOf = (ws: string[]) => products.filter((p) => ws.every((w) => tokensOf.get(p.id)!.some((t) => sameWord(w, t))));
+  const valid = (ms: Product[]) => ms.length >= 2 && ms.length < products.length;
+  let words = asked.filter(inSome);
+  if (words.length === 0) return null;
+  let members = words.length <= 2 ? groupOf(words) : [];
+  // Una palabra de la frase puede estar por casualidad en algún producto («gasto»): si juntas no forman grupo,
+  // vale la única palabra que lo forme sola. Con exact no: ahí todo el texto tiene que ser el grupo.
+  if (!valid(members) && !options.exact) {
+    const alone = words.map((w) => ({ w, ms: groupOf([w]) })).filter((x) => valid(x.ms));
+    if (alone.length === 1) [words, members] = [[alone[0]!.w], alone[0]!.ms];
+  }
+  if (!valid(members)) return null;
   // El título, como está escrito en el catálogo («tónica», con su tilde), no como se tecleó.
   // Primero la palabra igual (o en plural); la tolerante a erratas solo si no hay otra («tonica» → «Tónica», no «Tonic»).
   const nameWords = members.flatMap((p) => p.name.split(/[^\p{L}\p{N}]+/u)).filter(Boolean);
