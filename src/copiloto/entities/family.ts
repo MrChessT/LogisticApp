@@ -90,5 +90,10 @@ export function nameGroupOf(text: string, products: Product[]): Family | null {
     return words.every((w) => own.some((t) => sameWord(w, t)));
   });
   if (members.length < 2 || members.length === products.length) return null;
-  return { label: words.join(" "), products: members };
+  // El título, como está escrito en el catálogo («tónica», con su tilde), no como se tecleó.
+  // Primero la palabra igual (o en plural); la tolerante a erratas solo si no hay otra («tonica» → «Tónica», no «Tonic»).
+  const nameWords = members.flatMap((p) => p.name.split(/[^\p{L}\p{N}]+/u)).filter(Boolean);
+  const written = (w: string) =>
+    (nameWords.find((t) => singular(tokenize(t)[0] ?? "") === singular(w)) ?? nameWords.find((t) => sameWord(w, tokenize(t)[0] ?? "")))?.toLowerCase() ?? w;
+  return { label: words.map(written).join(" "), products: members };
 }

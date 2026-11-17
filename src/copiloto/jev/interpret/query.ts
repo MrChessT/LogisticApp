@@ -89,6 +89,8 @@ export function query(r: JevReading, intent: "consultar" | "pedir_sugerencias"):
         .filter((p): p is Product => !!p)
         .map((product) => ({ product, segmentIndex: -1, amount: null, unit: null, price: null, quantityOutcome: null }));
       if (products.length > 0) inherited.push(products.length === 1 ? products[0]!.product.name : "los mismos productos");
+      // «¿y en Pickles?» tras «¿cuánta tónica queda?»: el titular sigue diciendo «tónica».
+      if (products.length > 1 && focus.familia && !r.familia) r.familia = focus.familia;
     }
     const focusLocations = focus.locationIds.filter((id) => r.ctx.locations.some((l) => l.id === id));
     if (loc.defaulted && focusLocations.length > 0 && relevant(context, "local")) {

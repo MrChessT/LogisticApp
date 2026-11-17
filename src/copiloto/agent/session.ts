@@ -45,6 +45,8 @@ export interface Focus {
   /** Solo locales y productos que el usuario llegó a indicar (no los supuestos por defecto). */
   locationIds: string[];
   productIds: string[];
+  /** Título del grupo consultado («tónica», «ron»): los seguimientos lo mantienen en vez de «15 productos». */
+  familia?: string;
   periodo: string;
   /** Borrador pendiente de confirmar (para «sí, adelante» o «cancélalo»). */
   draftId?: string;

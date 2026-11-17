@@ -20,6 +20,11 @@ describe("nameGroupOf", () => {
     expect(group?.products.map((p) => p.id)).toEqual(["1", "2"]);
   });
 
+  it("el título sale como está escrito en el catálogo, con tilde", () => {
+    const tonicas = [product("t1", "Tónica Schweppes 20 cl", "Bebida › Aguas, Refrescos y Zumos"), product("t2", "Tónica Fever-Tree 20 cl", "Bebida › Aguas, Refrescos y Zumos"), ...catalog];
+    expect(nameGroupOf("tonica", tonicas)?.label).toBe("tónica");
+  });
+
   it("un solo producto no es un grupo: lo resuelve la búsqueda normal", () => {
     expect(nameGroupOf("ginebra", catalog)).toBeNull();
   });

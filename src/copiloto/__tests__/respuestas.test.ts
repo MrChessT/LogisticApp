@@ -25,7 +25,8 @@ describe("respuestas del asistente", () => {
     await run(agent, chat("¿cuánto ron queda en Parador?"));
     const text = find(await run(agent, chat("¿y en el Vivero?")), "done")!.text;
     expect(text.startsWith("Sigo con los mismos productos.")).toBe(true);
-    expect(text).toContain("No hay stock registrado de Ron Barceló Añejo 70 cl, Ron Brugal Añejo 70 cl en Vivero.");
+    // El seguimiento mantiene el titular del grupo («ron»), no la lista de nombres ni «2 productos».
+    expect(text).toContain("No hay stock registrado de ron en Vivero.");
   });
 
   it("al preguntar el local se ofrecen todos los locales", async () => {

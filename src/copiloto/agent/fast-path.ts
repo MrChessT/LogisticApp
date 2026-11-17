@@ -4,8 +4,8 @@
 // deja en manos de Jev. Es solo lectura: nunca escribe nada.
 import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
-import { familyOf } from "../entities/family";
-import { parseQuantities } from "../entities/quantity-parser";
+import { familyOf, nameGroupOf } from "../entities/family";
+import { isUnitWord, parseQuantities } from "../entities/quantity-parser";
 import type { Retriever } from "../entities/retriever";
 import { mentionsArea } from "../entities/signals";
 import type { QueryPlan } from "./plans";
@@ -36,7 +36,8 @@ export async function fastStockPlan(message: string, ctx: SessionContext, retrie
 
   const all = ctx.locations.map((l) => l.id);
   // «¿hay agua en Pickles?», «stock de ron»: una familia del catálogo, entera (no solo los que se llaman así).
-  const whole = familyOf(rest.join(" "), ctx.products, { exact: true });
+  // Sin familia del catálogo con ese nombre («tónica» dentro de «Aguas, Refrescos y Zumos»), el grupo por nombre.
+  const whole = familyOf(rest.join(" "), ctx.products, { exact: true }) ?? nameGroupOf(rest.filter((w) => !isUnitWord(w)).join(" "), ctx.products);
   if (whole) {
     return {
       type: "consultar",
