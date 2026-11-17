@@ -32,9 +32,12 @@ if (error) {
 }
 const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
 
-async function ask(sessionId, message) {
+// Como el panel del chat: si el turno anterior fue una aclaración, la respuesta escrita viaja con su identificador
+// (opción «otra» + texto libre). Sin esto, la batería probaba un camino que la app no usa al escribir.
+async function ask(sessionId, message, pending) {
   const started = Date.now();
-  const res = await fetch(`${BASE}/api/copiloto/chat`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ sessionId, message, page: "/" }) });
+  const clarification = pending ? { clarifyId: pending.clarifyId, optionId: "otra", freeText: message, field: pending.field } : undefined;
+  const res = await fetch(`${BASE}/api/copiloto/chat`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ sessionId, message, page: "/", ...(clarification ? { clarification } : {}) }) });
   const raw = await res.text();
   let text = "";
   let clarify = null;
@@ -49,11 +52,11 @@ async function ask(sessionId, message) {
         continue;
       }
       if (event === "text") text = data.reset ? data.delta : text + data.delta;
-      else if (event === "clarify") clarify = data.question;
+      else if (event === "clarify") clarify = data;
       else if (event === "error") text = `ERROR: ${data.message}`;
     }
   }
-  return { status: res.status, ms: Date.now() - started, text: clarify ?? text, clarified: clarify !== null };
+  return { status: res.status, ms: Date.now() - started, text: clarify?.question ?? text, clarified: clarify !== null, clarify };
 }
 
 const cases = JSON.parse(readFileSync(process.argv[2] ?? new URL("./bateria-asistente.json", import.meta.url), "utf8"));
@@ -62,8 +65,10 @@ const failures = [];
 for (const conversation of cases) {
   console.log(`\n▸ ${conversation.nombre}`);
   const sessionId = randomUUID();
+  let pending = null;
   for (const turn of conversation.turnos) {
-    const r = await ask(sessionId, turn.usuario);
+    const r = await ask(sessionId, turn.usuario, pending);
+    pending = r.clarify ?? null;
     total += 1;
     const why = [];
     if (r.status !== 200) why.push(`HTTP ${r.status}`);
