@@ -9,20 +9,33 @@ acceso a datos controlado, habilidades (skills), contexto de sesión y, en el fu
 
 ## 0. Encargo para un modelo más potente
 
-Pegar esto al empezar (el documento completo es la fuente de verdad):
+Pegar esto al empezar. El documento completo y `roles.md` son la fuente de verdad.
 
-> Trabajas en el repositorio `nexo` (LogisticApp). Tu tarea es el asistente de `src/copiloto`. Lee primero
-> `docs/copiloto/PROYECTO_ASISTENTE.md` (este documento), después `docs/ARQUITECTURA.md`, `docs/copiloto/JEV.md`,
-> `docs/copiloto/ESPECIALISTAS.md` y `docs/roles.md`. Objetivos, en este orden:
-> 1. Arreglar los fallos de la batería de producción listados en la sección 7, cada uno con su caso en
->    `scripts/ops/bateria-asistente.json`, sin romper los demás.
-> 2. Terminar la modularización por especialistas (`ESPECIALISTAS.md`, sección 3 y 4), sin cambiar el comportamiento.
-> 3. Aplicar el alcance por rol (`docs/roles.md`, fases 2 a 5) al asistente: ninguna herramienta que el perfil no
->    pueda usar debe ser ofrecida al modelo.
-> Reglas que no se rompen: las cifras las calcula el código; la IA solo interpreta o redacta; nada se guarda sin
-> confirmación; no se suben datos del negocio ni claves al repositorio; las migraciones se aplican solo con
-> `scripts/ops/aplicar-migracion.sh`; antes de dar algo por terminado, `npm run check` y la batería; cada
-> cambio actualiza la documentación en el mismo commit. Comentarios en español que expliquen el porqué.
+> Trabajas en el repositorio `nexo` (LogisticApp), rama `claude/amazing-hamilton-kx3iae`. Tu tarea es el
+> asistente de `src/copiloto`, que se trata como un proyecto propio. Lee en este orden: 1)
+> `docs/copiloto/PROYECTO_ASISTENTE.md` (este documento, sobre todo las secciones 2, 3, 6 y 7); 2)
+> `docs/roles.md` (alcance = cuenta de análisis × local, perfiles y matriz); 3) `docs/ARQUITECTURA.md`;
+> 4) `docs/copiloto/JEV.md` y `docs/copiloto/ESPECIALISTAS.md`. Después, en orden:
+>
+> 1. **Fallos de la batería de producción** (sección 7 del proyecto): cerrar los seis casos, cada uno con su
+>    caso en `scripts/ops/bateria-asistente.json`, sin romper los demás. Medir primero: levantar la rama en local
+>    contra la base de producción (`npx next dev -p 3100`) y pasar `scripts/ops/bateria-asistente.mjs` con
+>    `BATERIA_URL=http://localhost:3100`. Sin pasarla antes y después no se da nada por bueno.
+> 2. **Alcance por rol en el asistente** (`roles.md`, fase 5): cada herramienta, lectura o borrador, declara
+>    qué cuentas y locales necesita; el asistente solo la ofrece si el alcance de la persona la cubre. Ejemplo:
+>    el cocinero pregunta por Bebida y el asistente responde que eso no está en su alcance, sin cifras. Las
+>    cifras de cada consulta se filtran por cuenta y local en la base de datos o en el origen de datos, nunca
+>    solo en el texto de la respuesta. Antes, la fase 2 (políticas de catálogo, stock y movimientos).
+> 3. **Modularizar por especialistas** (`ESPECIALISTAS.md`, pasos 2 a 4) sin cambiar el comportamiento: primero
+>    el registro de especialistas, después extraer informes, almacén y catálogo, dividiendo los ficheros mayores
+>    de la sección 8.
+> 4. **Documentar cada cambio** en el mismo commit, con las decisiones tomadas y lo que queda.
+>
+> Reglas que no se rompen: las cifras las calcula el código; la IA solo interpreta o redacta; nada se guarda
+> sin confirmación de la persona; no se suben datos del negocio ni claves al repositorio; las migraciones se
+> aplican solo con `scripts/ops/aplicar-migracion.sh` y con prueba pgTAP; antes de dar algo por terminado,
+> `npm run check` y la batería; comentarios en español que expliquen el porqué; ficheros de como máximo 600
+> líneas. Si una decisión de negocio no está clara (por ejemplo, qué ve un perfil), no la inventes: pregunta.
 
 ## 1. Qué es y para qué sirve
 

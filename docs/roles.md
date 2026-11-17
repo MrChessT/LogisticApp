@@ -1,75 +1,96 @@
 # Roles y permisos
 
-Qué puede hacer cada persona en LogisticApp, cómo se guarda y en qué orden se aplica. La base de datos decide
-(RLS); la pantalla y el asistente solo muestran lo que la base permite.
+Qué ve y qué puede hacer cada persona en LogisticApp. La base de datos decide (RLS); la pantalla y el asistente
+solo muestran lo que la base permite.
 
-## 1. Modelo actual (migraciones 0003, 0019, 0030, 0032, 0055)
+## 1. Idea central: alcance = cuenta de análisis × local
+
+Cada producto pertenece a una **cuenta de análisis** (Bebida, Comida, Menaje, Packing y limpieza, Suministros,
+Mantenimiento, Oficina). Cada persona tiene dos alcances independientes:
+
+- **Cuentas**: qué cuentas ve y en cuáles actúa. Ejemplos: el cocinero ve solo Comida; la persona de oficina ve
+  Suministros y Oficina, porque son gastos que paga la oficina.
+- **Locales**: en qué locales (Vivero, La Oliva, Parador, Pickels…) ve y actúa. Puede ser todos o uno o varios.
+
+El alcance efectivo es la intersección: se ve un dato si su cuenta está en el alcance de cuentas **y** su local está
+en el alcance de locales. Lo que no entra en el alcance no aparece ni en pantalla ni en el asistente ni en un
+informe, y no se puede consultar por otra vía.
+
+Los costes y precios siguen la misma regla: cada persona ve los precios y costes **solo de sus cuentas**. Por eso
+el cocinero ve precios de platos, de ingredientes y de Comida, pero no los de Bebida.
+
+## 2. Modelo de datos
 
 | Dato | Dónde | Qué decide |
 |------|-------|-----------|
-| Rol | `memberships.role`: `owner`, `admin`, `manager`, `staff` | Nivel general: `owner`/`admin` administran; `manager` gestiona el día a día; `staff` opera. |
-| Todos los locales | `memberships.all_locations` | Si `false`, solo ve los locales de `membership_locations`. |
+| Rol base | `memberships.role`: `owner`, `admin`, `manager`, `staff` | Nivel general de administración y de edición. |
+| Todos los locales | `memberships.all_locations` | Si `false`, solo los locales de `membership_locations`. |
 | Locales | `membership_locations` | Qué locales ve y en cuáles actúa. |
-| Ver costes | `memberships.can_see_costs` (y `owner`, `admin`, `manager`) | Costes, importes, precios de compra, informes en euros. |
+| Cuentas | `membership_accounts` (0055) | Sin filas = todas las cuentas (comportamiento actual). Con filas, solo esas cuentas. |
+| Ver costes | `memberships.can_see_costs` | Importes, costes y precios de compra. Se aplica dentro de las cuentas del alcance. |
 | Validar | `memberships.can_validate` | Puede validar movimientos de personal. |
-| Cuentas de análisis | `membership_accounts` (0055, **solo preparada**) | Sin filas, sin restricción (hoy). Con filas, solo esas cuentas. |
-| Kiosco | cuenta de pantalla del almacén (código: `identity.kiosk`) | Solo la pantalla de almacén; sin asistente. |
+| Kiosco | cuenta de pantalla del almacén (`identity.kiosk`) | Solo la pantalla de almacén; sin asistente. |
 
 Reglas que ya se cumplen: el stock solo cambia con funciones de la base; los importes se leen con
 `sees_costs(org)`; el asistente trabaja con el JWT de la persona, así que ve y puede lo mismo que ella.
 
-## 2. Roles propuestos (v1)
+## 3. Perfiles propuestos (v2)
 
-Siete perfiles. Cada uno es una combinación de los datos de la sección 1; no hay roles «especiales» en el código.
+Cada perfil es una combinación de cuentas, locales, rol base y costes. No hay roles especiales en el código.
 
-| Perfil | Rol base | Locales | Cuentas | Ve costes | Qué hace |
+| Perfil | Rol base | Locales | Cuentas | Ve costes | Actúa en |
 |--------|----------|---------|---------|-----------|----------|
-| **Propietario** | `owner` | todos | todas | sí | Todo, incluido el equipo, las cuentas y el borrado. |
-| **Gerencia** | `admin` | todos | todas | sí | Lectura de todo y supervisión; administra el equipo. Informes completos. |
-| **Administración** | `manager` | todos | Oficina, Suministros y facturas | sí | Facturas, recepciones, informes y compras de todos los locales. |
-| **Encargado de local** | `manager` | los suyos | Bebida, Menaje, Mantenimiento, Packing y limpieza | sí, de su local | Recepciones, inventario, mermas y pedidos de sus cuentas. |
-| **Cocina** | `staff` + `can_see_costs` | los suyos | Comida | sí, de su local | Escandallos, elaboraciones y platos de Comida. |
-| **Personal** | `staff` | los suyos | según puesto | no | Operaciones básicas: recepción, traspasos, almacén. |
-| **Kiosco** | (cuenta de pantalla) | un local | — | no | Solo la pantalla de almacén. |
+| **Propietario** | `owner` | todos | todas | sí | todo, incluido el equipo |
+| **Gerencia** | `admin` | todos | todas | sí | supervisión y equipo (no el propietario) |
+| **Oficina** | `manager` | todos | Suministros y Oficina | sí, de esas cuentas | facturas y gastos de Suministros y Oficina |
+| **Encargado de local** | `manager` | el suyo | Bebida, Menaje, Mantenimiento, Packing y limpieza | sí, de esas cuentas | recepciones, inventario, mermas y pedidos de su local |
+| **Cocina** | `staff` + `can_see_costs` | los suyos | Comida | sí, de Comida | escandallos, elaboraciones, platos e ingredientes |
+| **Personal** | `staff` | los suyos | según puesto | no | recepción, traspasos, almacén |
+| **Kiosco** | (cuenta de pantalla) | un local | — | no | solo la pantalla de almacén |
 
-Decisiones que tomo en esta versión (puedes cambiarlas; cada una es un dato, no código):
-- **Encargados ven costes de su local.** Sin costes no pueden revisar pedidos ni mermas.
-- **Cocina ve costes de Comida en su local.** Los escandallos son costes; se pueden esconder con un flag.
-- **Administración no edita el catálogo de Bebida.** Ve sus cuentas; el catálogo lo lleva quien lleva la cuenta.
-- **Sin filas en `membership_accounts` = todas las cuentas.** Así nadie pierde acceso al desplegar.
+Las cuentas y los locales de cada perfil son una plantilla: al dar de alta a alguien se copia y luego se ajusta.
 
-## 3. Matriz de permisos (objetivo)
+Decisiones que tomo en esta versión (cada una es un dato, no código, y se puede cambiar):
+- **Gerencia ve todas las cuentas y todos los locales**, pero no administra el equipo como propietario.
+- **Cocina no ve costes de Bebida, Menaje ni Oficina**: solo lo que usa para cocinar.
+- **Encargado ve costes de las cuentas de su local que le tocan**, porque sin ellos no puede revisar pedidos ni mermas.
+- **Sin filas en `membership_accounts`, todas las cuentas**: nadie pierde acceso al desplegar.
 
-| Acción | Propietario | Gerencia | Administración | Encargado | Cocina | Personal | Kiosco |
+## 4. Matriz de permisos (objetivo)
+
+| Acción | Propietario | Gerencia | Oficina | Encargado | Cocina | Personal | Kiosco |
 |--------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Ver stock de sus cuentas | ✔ | ✔ | ✔ | ✔ | ✔ (Comida) | ✔ | ✔ (almacén) |
-| Registrar recepción | ✔ | ✔ | ✔ | ✔ | — | ✔ | ✔ |
-| Ver precios y costes | ✔ | ✔ | ✔ | ✔ (su local) | ✔ (Comida, su local) | — | — |
-| Editar catálogo | ✔ | ✔ | Oficina y Suministros | — | solo ingredientes de Comida | — | — |
+| Ver stock de sus cuentas y locales | ✔ | ✔ | ✔ (sus cuentas) | ✔ | ✔ (Comida) | ✔ | ✔ (almacén) |
+| Registrar recepción | ✔ | ✔ | ✔ (sus cuentas) | ✔ | — | ✔ | ✔ |
+| Ver precios y costes | ✔ | ✔ | ✔ (sus cuentas) | ✔ (sus cuentas) | ✔ (Comida) | — | — |
+| Editar catálogo | ✔ | ✔ | Suministros y Oficina | — | ingredientes de Comida | — | — |
 | Escandallos y PVP | ✔ | ✔ | — | — | ✔ (Comida) | — | — |
-| Facturas | ✔ | ✔ | ✔ | — | — | — | — |
-| Informes en euros | ✔ | ✔ | ✔ | su local | Comida, su local | — | — |
-| Equipo y permisos | ✔ | ✔ (no owner) | — | — | — | — | — |
+| Facturas | ✔ | ✔ | ✔ (sus cuentas) | — | — | — | — |
+| Informes en euros | ✔ | ✔ | sus cuentas | sus cuentas, su local | Comida, su local | — | — |
+| Equipo y permisos | ✔ | ✔ (no propietario) | — | — | — | — | — |
 | Asistente | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — |
 
-El asistente solo ofrece las herramientas que el perfil puede usar (ver `docs/copiloto/ESPECIALISTAS.md`).
+El asistente solo ofrece las herramientas que el perfil puede usar, con el mismo alcance (ver
+`docs/copiloto/ESPECIALISTAS.md`).
 
-## 4. Plan de aplicación
+## 5. Plan de aplicación
 
 1. **Fase 1 — hecha (0055):** tabla `membership_accounts`, funciones `account_of` y `account_allowed`, pruebas
-   pgTAP. Sin cambio de comportamiento: sin filas, todo igual.
-2. **Fase 2 — catálogo y stock:** políticas de `products`, `categories`, `stock_balances` y `stock_movements`
-   usando `account_allowed`. Prueba de que quien no tiene la cuenta no ve sus productos ni su stock.
-3. **Fase 3 — costes por local:** `sees_costs(org)` pasa a aceptar local y cuenta. Afecta a escandallos,
-   informes y el asistente.
-4. **Fase 4 — pantalla de equipo:** asignar perfil y cuentas desde Equipo (solo `owner`/`admin`), con la
-   plantilla de perfil como punto de partida.
-5. **Fase 5 — asistente:** `tools` filtradas por perfil y por cuenta (ver `ESPECIALISTAS.md`).
+   pgTAP. Sin cambio de comportamiento: sin filas, todo igual. Aplicada en producción.
+2. **Fase 2 — locales y cuentas en catálogo, stock y movimientos:** políticas de `products`, `categories`,
+   `stock_balances`, `stock_movements` y `stock_area_balances` usando `account_allowed` y el alcance de locales.
+   Prueba: quien no tiene la cuenta o el local no ve esos productos ni ese stock.
+3. **Fase 3 — costes por cuenta:** `sees_costs(org)` pasa a aceptar cuenta y local. Afecta a escandallos, informes,
+   pedidos y el asistente.
+4. **Fase 4 — pantalla de equipo:** asignar perfil, cuentas y locales desde Equipo (solo propietario y gerencia),
+   con la plantilla de perfil como punto de partida.
+5. **Fase 5 — asistente:** las herramientas se filtran por perfil, cuentas y locales; el modelo nunca recibe una
+   herramienta fuera de alcance.
 
-Cada fase tiene su migración numerada, su prueba pgTAP y su entrada en el README. Antes de la fase 2 hay que
-confirmar la matriz de la sección 3 con quien administra el negocio, porque cambia lo que la gente ve.
+Cada fase tiene su migración numerada, su prueba pgTAP y su entrada en el README. Antes de la fase 2, confirmar la
+matriz de la sección 4 con quien administra el negocio, porque cambia lo que la gente ve.
 
-## 5. Qué no cambia
+## 6. Qué no cambia
 
 - El rol `owner` no se puede quitar desde la pantalla (siempre queda un propietario).
 - Los permisos los decide la base de datos, no la pantalla ni el asistente.
