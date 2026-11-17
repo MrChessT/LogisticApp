@@ -10,6 +10,8 @@
 // Los casos están en scripts/ops/bateria-asistente.json («espera» y «no» son expresiones regulares;
 // «sinAclarar»: la respuesta no puede ser una pregunta de aclaración; «especialista»: quién debe atenderlo, según
 // src/copiloto/especialistas/registro.ts. Al final se resume el acierto del enrutado por especialista).
+// scripts/ops/bateria-alcance.json se pasa con una cuenta de pruebas limitada a la cuenta Comida (Equipo → Cuentas de
+// análisis): comprueba que lo de otras cuentas se avisa en vez de responder sin filtro.
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";

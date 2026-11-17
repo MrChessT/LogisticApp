@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { ROLES, type Role } from "../contract/index";
 import { baseUnitOf, type Dimension, type SessionContext } from "../domain";
 import { AuthError, type AuthUser, type ContextPort } from "../security/auth";
+import { palabrasOcultas } from "../especialistas/cuentas";
 import { DataError, readAll, userClient, type SupabaseSettings } from "./client";
 
 interface ProductRow {
@@ -37,7 +38,7 @@ export class SupabaseContext implements ContextPort {
     // primera, así un usuario ajeno recibe "forbidden" aunque el resto de consultas hayan fallado.
     // Los espacios se filtran por el join con sus locales (activos, de la organización) en lugar de
     // esperar a tener la lista de locales: mismo resultado, una petición menos en serie.
-    const [membership, locations, products, areas, suppliers, categories, archived] = await Promise.all([
+    const [membership, locations, products, areas, suppliers, categories, archived, scope, hidden] = await Promise.all([
       // «*»: también assistant_test (0025) sin romper si esa migración aún no está aplicada.
       db.from("memberships").select("*").eq("org_id", orgId).eq("user_id", user.userId).maybeSingle(),
       db.from("locations").select("id,name,timezone,day_cutoff").eq("org_id", orgId).eq("active", true).order("name"),
@@ -69,6 +70,10 @@ export class SupabaseContext implements ContextPort {
           db.from("products").select("id,name").eq("org_id", orgId).eq("active", false).order("name").order("id").range(from, to),
         ),
       ),
+      // Cuentas de análisis (0055) y palabras de lo que no ve (0059): si fallan, sin alcance que explicar.
+      db.from("membership_accounts").select("account_id").eq("org_id", orgId).eq("user_id", user.userId),
+      // Son miles de palabras: por páginas, como el catálogo (una respuesta trae 1000 filas como mucho).
+      settle(readAll<{ word: string; account: string }>("las palabras fuera de alcance", (from, to) => db.rpc("hidden_catalog_words").range(from, to))),
     ]);
     if (membership.error) fail("la pertenencia", membership.error);
     const role = membership.data?.role as Role | undefined;
@@ -95,6 +100,11 @@ export class SupabaseContext implements ContextPort {
       .update(JSON.stringify(productRows.map((p) => [p.id, p.name, p.category?.name ?? null, p.notes ?? null, p.packs.map((k) => [k.id, k.name, k.qty_base])])))
       .digest("hex")
       .slice(0, 16);
+
+    const accountIds = scope.error ? [] : (scope.data ?? []).map((r) => r.account_id);
+    const cuentas = accountIds.map((id) => categoryById.get(id)?.name).filter((n): n is string => !!n);
+    const visibles = [...productRows.map((p) => `${p.name} ${categoryPath(p) ?? ""}`), ...(locations.data ?? []).map((l) => String(l.name))];
+    const alcance = cuentas.length > 0 ? { cuentas, palabrasOcultas: palabrasOcultas(hidden.error ? [] : (hidden.data ?? []), visibles) } : {};
 
     return {
       userId: user.userId,
@@ -124,6 +134,7 @@ export class SupabaseContext implements ContextPort {
       archivedProducts: refs(archived),
       catalogHash,
       testMode: (membership.data as { assistant_test?: boolean } | null)?.assistant_test === true,
+      ...alcance,
     };
   }
 }

@@ -84,9 +84,7 @@ El asistente solo ofrece las herramientas que el perfil puede usar, con el mismo
    dentro de `(select …)`: Postgres las evalúa una vez por consulta (comprobado en el plan). Prueba pgTAP 0056:
    el cocinero con Comida no ve ni da de alta productos de Bebida; sin cuentas asignadas, todo igual.
    El alcance por local ya lo aplicaban las políticas existentes (`membership_locations`).
-   Pendiente: las funciones `security definer` que leen datos (`warehouse_catalog`, `area_moves_list`,
-   `export_catalog`, `sales_report`) no pasan por las políticas; son de almacén, exportación o ventas, con su
-   propio control, y hay que añadirles el filtro de cuentas.
+   Las funciones `security definer` que leen datos se saltan las políticas: las filtra la 0058 (fase 5).
 3. **Fase 3 — costes por cuenta:** `sees_costs(org)` pasa a aceptar cuenta y local. Afecta a escandallos, informes,
    pedidos y el asistente.
 4. **Fase 4 — cuentas, hecha (0057); perfiles, pendiente.** En la ficha de cada encargado o persona del personal,
@@ -94,8 +92,25 @@ El asistente solo ofrece las herramientas que el perfil puede usar, con el mismo
    `team_set_accounts`. Puede usarla quien puede editar a esa persona (como `team_set_costs`). A propietarios y
    administradores no se les limita. Quien tiene cuentas asignadas solo reparte las suyas y no puede dejar a nadie
    sin restricción. Prueba pgTAP 0057. Falta la plantilla de perfil (cocina, sala, oficina…) como punto de partida.
-5. **Fase 5 — asistente:** las herramientas se filtran por perfil, cuentas y locales; el modelo nunca recibe una
-   herramienta fuera de alcance.
+5. **Fase 5 — recetas, funciones y asistente, hecha (0058).**
+   - **Recetas:** una receta es de las cuentas de sus ingredientes, también los de sus elaboraciones
+     (`allowed_recipe_ids`). Se ve si alguno es de una cuenta permitida, o si aún no tiene ingredientes. Sus líneas
+     se ocultan con ella.
+   - **Funciones que se saltan las políticas y ahora filtran:** `recipe_costs`, `sales_report`, `tpv_sale_prices`,
+     `area_moves_list` y `warehouse_catalog`. En ventas, una línea del TPV sin enlazar no tiene cuenta y, con cuentas
+     asignadas, no se muestra. Se quedan como estaban `export_catalog` (solo administración, nunca limitada) y
+     `warehouse_context` (solo cuenta las salidas pendientes).
+   - **Asistente:** lee con la sesión del usuario y sus cachés van por usuario (negocio, contexto, sugerencias)
+     o por catálogo visible (embeddings, Jev). Así nunca ve ni sugiere nada fuera de sus cuentas. Si se cambian las
+     cuentas de alguien, el asistente lo nota en 5 minutos como mucho (caché del contexto).
+   - **«Eso no lo ves» (0059):** `hidden_catalog_words` da las palabras de los productos y familias que la persona no
+     ve, con su cuenta. Si una pregunta nombra algo así («ginebra», «cervezas», «Beefeater»), el asistente responde
+     «es de Bebida, y tú solo ves Comida» (`especialistas/cuentas.ts`). Antes contestaba con el stock de todo lo suyo
+     o con un producto parecido que no era («cervezas» → cereza). Una palabra que también sale en lo suyo («vino»,
+     por el de cocinar) solo cuenta si Jev descartó sus productos. Batería: `scripts/ops/bateria-alcance.json`, con
+     una cuenta de pruebas limitada a Comida.
+   - **Costes:** con esto, la fase 3 queda cubierta en lo que importa: nadie ve el coste de un producto o receta de
+     una cuenta que no ve. Falta que «ve costes» se pueda dar solo para algunas cuentas.
 
 Cada fase tiene su migración numerada, su prueba pgTAP y su entrada en el README. Antes de la fase 2, confirmar la
 matriz de la sección 4 con quien administra el negocio, porque cambia lo que la gente ve.
