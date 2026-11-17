@@ -1,5 +1,6 @@
 // Qué especialista atiende cada plan. Los mapas son exhaustivos por tipo: una herramienta, acción, orden de
 // oficina o tarea nueva sin especialista no compila. Así el registro no se queda atrás cuando el asistente crece.
+import type { AppRoute, Decision } from "../contract/index";
 import type { Accion, Herramienta, InfoTool } from "../jev/catalog/criteria";
 import type { DocumentPlan, Plan } from "../agent/plans";
 import type { TareaId } from "../skills/tareas";
@@ -74,7 +75,38 @@ const POR_TAREA: Record<TareaId, EspecialistaId> = {
   parte: "almacen",
 };
 
-export function especialistaDe(plan: Plan): EspecialistaId {
+/** Avisos y respuestas ya escritas: el dominio es el de la pantalla a la que enlazan. */
+const POR_RUTA: Record<AppRoute, EspecialistaId> = {
+  "/": "conversacion",
+  "/stock": "almacen",
+  "/traspasos": "almacen",
+  "/inventarios": "almacen",
+  "/mermas": "almacen",
+  "/almacen": "almacen",
+  "/zonas": "almacen",
+  "/pedidos": "compras",
+  "/recepciones": "compras",
+  "/proveedores": "compras",
+  "/facturas": "facturas",
+  "/escandallos": "escandallos",
+  "/ventas": "ventas",
+  "/productos": "catalogo",
+  "/equipo": "equipo",
+  "/informes": "informes",
+};
+
+const has = <K extends string>(map: Record<K, EspecialistaId>, key: string): key is K => Object.hasOwn(map, key);
+
+/** Una aclaración aún no tiene herramienta: vale la acción o la herramienta que Jev ya eligió. */
+function porDecision(decisions: readonly Decision[]): EspecialistaId | null {
+  const accion = decisions.find((d) => d.id === "tipo_accion")?.value;
+  if (accion && has(POR_ACCION, accion)) return POR_ACCION[accion];
+  const herramienta = decisions.find((d) => d.id === "herramienta")?.value;
+  if (herramienta && has(POR_HERRAMIENTA, herramienta)) return POR_HERRAMIENTA[herramienta];
+  return null;
+}
+
+export function especialistaDe(plan: Plan, decisions: readonly Decision[] = []): EspecialistaId {
   switch (plan.type) {
     case "consultar":
     case "info":
@@ -86,6 +118,10 @@ export function especialistaDe(plan: Plan): EspecialistaId {
       return POR_DOCUMENTO[plan.accion];
     case "tarea":
       return POR_TAREA[plan.tarea];
+    case "aviso":
+      return plan.route ? POR_RUTA[plan.route] : "conversacion";
+    case "clarify":
+      return porDecision(decisions) ?? "conversacion";
     default:
       return "conversacion";
   }
