@@ -46,6 +46,9 @@ const MESSAGES: Record<string, string> = {
   not_found: "Esa persona ya no está en el equipo.",
   kiosk_one_location: "Una pantalla va en un único local.",
   kiosk_fixed: "Una pantalla no puede pasar a ser una persona (ni al revés): crea una nueva.",
+  accounts_admin: "La administración ve todas las cuentas: no se le limita.",
+  accounts_invalid: "Esa cuenta ya no existe en el catálogo.",
+  accounts_forbidden: "Solo puedes repartir las cuentas que llevas tú, y la persona tiene que quedar con al menos una.",
 };
 
 /** Mensaje para el usuario a partir del error de una función de equipo. */

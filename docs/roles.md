@@ -89,8 +89,11 @@ El asistente solo ofrece las herramientas que el perfil puede usar, con el mismo
    propio control, y hay que añadirles el filtro de cuentas.
 3. **Fase 3 — costes por cuenta:** `sees_costs(org)` pasa a aceptar cuenta y local. Afecta a escandallos, informes,
    pedidos y el asistente.
-4. **Fase 4 — pantalla de equipo:** asignar perfil, cuentas y locales desde Equipo (solo propietario y gerencia),
-   con la plantilla de perfil como punto de partida.
+4. **Fase 4 — cuentas, hecha (0057); perfiles, pendiente.** En la ficha de cada encargado o persona del personal,
+   Equipo muestra «Cuentas de análisis»: se marcan las cuentas que verá, y sin ninguna marcada ve todas. Lo guarda
+   `team_set_accounts`. Puede usarla quien puede editar a esa persona (como `team_set_costs`). A propietarios y
+   administradores no se les limita. Quien tiene cuentas asignadas solo reparte las suyas y no puede dejar a nadie
+   sin restricción. Prueba pgTAP 0057. Falta la plantilla de perfil (cocina, sala, oficina…) como punto de partida.
 5. **Fase 5 — asistente:** las herramientas se filtran por perfil, cuentas y locales; el modelo nunca recibe una
    herramienta fuera de alcance.
 

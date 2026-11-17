@@ -69,6 +69,12 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["memberships"]["Insert"]>;
         Relationships: [];
       };
+      membership_accounts: {
+        Row: { org_id: string; user_id: string; account_id: string };
+        Insert: { org_id: string; user_id: string; account_id: string };
+        Update: Partial<Database["public"]["Tables"]["membership_accounts"]["Insert"]>;
+        Relationships: [];
+      };
       locations: {
         Row: {
           id: string;
@@ -917,6 +923,7 @@ export type Database = {
         Returns: string;
       };
       team_set_costs: { Args: { p_user: string; p_value: boolean; p_org?: string | null }; Returns: undefined };
+      team_set_accounts: { Args: { p_user: string; p_accounts: string[]; p_org?: string | null }; Returns: undefined };
       import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
       export_catalog: { Args: { p_org: string }; Returns: Json };
       import_sales: {
