@@ -82,6 +82,8 @@ const NON_PRODUCT_NOUNS = new Set([
   "cliente", "clienta", "clientes", "camarero", "camarera", "camareros", "cocinero", "cocinera", "mesa", "chico",
   "chica", "companero", "companera", "jefe", "jefa", "encargado", "encargada", "repartidor", "repartidora",
   "proveedor", "senor", "senora", "persona", "grupo", "amigo", "amiga", "nino", "nina", "trabajador", "trabajadora",
+  // Palabras genéricas: «quiero archivar un producto» no nombra ninguno; se pregunta cuál.
+  "producto", "productos", "articulo", "articulos", "item", "cosa", "referencia",
 ]);
 
 /** Estado de lo que se da de baja; puede ir entre la unidad y el producto. */

@@ -52,30 +52,17 @@
 .shell .breadcrumb span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .shell .breadcrumb strong { color: var(--ink); font-weight: 600; white-space: nowrap; }
 .topbar-section { display: none; }
-.shell .top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.shell .search-trigger {
-  height: 34px; min-width: 220px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 10px;
-  color: var(--text-3); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-md); text-align: left;
-}
-.shell .search-trigger:hover { border-color: var(--line-strong); }
-.shell .search-trigger kbd { margin-left: auto; padding: 1px 6px; color: var(--text-3); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; font: 500 var(--fs-xs) var(--font-sans), sans-serif; }
 .shell .mobile-menu { display: none; }
 .shell-content { flex: 1; min-width: 0; }
 
 /* Las pantallas ya no pintan su propio fondo a pantalla completa: lo pone el marco. */
 .shell-content .catalog-page, .shell-content .operations-page { min-height: 0; background: transparent; }
 
-.shell .search-overlay { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; background: rgba(23, 37, 31, .32); }
-.shell .search-dialog { width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--panel); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
-.shell .search-dialog svg { color: var(--brand); }
-.shell .search-dialog input { flex: 1; min-width: 0; border: 0; outline: 0; color: var(--ink); font-size: var(--fs-base); }
-.shell .search-dialog kbd { color: var(--text-3); font-size: var(--fs-xs); }
 .shell .mobile-backdrop { display: none; }
 
 @media (max-width: 1050px) {
   .shell .sidebar { width: 216px; }
   .shell-topbar { padding: 0 22px; }
-  .shell .search-trigger { min-width: 0; }
 }
 
 @media (max-width: 760px) {
@@ -90,8 +77,6 @@
   .shell .mobile-menu { display: grid; }
   .shell .breadcrumb { display: none; }
   .topbar-section { display: block; color: var(--ink); font: 600 15px var(--font-display), sans-serif; }
-  .shell .search-trigger { width: 38px; min-width: 38px; justify-content: center; padding: 0; }
-  .shell .search-trigger span, .shell .search-trigger kbd { display: none; }
     }
 
 /* Almacén dentro del marco (encargados en el ordenador): su barra oscura queda bajo la del marco y sin

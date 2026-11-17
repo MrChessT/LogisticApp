@@ -49,6 +49,8 @@ docs/                   Este documento, el contrato y el catálogo del asistente
 
 ## Asistente (`src/copiloto`)
 
+Proyecto del asistente, traspaso y encargo para otro modelo: [copiloto/PROYECTO_ASISTENTE.md](copiloto/PROYECTO_ASISTENTE.md). Roles: [roles.md](roles.md). Especialistas: [copiloto/ESPECIALISTAS.md](copiloto/ESPECIALISTAS.md).
+
 Qué consulta y qué hace, pantalla por pantalla: [copiloto/capacidades.md](copiloto/capacidades.md).
 
 Un mensaje recorre este camino (`agent/loop.ts` lo orquesta; el detalle, con cómo ampliar cada parte,

@@ -88,7 +88,7 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       overrides = { ...pending.overrides, precio: price };
       answers = answered(text);
       reuse = pending.routing;
-    } else if (option === null && !typed && pending.field === "producto" && pending.routing && !changes && !isNewQuestion(text)) {
+    } else if (option === null && !typed && pending.field === "producto" && !changes && !isNewQuestion(text)) {
       // «¿Qué producto quieres archivar?» → «Coca-Cola 20 cl»: el nombre escrito (exacto, o el único que encaja).
       // El formato («20 cl», «1 kg») puede no estar en el nombre del catálogo: se busca también sin él.
       const core = text.replace(/\b\d+([.,]\d+)?\s*(cl|ml|l|kg|g|ud|uds|unidades?)\b/gi, " ").replace(/\s+/g, " ").trim() || text;
