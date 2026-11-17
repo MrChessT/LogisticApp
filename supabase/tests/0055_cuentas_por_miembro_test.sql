@@ -34,7 +34,8 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"fa000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select ok(not account_allowed('fa100000-0000-4000-8000-000000000001', 'fa200000-0000-4000-8000-000000000002'), 'Con cuentas asignadas, no ve Bebida');
 select ok(account_allowed('fa100000-0000-4000-8000-000000000001', 'fa200000-0000-4000-8000-000000000004'), 'Sí ve Comida › Carnes');
-select is((select count(*)::int from products where org_id = 'fa100000-0000-4000-8000-000000000001'), 1, 'Las políticas de productos no cambian: la lectura sigue igual');
+-- Desde la 0056 las cuentas se aplican: el encargado con solo Comida no ve el tinto (está en Bebida).
+select is((select count(*)::int from products where org_id = 'fa100000-0000-4000-8000-000000000001'), 0, 'Con la 0056, el producto de Bebida no se ve con solo Comida');
 
 select * from finish();
 rollback;

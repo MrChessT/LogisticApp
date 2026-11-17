@@ -76,10 +76,17 @@ El asistente solo ofrece las herramientas que el perfil puede usar, con el mismo
 ## 5. Plan de aplicación
 
 1. **Fase 1 — hecha (0055):** tabla `membership_accounts`, funciones `account_of` y `account_allowed`, pruebas
-   pgTAP. Sin cambio de comportamiento: sin filas, todo igual. Aplicada en producción.
-2. **Fase 2 — locales y cuentas en catálogo, stock y movimientos:** políticas de `products`, `categories`,
-   `stock_balances`, `stock_movements` y `stock_area_balances` usando `account_allowed` y el alcance de locales.
-   Prueba: quien no tiene la cuenta o el local no ve esos productos ni ese stock.
+   pgTAP. Sin filas, todo igual. Aplicada en producción.
+2. **Fase 2 — hecha (0056): cuentas en catálogo, stock y precios.** Políticas restrictivas (una por operación) en
+   `categories`, `products`, `product_packs`, `location_products`, `product_allergens`, `supplier_item_codes`,
+   `supplier_prices`, `stock_balances`, `stock_area_balances`, `stock_movements` y `price_history`. Funciones sin
+   argumentos de fila (`account_scope_off`, `allowed_category_ids`, `allowed_product_ids`, `allowed_pack_ids`)
+   dentro de `(select …)`: Postgres las evalúa una vez por consulta (comprobado en el plan). Prueba pgTAP 0056:
+   el cocinero con Comida no ve ni da de alta productos de Bebida; sin cuentas asignadas, todo igual.
+   El alcance por local ya lo aplicaban las políticas existentes (`membership_locations`).
+   Pendiente: las funciones `security definer` que leen datos (`warehouse_catalog`, `area_moves_list`,
+   `export_catalog`, `sales_report`) no pasan por las políticas; son de almacén, exportación o ventas, con su
+   propio control, y hay que añadirles el filtro de cuentas.
 3. **Fase 3 — costes por cuenta:** `sees_costs(org)` pasa a aceptar cuenta y local. Afecta a escandallos, informes,
    pedidos y el asistente.
 4. **Fase 4 — pantalla de equipo:** asignar perfil, cuentas y locales desde Equipo (solo propietario y gerencia),
