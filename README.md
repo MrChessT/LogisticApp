@@ -91,6 +91,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0054 | Familias del catálogo: los productos de las raíces antiguas de la importación del Drive vuelven a su cuenta (0045) y se borran las raíces vacías. Idempotente |
 | 0055 | Roles: alcance por cuenta de análisis por miembro (`membership_accounts`, `account_allowed`). Sin filas = sin restricción, así que no cambia nada hoy. Ver `docs/roles.md` |
 | 0056 | Roles, fase 2: políticas restrictivas por cuenta de análisis en catálogo, stock y precios (una por operación, evaluadas una vez por consulta). Sin cuentas asignadas, todo igual |
+| 0057 | Roles, fase 4: `team_set_accounts` para asignar cuentas de análisis desde Equipo (solo las propias si quien reparte está limitado) |
 
 La cabecera de cada migración explica qué añade y por qué.
 

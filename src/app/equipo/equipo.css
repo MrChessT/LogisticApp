@@ -24,6 +24,7 @@
 .team-locations { display: flex; flex-wrap: wrap; gap: 5px; }
 .team-chip { padding: 3px 8px; border: 1px solid var(--line); border-radius: 20px; color: var(--text-2); background: var(--panel); font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
 .team-chip.all { color: var(--brand-strong); border-color: var(--brand-line); background: var(--brand-softer); }
+.team-chip.account { border-style: dashed; color: var(--text); }
 .team-pending { padding: 3px 8px; border-radius: var(--r-sm); color: var(--warn); background: var(--warn-soft); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
 
 .team-notice { margin: 18px 0 0; }
