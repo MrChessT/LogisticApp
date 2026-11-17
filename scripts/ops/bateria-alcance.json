@@ -1,0 +1,16 @@
+[
+  {
+    "nombre": "Alcance por cuentas (cuenta de pruebas limitada a Comida)",
+    "turnos": [
+      { "usuario": "¿cuánta ginebra queda?", "espera": "es de Bebida, y tú solo ves Comida", "sinAclarar": true },
+      { "usuario": "¿cuánto vino tinto hay en el Vivero?", "espera": "es de Bebida", "no": "\\d+ bajo mínimo" },
+      { "usuario": "¿cuántas cervezas quedan?", "espera": "es de Bebida", "no": "cereza" },
+      { "usuario": "¿a cuánto compramos el Beefeater?", "espera": "es de Bebida", "sinAclarar": true },
+      { "usuario": "¿cuánto tomate queda?", "espera": "tomate", "no": "es de Bebida" },
+      { "usuario": "¿a cuánto compramos el solomillo?", "espera": "Solomillo.*€" },
+      { "usuario": "¿qué platos tienen peor food cost?", "espera": "platos", "no": "es de Bebida" },
+      { "usuario": "¿qué falta en La Oliva?", "no": "es de Bebida" },
+      { "usuario": "¿cuánto aceite de oliva hay en La Oliva?", "espera": "aceite", "no": "es de Bebida" }
+    ]
+  }
+]

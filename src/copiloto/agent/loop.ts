@@ -490,8 +490,8 @@ export class Agent {
 
   private async execute(plan: Plan, env: ExecEnv): Promise<ReportOutcome> {
     const { ctx, emit } = env;
-    // Puerta por especialista: lo que el perfil no puede usar recibe un aviso sin cifras (especialistas/puerta.ts).
-    const fuera = fueraDeAlcance(plan, ctx);
+    // Puerta por especialista y por cuentas: lo que el perfil no puede usar o no ve recibe un aviso sin cifras.
+    const fuera = fueraDeAlcance(plan, ctx, env.message, env.decisions);
     if (fuera) return this.execute(fuera, env);
     this.deps.metrics.recordEspecialista(especialistaDe(plan, env.decisions));
     switch (plan.type) {

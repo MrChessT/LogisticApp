@@ -92,6 +92,8 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0055 | Roles: alcance por cuenta de análisis por miembro (`membership_accounts`, `account_allowed`). Sin filas = sin restricción, así que no cambia nada hoy. Ver `docs/roles.md` |
 | 0056 | Roles, fase 2: políticas restrictivas por cuenta de análisis en catálogo, stock y precios (una por operación, evaluadas una vez por consulta). Sin cuentas asignadas, todo igual |
 | 0057 | Roles, fase 4: `team_set_accounts` para asignar cuentas de análisis desde Equipo (solo las propias si quien reparte está limitado) |
+| 0058 | Roles, fase 5: alcance por cuenta en recetas (por sus ingredientes) y en las funciones que se saltan las políticas (costes de recetas, ventas, PVP del TPV, salidas y catálogo del almacén) |
+| 0059 | Roles, fase 5: `hidden_catalog_words` para que el asistente diga «eso es de Bebida» en vez de responder sin filtro |
 
 La cabecera de cada migración explica qué añade y por qué.
 

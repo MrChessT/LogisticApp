@@ -63,6 +63,10 @@ export interface SessionContext {
   catalogHash: string;
   /** Modo pruebas (memberships.assistant_test): lo que se confirme en el asistente no se guarda. */
   testMode?: boolean;
+  /** Cuentas de análisis a las que está limitado (Comida, Bebida…), por nombre. Sin el campo: todas. */
+  cuentas?: string[];
+  /** Palabras del catálogo que no ve, con su cuenta (0059): para decir «eso es de Bebida» (especialistas/cuentas.ts). */
+  palabrasOcultas?: Record<string, { cuenta: string; compartida: boolean }>;
 }
 
 export function baseUnitOf(dimension: Dimension): BaseUnit {

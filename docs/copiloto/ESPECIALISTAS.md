@@ -78,7 +78,8 @@ uno cada vez, empezando por el que menos toca: **informes** (ya tiene vistas sep
 |---------|----------|
 | `registro.ts` | Manifiesto de cada especialista: `id`, `nombre`, `descripcion`, `requiere` (rol mínimo y «ve costes»), `sinPermiso` (texto para quien no cumple) y `ejemplos` (frases reales). Nueve especialistas: almacén, compras, facturas, escandallos, ventas, catálogo, equipo, informes y conversación. |
 | `mapa.ts` | `especialistaDe(plan)`: qué especialista atiende cada plan. Los mapas son **exhaustivos por tipo** (herramientas de Jev, temas de información, acciones, órdenes de oficina y tareas): una herramienta nueva sin especialista **no compila**. |
-| `puerta.ts` | `fueraDeAlcance(plan, ctx)`: antes de ejecutar una lectura, comprueba el permiso del especialista y, si no se cumple, devuelve un aviso sin cifras. Los borradores siguen comprobando su permiso en su constructor, con el mensaje de la acción. |
+| `puerta.ts` | `fueraDeAlcance(plan, ctx, mensaje, decisiones)`: antes de ejecutar una lectura, comprueba el permiso del especialista y, si no se cumple, devuelve un aviso sin cifras. Después pasa por `cuentas.ts`. Los borradores siguen comprobando su permiso en su constructor, con el mensaje de la acción. |
+| `cuentas.ts` | Alcance por cuenta de análisis (roles, fase 5). Si una consulta o una pregunta «¿de qué producto?» nombra algo de una cuenta que la persona no ve, avisa: «es de Bebida, y tú solo ves Comida». Los datos ya llegan filtrados por la base de datos; esto solo evita una respuesta engañosa. |
 
 En el bucle (`agent/loop.ts`, `execute`): la puerta va antes de ejecutar cualquier plan, y cada mensaje atendido se
 cuenta por especialista (`metrics.especialistas`, visible en el resumen de métricas). Las reglas de permiso son
