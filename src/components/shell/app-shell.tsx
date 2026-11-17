@@ -1,12 +1,11 @@
 "use client";
 
-// Marco común de la app: menú lateral (en el móvil, desplegable), barra superior con la sección y la
-// búsqueda. Antes cada pantalla tenía su propia cabecera con «← Resumen» y el menú solo existía en el
+// Marco común de la app: menú lateral (en el móvil, desplegable) y barra superior con la sección. Antes cada pantalla tenía su propia cabecera con «← Resumen» y el menú solo existía en el
 // inicio: para ir de Stock a Pedidos había que volver atrás.
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Boxes, ChefHat, CircleHelp, ClipboardList, FileSpreadsheet, FileText, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareText, Package, PackageCheck, Receipt, Search, ShoppingCart, SlidersHorizontal, Truck, Users, Warehouse, X, XCircle, type LucideIcon } from "lucide-react";
+import { Boxes, ChefHat, CircleHelp, ClipboardList, FileSpreadsheet, FileText, LayoutDashboard, LogOut, MapPin, Menu, MessageSquareText, Package, PackageCheck, Receipt, ShoppingCart, SlidersHorizontal, Truck, Users, Warehouse, X, XCircle, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { forgetIdentity, useIdentity } from "@/lib/identity";
 import { readLocation } from "@/lib/location-preference";
@@ -70,7 +69,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const perms = usePermissions();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [counts, setCounts] = useState<Counts | null>(null);
   const [local, setLocal] = useState("");
 
@@ -92,14 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setSearchOpen(false);
         setMenuOpen(false);
-      }
-      // «/» abre la búsqueda (salvo escribiendo en un campo).
-      const target = event.target as HTMLElement | null;
-      if (event.key === "/" && target && !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) && !target.isContentEditable) {
-        event.preventDefault();
-        setSearchOpen(true);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -141,12 +132,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
   const section = SECTION.find(([re]) => re.test(pathname))?.[1] ?? "";
 
-  function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const q = new FormData(event.currentTarget).get("q")?.toString().trim();
-    setSearchOpen(false);
-    router.push(q ? `/productos?q=${encodeURIComponent(q)}&estado=all` : "/productos");
-  }
 
   async function signOut() {
     forgetIdentity();
@@ -221,24 +206,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             {section && <><span aria-hidden="true">/</span><strong>{section}</strong></>}
           </nav>
           <span className="topbar-section">{section}</span>
-          <div className="top-actions">
-            <button className="search-trigger" onClick={() => setSearchOpen(true)} aria-label="Buscar producto">
-              <Search size={16} aria-hidden="true" /><span>Buscar producto</span><kbd>/</kbd>
-            </button>
-          </div>
         </header>
         <div className="shell-content">{children}</div>
       </div>
 
-      {searchOpen && (
-        <div className="search-overlay" onClick={() => setSearchOpen(false)}>
-          <form className="search-dialog" role="search" onClick={(event) => event.stopPropagation()} onSubmit={search}>
-            <Search size={18} aria-hidden="true" />
-            <input name="q" autoFocus placeholder="Nombre, categoría, código o código de barras" aria-label="Buscar producto" />
-            <kbd>Esc</kbd>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

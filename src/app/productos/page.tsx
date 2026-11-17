@@ -12,7 +12,6 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { normalizeText } from "@/lib/format";
 import { formatStock, type Pack, type UnitDimension } from "@/lib/units";
 import { ProductEditor } from "./product-editor";
 import { useIdentity } from "@/lib/identity";
@@ -146,46 +145,39 @@ function FacetList({
   options,
   value,
   onChange,
-  searchable,
   bold,
 }: {
   title: string;
   options: Option[];
   value: string;
   onChange: (id: string) => void;
-  searchable?: boolean;
   /** Nombres en negrita (las categorías, para leerlas de un vistazo). */
   bold?: boolean;
 }) {
-  const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState(false);
   const visible = options
-    .filter((o) => o.count > 0 || o.id === value)
-    .filter((o) => !filter || normalizeText(o.name).includes(normalizeText(filter)));
+    .filter((o) => o.count > 0 || o.id === value);
   // En árbol (familias y sus tipos) se muestran primero todas las familias; los tipos, al desplegar
   // o al buscar, o los de la familia elegida.
   const tree = options.some((o) => o.parent_id);
   const selectedFamily = options.find((o) => o.id === value)?.parent_id ?? value;
-  const shown = expanded || filter ? visible : tree ? visible.filter((o) => !o.parent_id || o.parent_id === selectedFamily) : visible.slice(0, 8);
+  const shown = expanded ? visible : tree ? visible.filter((o) => !o.parent_id || o.parent_id === selectedFamily) : visible.slice(0, 8);
   if (options.length === 0) return null;
   return (
     <div className={`facet${bold ? " facet-bold" : ""}`}>
       <p className="facet-title">{title}</p>
-      {searchable && options.length > 8 && (
-        <input className="facet-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`Buscar ${title.toLowerCase()}`} />
-      )}
       {shown.map((o) => (
         <button key={o.id} className={`facet-option ${o.parent_id ? "facet-child" : ""} ${value === o.id ? "active" : ""}`} onClick={() => onChange(value === o.id ? "" : o.id)}>
           <span>{o.name}</span>
           <b>{o.count}</b>
         </button>
       ))}
-      {!filter && visible.length > shown.length && !expanded && (
+      {visible.length > shown.length && !expanded && (
         <button className="facet-more" onClick={() => setExpanded(true)}>
           {tree ? "Ver todos los tipos" : `Ver ${visible.length - shown.length} más`}
         </button>
       )}
-      {!filter && expanded && (
+      {expanded && (
         <button className="facet-more" onClick={() => setExpanded(false)}>
           Ver menos
         </button>
@@ -420,7 +412,7 @@ export default function ProductsPage() {
                     ))}
                   </div>
                   <FacetList title="Categoría" options={categoryOptions} value={filters.cat} onChange={(cat) => update({ cat })} bold />
-                  <FacetList title="Proveedor" options={facets.suppliers} value={filters.prov} onChange={(prov) => update({ prov })} searchable />
+                  <FacetList title="Proveedor" options={facets.suppliers} value={filters.prov} onChange={(prov) => update({ prov })} />
                   <FacetList title="Local" options={facets.locations} value={filters.local} onChange={(local) => update({ local })} />
                   <div className="facet">
                     <p className="facet-title">Cómo se mide</p>
