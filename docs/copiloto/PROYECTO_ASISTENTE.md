@@ -9,6 +9,10 @@ acceso a datos controlado, habilidades (skills), contexto de sesión y, en el fu
 
 ## 0. Encargo para un modelo más potente
 
+> Sustituido por [PROMPT_MEJORA_ASISTENTE.md](PROMPT_MEJORA_ASISTENTE.md), a partir del diagnóstico de
+> [INFORME_ASISTENTE_2026-11.md](INFORME_ASISTENTE_2026-11.md). El encargo de abajo (objetivo 70/70 en la batería) se
+> conserva como contexto, pero la batería no mide la experiencia real: no lo uses como objetivo.
+
 Pegar esto al empezar. El documento completo y `roles.md` son la fuente de verdad.
 
 > Trabajas en el repositorio `nexo` (LogisticApp), rama `claude/amazing-hamilton-kx3iae`. Tu tarea es el
