@@ -1,39 +1,53 @@
-# Informe del asistente · 18 de noviembre de 2026
+# Informe del asistente · 18 de noviembre de 2026 (versión 2)
 
-Auditoría completa del asistente de LogisticApp (`src/copiloto` y el panel `src/components/copiloto`): cómo se usa de
-verdad, cómo responde a preguntas nuevas, cuánto tarda, cómo está construido y por qué falla. Termina con la
-arquitectura objetivo y el plan por fases. El encargo para ejecutarlo está en
-[PROMPT_MEJORA_ASISTENTE.md](PROMPT_MEJORA_ASISTENTE.md).
+Auditoría del asistente de LogisticApp (`src/copiloto` y el panel `src/components/copiloto`): cómo se usa de verdad,
+cómo responde a preguntas nuevas, cuánto tarda, cómo está construido y por qué falla.
 
-Sin datos del negocio: las cifras de la base de datos se dan como proporciones o descritas, no los importes.
+Esta versión integra una aportación externa sobre la eficiencia del asistente como herramienta de logística. Cada
+afirmación de esa aportación se ha contrastado contra el código y los datos de producción (sección 6). El encargo
+para ejecutar la mejora está en [PROMPT_MEJORA_ASISTENTE.md](PROMPT_MEJORA_ASISTENTE.md).
+
+Sin datos del negocio: las cifras de la base de datos se dan como recuentos o proporciones, no como importes ni stock.
+Las pruebas en producción fueron de solo lectura y no se confirmó ningún borrador.
 
 ---
 
 ## 1. Resumen
 
-- **En uso real, la mitad de las respuestas son preguntas.** En 104 conversaciones de personas (561 mensajes), el
-  50 % de las respuestas son aclaraciones. El 18 % de las conversaciones tiene bucles (3 o más aclaraciones
-  seguidas; la peor, 20) y el 16 % acaba con una aclaración sin resolver: la persona se rinde.
-- **Ante preguntas nuevas acierta 4 de cada 10.** En una prueba ciega de 64 mensajes realistas, escritos sin mirar
-  la batería: 38 % bien, 25 % a medias, 38 % mal. La batería oficial da 86/86 sobre el mismo producto: está
-  ajustada a lo que ya funciona y no mide la experiencia real.
-- **Los fallos tienen pocas causas, y son de diseño:**
-  - la comprensión se hace con reglas de texto encadenadas y un clasificador de catálogo cerrado;
-  - las consultas no recogen filtros («de Makro», «esta semana», «de Luis», «el albarán A-4356»);
-  - el diálogo no sabe completar ni corregir: un formulario ignora lo que escribes y un borrador no se puede
-    cambiar («mejor que sean 4»);
-  - en producción no hay búsqueda semántica ni redacción, solo letras parecidas y plantillas.
-- **La velocidad no es el problema:** mediana de 0,5 s y el 90 % por debajo de 1,7 s.
-- **Los datos de producción tienen cifras imposibles que el asistente repite sin avisar:** stock valorado en
-  negativo, food cost del 3 %, cientos de productos «a reponer» y productos de prueba.
-- **Lo que pide la gente:** «que haga lo que le pido sin preguntarme lo que ya sé», «que entienda el producto»,
-  «que responda a lo que pido, no información a mansalva». En las opiniones de los usuarios hay 5 reportes de
-  bucle y uno dice literalmente que la IA entiende lo que quieres, pero Jev se interpone.
+El asistente tiene dos problemas distintos, y conviene no confundirlos.
 
-Recomendación: corregir primero el diálogo y la medición (fases 0 a 2, sin cambiar la arquitectura). Después,
-pasar a un agente con herramientas, en el que un modelo de lenguaje elige qué leer o qué proponer con
-herramientas tipadas, y el código sigue calculando, validando y pidiendo confirmación (fase 3). Ese paso cambia la
-regla actual «Jev decide»: es una decisión tuya (sección 7).
+**A. El suelo: entender y dialogar.** Es lo que hoy se rompe y lo que hace que la gente se rinda.
+
+- En uso real, **la mitad de las respuestas son preguntas de vuelta**. El 18 % de las conversaciones tiene bucles
+  (3 o más aclaraciones seguidas; la peor, 20) y el 16 % acaba sin resolverse.
+- **Ante preguntas nuevas acierta 4 de cada 10.** Prueba ciega, calificada a mano: 38 % bien, 25 % a medias, 38 % mal.
+  La batería oficial da 86/86, y la evaluación de Jev, 218/220. Las dos miden frases conocidas, no la experiencia real.
+- **El tema peor resuelto es el traspaso:** unos 73 de cada 90 mensajes de personas acaban en aclaración (81 %). La
+  mayoría traen la frase completa: «pasa 2 cajas de coca cola del parador al vivero» duda del producto; «haz un
+  traspaso de 10 cajas de heineken a parador de vivero» pregunta el destino.
+
+**B. El techo: decidir la logística.** Es lo que haría que el asistente valga de verdad.
+
+- Preguntar «qué pido» devuelve todo lo que cumple el filtro de reposición, no la decisión.
+- Comprar y traspasar van por separado, con horizontes distintos (7 y 3 días).
+- La ficha del proveedor solo se usa para avisar en el borrador, no para decidir qué entra hoy ni cuánto.
+- Esta parte la trae la aportación, y es correcta en lo esencial.
+- Hoy apenas se pregunta: en torno al 3 % de los mensajes de personas son de «pedir o reponer». Es una apuesta de
+  producto, no la queja actual.
+
+**La velocidad no es el problema.** Mediana de 0,5 s; el 90 % responde en menos de 1,7 s. Jev, en su llamada principal,
+tiene una mediana de 118 ms.
+
+**Recomendación:**
+
+1. Medir de verdad (fase 0).
+2. Arreglar el diálogo y los filtros (fases 1 y 2) sin tocar la arquitectura.
+3. En paralelo, por ser código puro y aislado: unir comprar y traspasar con la ficha del proveedor (fase 4).
+4. Después, sustituir las reglas de texto por un **intérprete con modelo de lenguaje** que rellene la misma petición
+   tipada que hoy rellena Jev. Se prueba en sombra, sin tocar el flujo fijo ni las puertas de las escrituras (fase 3).
+
+Esto corrige la versión 1 de este informe, que proponía un agente con herramientas que eligiera él mismo qué hacer.
+Lo que falla es entender, no planificar. Un flujo fijo es lo que se puede auditar cuando se escribe stock.
 
 ---
 
@@ -41,16 +55,17 @@ regla actual «Jev decide»: es una decisión tuya (sección 7).
 
 | Fuente | Qué es | Qué mide |
 |---|---|---|
-| Auditoría de producción (`copilot_audit`) | 6.322 registros desde el 23/09: tipo de mensaje, resultado y decisiones de Jev | Uso real: aclaraciones, bucles, abandonos |
+| Auditoría de producción (`copilot_audit`) | 6.322 registros desde el 23/09: tipo de mensaje, resultado y decisiones de Jev | Uso real: aclaraciones, bucles, abandonos y temas |
 | Opiniones (`copilot_feedback`) | 20 reportes de personas desde el panel | Qué molesta |
-| Borradores (`copilot_drafts`) | 315 borradores; 14 confirmados | Si las operaciones llegan a buen puerto |
-| Prueba ciega | 24 conversaciones y 78 turnos nuevos, escritos como los escribiría un encargado, sin mirar la batería. Se pasó en producción, sin confirmar nada. El conjunto está en `scripts/ops/bateria-ciega.json`. La calificación de la sección 3.2 (64 mensajes con contenido) se hizo a mano sobre esas respuestas; el juez automático aún no existe (fase 0) | Calidad ante lo desconocido |
-| Batería oficial | 86 casos de `scripts/ops/bateria-asistente.json` en producción | Regresiones conocidas y latencia |
-| Código | Tamaño por módulo, reglas de texto, vías de entrada, modelos configurados | Estructura |
-| Panel | Capturas del panel en producción (bienvenida, formulario, borrador, respuestas) | Uso y claridad |
+| Borradores (`copilot_drafts`) | 330 borradores: 14 confirmados, el resto pendientes | Si las operaciones llegan a buen puerto |
+| Prueba ciega | 24 conversaciones y 78 turnos nuevos, escritos como los escribiría un encargado, sin mirar la batería (`scripts/ops/bateria-ciega.json`). Se pasó en producción, sin confirmar nada. La calificación (64 turnos con contenido) se hizo a mano: el juez automático aún no existe (fase 0) | Calidad ante lo desconocido |
+| Batería oficial | 86 casos de `scripts/ops/bateria-asistente.json` | Regresiones y latencia |
+| Evaluación de Jev ([EVALUACION.md](EVALUACION.md)) | 220 frases del catálogo | Si Jev clasifica bien sus propias frases |
+| Código | Recorrido de un mensaje, reposición, borradores, redactor, sesión, umbrales | Estructura |
+| Datos maestros | Proveedores con condiciones, productos con mínimo u objetivo por local | Si la decisión de logística tiene con qué trabajar |
 
-Para separar el uso de personas del de las pruebas automáticas se quitaron los mensajes idénticos a los de las
-baterías y las conversaciones de las cuentas de pruebas.
+Para separar a las personas de las pruebas se quitaron las cuentas de pruebas y los mensajes idénticos a los de las
+baterías. El reparto por temas (sección 3.2) se hizo por palabras clave: es aproximado.
 
 ---
 
@@ -67,216 +82,314 @@ baterías y las conversaciones de las cuentas de pruebas.
 | Borradores preparados | 7 % |
 | Conversaciones con un bucle (3 o más aclaraciones seguidas) | **18 %** (racha máxima: 20) |
 | Conversaciones que acaban en una aclaración sin resolver | **16 %** |
-| Borradores confirmados | 14 de 315 (4 %) |
+| Borradores confirmados | 14 de 330 (4 %) |
 
-De dónde salen las aclaraciones (todas las cuentas):
-- **378 las pide el propio asistente** sin que ninguna decisión de Jev dude: un formulario de «me faltan datos»,
+De dónde salen las aclaraciones:
+- **378 las pide el propio asistente**, sin que ninguna decisión de Jev dude: el formulario de «me faltan datos»,
   «¿qué operación quieres registrar?» o «¿de cuál de estos productos?».
-- **El resto vienen de dudas de Jev:** sobre la intención (70), el producto (68), la operación (31), el local (26),
-  la consulta (24), la zona (20) y la coherencia del borrador (16).
+- **El resto, de dudas de Jev:** intención (70), producto (68), operación (31), local (26), consulta (24), zona (20) y
+  coherencia del borrador (16).
 
-Es decir, el problema es sobre todo el diseño del diálogo, no los umbrales.
+El problema está sobre todo en el diseño del diálogo, no en los umbrales.
 
-Ejemplos reales:
+### 3.2 Por tema (mensajes de personas, aproximado)
 
-- «inventario» → 9 aclaraciones seguidas.
-- «todos» (para confirmar todos los traspasos pendientes) → 10.
-- «crear zona» → 6.
-- Las respuestas a una aclaración se acumulan en una frase cada vez más larga: «sube el precio del red bull. red
-  bull sugarfree. consulta precio red bull sugarfree. hola».
-- «quiero pedir 3 cocacolas y 3 larios» → pregunta local de origen y de destino como si fuera un traspaso, y acaba
-  en error.
-- Peticiones razonables que no tienen camino: crear un proveedor, desarchivar, «quién ha creado este producto»,
-  «cómo se hace el chuletón», «albarán A-4356».
+| Tema | Mensajes | Acaban en aclaración |
+|---|---|---|
+| Traspasos | 90 | **73 (81 %)** |
+| Stock | 88 | 14 (16 %) |
+| Recepciones y albaranes | 28 | 13 (46 %) |
+| Mermas | 29 | 22 (76 %) |
+| Escandallos y márgenes | 25 | 6 (24 %) |
+| Pedir y reponer | 23 | 9 (39 %) |
+| Facturas | 12 | 8 (67 %) |
+| Otros (saludos, órdenes sueltas, preguntas sin tema claro) | 451 | 196 (43 %) |
 
-### 3.2 Prueba ciega (64 mensajes con contenido)
+**Las escrituras son lo que peor va:**
+- traspasos y mermas acaban en aclaración tres de cada cuatro veces;
+- las consultas de stock, una de cada seis.
 
-| Resultado | Mensajes | % |
+**Los traspasos, en detalle:**
+- **Con la frase completa, aun así pregunta:** «pasa 2 cajas de coca cola del parador al vivero» (producto),
+  «haz un traspaso de 10 cajas de heineken a parador de vivero» (destino), «quiero hacer un traspaso de parador a la
+  oliva de 100 cocacolas» (formulario).
+- **Las respuestas se acumulan:** «iniciar traspaso. a comida la oliva. traspaso. cocacola».
+- **Le falta un dato de verdad:** «traspaso a vivero», «quiero hacer un traspaso de agua». Es la minoría.
+
+### 3.3 Prueba ciega (64 turnos con contenido)
+
+| Resultado | Turnos | % |
 |---|---|---|
 | Bien | 24 | 38 % |
 | A medias (útil pero incompleto, o con una pregunta innecesaria) | 16 | 25 % |
 | Mal (no responde lo pedido, se enreda o da cifras sin sentido) | 24 | 38 % |
 
-Por tema:
-
-| Tema | Bien | Lo que falla |
+| Tema | Resultado | Lo que falla |
 |---|---|---|
-| Stock (con seguimientos y erratas) | Casi todo | Aclaración innecesaria con un nombre exacto («coca cola») |
-| Registrar en una frase completa (recepción, merma, inventario, alta de producto, archivar) | Bien | — |
-| Registrar por pasos («registra una merma» → «larios» → «2 botellas») | Mal | El formulario ignora lo escrito y vuelve a salir; al final pregunta otra vez |
+| Stock (con seguimientos y erratas) | Casi todo bien | Aclaración innecesaria con un nombre exacto («coca cola») |
+| Registrar en una frase completa (recepción, merma, inventario, alta, archivar) | Bien | — |
+| Registrar por pasos («registra una merma» → «larios» → «2 botellas») | Mal | El formulario ignora lo escrito y vuelve a salir |
 | Corregir un borrador («mejor que sean 4») | Mal | No existe |
 | Pedidos | A medias | Ignora el proveedor dicho, o elige otro |
-| Facturas y albaranes | Mal | Ignora filtros: proveedor, semana, número de albarán |
-| Gestión («¿qué proveedor me la vende más barata?», «¿en qué local se pierde más en mermas?», «stock parado») | Mal | Responde otra cosa o pregunta en genérico |
-| Escandallos | Bien | «Peor margen» responde otra cosa; «cómo se hace» da una receta genérica y no la ficha del plato |
+| Facturas y albaranes | Mal | Ignora el proveedor, la semana y el número de albarán |
+| Gestión (proveedor más barato, mermas por local, stock parado) | Mal | Responde otra cosa o pregunta en genérico |
+| Escandallos | Bien | «Peor margen» responde otra cosa; «cómo se hace» no da la ficha del plato |
 | Equipo | A medias | «¿Qué permisos tiene Luis?» devuelve la lista de todos |
-| Cosas que no sabe hacer (proveedor nuevo, desarchivar, teléfono, quién creó) | Mal | Aclaración genérica, «fuera de ámbito» o la lista entera de capacidades, en vez de «eso no lo hago aún; hazlo en…» |
-| «¿Cómo se hace…?» (registrar un albarán, añadir un producto a una zona) | Mal | Da datos en vez de explicar |
+| Lo que no sabe hacer (proveedor nuevo, desarchivar, teléfono, quién lo creó) | Mal | Aclaración genérica o la lista entera de capacidades |
+| «¿Cómo se hace…?» | Mal | Da datos en vez de explicar |
 | Charla y fuera de ámbito | Bien | — |
 
-Causas, por frecuencia: filtros ignorados (6), lo escrito ignorado en un formulario (4), falta la función (4),
-aclaración genérica (3), datos en vez de explicación (2), cifras imposibles (2), segunda pregunta ignorada (1),
-proveedor equivocado (1), bucle de aclaración (1) y otras (10).
+Causas, por frecuencia:
 
-**Inestable según cómo se escriba:** en el panel, «que tal vamos este mes», justo después de un «olvídalo», devolvió
-la lista de capacidades. En la prueba, «q tal vamos este mes» dio el resumen del mes.
+| Causa | Turnos |
+|---|---|
+| Filtros ignorados | 6 |
+| Lo escrito ignorado en un formulario | 4 |
+| Falta la función | 4 |
+| Aclaración genérica | 3 |
+| Datos en vez de una explicación | 2 |
+| Cifras imposibles | 2 |
+| Segunda pregunta ignorada | 1 |
+| Proveedor equivocado | 1 |
+| Bucle de aclaración | 1 |
+| Otras | 10 |
 
-### 3.3 Latencia
+### 3.4 Latencia
 
 | | Mediana | p90 | Máximo |
 |---|---|---|---|
 | Batería oficial (86) | 0,45 s | 1,0 s | 3,3 s |
 | Prueba ciega (78) | 0,52 s | 1,7 s | 3,1 s |
+| Jev, llamada principal (evaluación) | 0,12 s | 0,16 s | 0,45 s |
 
-Va bien. Lo lento es lo que pasa por la IA de apoyo o por varios pasos (unos 1,5–3 s). Al pasar a un agente con
-herramientas habrá que vigilarlo (objetivo: p90 por debajo de 3 s).
+Lo lento es lo que pasa por la IA de apoyo o por varios pasos, entre 1,5 y 3 s. Un intérprete con modelo de lenguaje
+añade una llamada (fase 3): hay que medirla y mantener la vía rápida para lo inequívoco.
 
-### 3.4 Lo que dicen las personas (opiniones)
+### 3.5 Lo que dicen las personas
 
 | Tema | Reportes |
 |---|---|
 | Bucles y preguntas de más («si le he dado la acción y los datos, no tiene sentido que vuelva a preguntar») | 7 |
 | No entiende el producto («puse zero y leyó zero zero») | 3 |
-| Formato y exceso de información («tiene que dar respuesta a lo que se pide, no tirar información a mansalva») | 3 |
+| Formato y exceso de información («respuesta a lo que se pide, no información a mansalva») | 3 |
 | Que pueda hacer todo lo de la app | 2 |
 | «La IA detecta lo que quieres, pero se interpone Jev» | 1 |
 | Traspaso con más cantidad que el stock, sin frenar | 1 |
 
-### 3.5 El panel
+### 3.6 Datos maestros para decidir la logística
 
-Bien resuelto: la bienvenida con sugerencias por pantalla, las tarjetas de «lo que puedo hacer», el borrador con
-sus avisos y la confirmación explícita, y la entrada de archivos (foto, PDF, Excel), voz y comandos `/`.
+| Dato | Estado | Consecuencia |
+|---|---|---|
+| Proveedores con días de pedido, hora límite, plazo y mínimo | 18 de 32 (56 %) | Para el resto hace falta un valor por defecto, y decir que falta |
+| Producto por local con mínimo y objetivo | 1.079 de 3.484 (31 %) | Para el 69 % la reposición solo puede mirar el consumo, y lo que no tiene consumo apuntado no aparece |
+| Stock y consumo | Hay valoraciones en negativo y productos de prueba | Las cifras imposibles salen en las respuestas sin aviso |
+
+Con estos datos, una tarjeta de decisión perfecta en código seguiría proponiendo cosas raras. La calidad de la
+decisión depende tanto de estos datos como de la fórmula.
+
+### 3.7 El panel
+
+Bien resuelto:
+- la bienvenida con sugerencias según la pantalla;
+- las tarjetas de «lo que puedo hacer»;
+- el borrador con sus avisos y la confirmación explícita;
+- la entrada de archivos (foto, PDF, Excel), voz y comandos `/`.
 
 Lo que estorba:
-- **La lista de capacidades** es un muro de texto y sale como respuesta de reserva a preguntas que no entiende.
-- **El formulario de «me faltan datos»** aparece aunque ya se hayan escrito los datos.
+- **La lista de capacidades** es un muro de texto y sale como respuesta de reserva.
+- **El formulario de «me faltan datos»** aparece aunque los datos ya estén escritos.
 - **No se puede corregir un borrador hablando.**
-- **Se ven textos internos:** «Entiendo: «¿qué pedido quieres consultar?»» y avisos sin motivo («Revisa el
-  producto: Coca-Cola»).
+- **Se ven textos internos:** «Entiendo: «¿qué pedido quieres consultar?»» y «Revisa el producto: Coca-Cola» sin motivo.
 
 ---
 
-## 4. Cómo está construido (estado actual)
+## 4. Cómo está construido
 
-- **Tamaño:** unas 21.000 líneas en `src/copiloto` y 2.200 en el panel; 73 ficheros de pruebas.
-- **Un mensaje pasa por hasta 10 vías, en orden:**
-  1. corrector de jerga;
-  2. archivo dado al chat;
-  3. varias órdenes en una frase;
-  4. comandos `/`;
-  5. órdenes de oficina por reglas;
-  6. respuestas fijas;
-  7. temas de gestión por palabras clave;
-  8. vía rápida de stock;
-  9. Jev;
-  10. la IA de apoyo (rescate o respuesta general).
+El asistente ya es un **flujo fijo**: el camino está escrito en código. No es un agente que elija herramientas en un
+bucle. Para escribir stock, es lo correcto, porque se puede auditar.
 
-  Cada vía decide con reglas de texto: hay unas 60 expresiones regulares en al menos 27 ficheros.
-- **Jev** (TypeSafe) es un clasificador con un catálogo cerrado de preguntas, y sus «puertas» de probabilidad deciden
-  si actuar, confirmar o preguntar. No entiende lo que no está en su catálogo.
-- **IA de apoyo** (Haiku y otros por el AI Gateway de Vercel): solo para respuestas generales y para reescribir
-  seguimientos, siempre validada por Jev.
-- **En producción, redacción y búsqueda semántica están apagadas** (`WRITER_PROVIDER` y `EMBED_PROVIDER` en `none`).
-  Las respuestas son plantillas y los productos se buscan por parecido de letras. De ahí «zero» frente a «zero zero»
-  y «albaranes» confundido con «albariño».
-- **Las consultas** (`tools/info.ts`) eligen la herramienta por palabras clave, pero casi ninguna extrae filtros, así
-  que devuelven el listado general.
-- **El estado de la conversación** guarda el foco (productos, local) y la aclaración pendiente, pero no un borrador
-  activo editable ni datos a medio rellenar entre mensajes de texto.
-- **La auditoría no guarda la respuesta, la latencia ni la vía usada.** Sin eso no se puede medir la calidad real.
-- **Lo que está bien hecho y hay que conservar:**
-  - los borradores con confirmación y validación (zod);
-  - los permisos en la base de datos (RLS, alcance por cuenta y local);
-  - las cifras con `decimal.js`;
-  - el registro de especialistas;
-  - la lectura de archivos;
-  - las pruebas y la batería.
+| Capa | Dónde | Qué resuelve | Qué no debe resolver |
+|---|---|---|---|
+| Panel | `src/components/copiloto` | Conversación, voz, archivos, tarjeta de borrador | Cifras y permisos |
+| Entrada | `entities/jerga.ts`, `agent/document-turn.ts`, `agent/multi-task.ts` | Erratas, archivo leído, varias órdenes en una frase | Decidir |
+| Atajos | `agent/preroute.ts`, `agent/office-actions.ts`, `agent/fixed-replies.ts`, `agent/topics.ts`, `agent/fast-path.ts` | Comandos, órdenes de oficina, respuestas fijas, temas por palabras clave, stock rápido. Gana el primero | Lo ambiguo |
+| Jev | `src/copiloto/jev` | Una llamada con todas las preguntas del catálogo en paralelo: intención, producto, local… Otra, solo para revisar el borrador | Texto y aritmética |
+| Puertas | `jev/gates/policy.ts`, `thresholds.ts` | Leer puede ir con lo probable. Escribir no se adivina: cerrar inventario exige 0,95 | Relajar una escritura crítica |
+| Cálculo | `tools/tools.ts`, `skills/tareas.ts`, `drafts/` | Stock, reposición, pedido por proveedor, equilibrar locales, borradores | Interpretar el idioma |
+| Redacción | `writer/writer.ts`, `writer/verifier.ts` | Plantilla, o modelo cuyas cifras deben existir en el informe | Inventar un número |
+| IA de apoyo | `writer/assistant.ts`, AI Gateway | Preguntas generales de hostelería y reescritura de seguimientos, validadas | Datos del negocio |
+| Verdad | Postgres, RLS, funciones de stock | Qué se puede ver y escribir | — |
 
-### Por qué falla, en una frase
+Lo que hace que falle:
 
-**La comprensión se construye sumando reglas.** Cada arreglo añade otra: «albaranes» frente a «albariño», «Boj 570»
-partido en dos, «alabran». Cada regla tapa un caso y deja abiertos los parecidos, así que la parte larga de lo que
-dice la gente nunca se cubre. La batería, que crece con los casos arreglados, da 100 % mientras la experiencia real
-se queda en el 40 %.
+- **La comprensión se hace sumando reglas.** Hay unas 60 expresiones regulares en al menos 27 ficheros, repartidas en
+  hasta 10 vías por las que puede pasar un mensaje antes de llegar a Jev, que es un clasificador de catálogo cerrado.
+  Cada arreglo añade otra regla («albaranes» frente a «albariño», «Boj 570», «alabran»). Tapa ese caso y deja abiertos
+  los parecidos.
+- **No hay una tarea en curso.** La sesión (`agent/session.ts`) guarda 6 turnos recortados a 280 caracteres, el foco y
+  la aclaración pendiente. No guarda un borrador activo editable ni datos a medio rellenar.
+- **Las consultas no extraen filtros.** `tools/info.ts` elige la herramienta por palabras clave y casi nunca filtra.
+- **En producción no hay búsqueda semántica ni redacción con modelo** (`WRITER_PROVIDER` y `EMBED_PROVIDER` en `none`,
+  `config.ts:76`). Los productos se buscan por parecido de letras.
+- **La auditoría no guarda la respuesta, la latencia ni la vía usada**, así que no se puede medir la calidad.
+
+Lo que está bien y se conserva:
+- los borradores con confirmación y validación (zod);
+- los permisos en la base de datos (RLS, alcance por cuenta y local);
+- las cifras con `decimal.js` y el verificador de números del redactor;
+- las puertas de Jev para escribir;
+- el registro de especialistas, la lectura de archivos y las pruebas.
 
 ---
 
-## 5. Causas raíz, por impacto
+## 5. La reposición hoy (contrastado en el código)
+
+**`computeReorder`** (`tools/tools.ts:95-152`):
+- **Media diaria:** salidas de 28 días (consumo, merma y ajustes negativos) entre 28. Los traspasos no cuentan.
+- **Disponible:** stock más traspasos en camino más pedidos abiertos.
+- **A pedir:** el máximo entre «cubrir el horizonte y quedar en el mínimo» y «llegar al objetivo».
+- **Entra en la lista** si está bajo mínimo, o si no cubre el horizonte sin bajar del mínimo. Se ordena por cobertura.
+- **Hallazgo nuevo:** la cobertura que ordena la lista y marca lo urgente se calcula con el stock sin lo que está en
+  camino (`coverage = qty / avg`, línea 143), mientras que la cantidad sí lo cuenta. Un producto ya pedido puede salir
+  como «urgente».
+
+**La tarea `pedidos`** (`skills/tareas.ts:86-157`):
+- usa un horizonte de 7 días, agrupa por local y proveedor y redondea a la caja de compra;
+- marca como urgente lo que cubre menos de 3 días;
+- da un resumen y un botón por local. El botón prepara el borrador con `catalog-builder`, que vuelve a calcular.
+
+**La tarea `equilibrar`** (`skills/tareas.ts:161-262`):
+- busca, con un horizonte de 3 días, un local que pueda ceder: por encima del objetivo, del mínimo más una semana o de
+  una semana de consumo;
+- es otra tarea, con otro horizonte, y el pedido no la tiene en cuenta.
+
+**El borrador de pedido** (`drafts/catalog-builder.ts:587-712`):
+- **sí lee la ficha del proveedor**, con `nextDelivery` y `minOrderShortfall` de `src/lib/supplier-terms.ts`, la misma
+  lógica que la pantalla de Pedidos;
+- pero solo para **avisar**: entrega prevista, «no admite pedidos hoy», «faltan X para el mínimo»;
+- el horizonte sigue fijo en 7 días y un proveedor sin pedido hoy entra igual en el borrador.
+
+Lo que falta: horizonte hasta la entrega siguiente, filtro por día de pedido, peso por día de la semana, consumo teórico
+desde ventas y escandallo, trato aparte para lo perecedero y una forma de proponer mínimos donde no los hay.
+
+---
+
+## 6. Contraste con la aportación externa
+
+| Afirmación de la aportación | Veredicto | Evidencia | Qué se adopta |
+|---|---|---|---|
+| El asistente es un flujo fijo, no un agente, y eso es lo correcto para escribir stock | **Correcta** | `agent/loop.ts`, puertas de `policy.ts` | Se adopta. Se retira de este informe el «agente que elige herramientas» |
+| No sustituir el flujo por un agente que planifique; si hace falta desambiguar, que el modelo elija entre candidatos ya recuperados | **Correcta, y compatible con los datos** | Los fallos medidos son de comprensión y diálogo, no de planificación | La fase 3 pasa a ser un **intérprete**: el modelo rellena la petición tipada de Jev (`jev/request.ts`) y elige entre candidatos que recupera el código. Las cantidades solo pueden ser números que aparezcan en la frase |
+| El cuello de botella es la eficiencia del encargado al decidir, no el precio ni la latencia | **Correcta a medias** | Latencia buena, de acuerdo. Pero el 50 % de aclaraciones y el 81 % en traspasos dicen que hoy lo que frena es entender; «pedir o reponer» es un 3 % de los mensajes | Dos problemas, en este orden: el suelo (entender y dialogar) y el techo (decidir). La decisión de logística es el diferenciador del producto, no la queja actual |
+| La evaluación de 218/220 mide el idioma, no la decisión | **Correcta** | [EVALUACION.md](EVALUACION.md). Ni siquiera mide el idioma real: son frases del catálogo, y la prueba ciega da un 38 % | Batería de decisiones (aportación) más batería ciega (este informe), además de las dos que ya hay |
+| `computeReorder` funciona como se describe (28 días, en camino, pedidos abiertos, mínimo y objetivo) | **Correcta** | `tools/tools.ts:95-152` | Se añade el fallo de la cobertura sin lo que está en camino (sección 5) |
+| `pedidos`: 7 días, urgente bajo 3, por proveedor, caja de compra. `equilibrar`: puede ceder por encima del objetivo o del mínimo más una semana | **Correcta** | `skills/tareas.ts` | Se añade que los horizontes no coinciden (7 y 3 días) |
+| `computeReorder` y `pedidos` no usan la ficha del proveedor | **Correcta a medias** | El borrador (`catalog-builder.ts:687-712`) ya la usa con `lib/supplier-terms.ts`, pero solo para avisar | El paso es más barato de lo que parece: la lógica de fechas existe y está probada. Falta usarla para decidir. Solo 18 de 32 proveedores tienen condiciones: hace falta un valor por defecto |
+| Equilibrar debería ser el primer paso de pedir | **Correcta** | Dos tareas separadas | Se adopta (fase 4) |
+| En un traspaso sin origen, poner primero el local que puede ceder; sin elección no hay borrador | **Correcta, pero es el caso menor** | La mayoría de aclaraciones de traspaso llegan con origen y destino dichos (3.2) | Se adopta dentro de la fase 1, después de que la frase completa funcione |
+| Una consulta de stock intenta redactarse con el modelo si el redactor está activo | **Correcta en el código, sin efecto hoy** | `TEMPLATE_ONLY` en `writer.ts:17` no incluye las consultas; en producción el redactor está apagado | Se adopta como regla preventiva (fase 2): las consultas simples, siempre con plantilla |
+| El historial es corto: 6 turnos de 280 caracteres | **Correcta** | `session.ts:101,193` | El remedio no es alargar el historial, sino la «tarea en curso» con estado (fase 1) |
+| Umbral de 0,95 para cerrar inventario; tope de 40 candidatos en sugerencias | **Correcta** | `thresholds.ts:30`, `suggestions/engine.ts:38` | Sin cambios |
+| Jev, mediana de 118 ms | **Correcta** | [EVALUACION.md](EVALUACION.md):5 | — |
+| El límite de peticiones en memoria no es el problema de hoy | **Correcta** | — | Se deja para cuando haya varias instancias |
+| Referencia a `INFORME_AUDITORIA.md` | **No existe en el repositorio** | — | No se cita |
+| Precedentes del mercado (proveedores de software de restauración que exigen aprobación) | **No contrastado** | — | Se toma como contexto, no como evidencia. La regla de confirmar ya es del proyecto |
+
+**Lo que la aportación no cubre y este informe añade:**
+- el diálogo que no avanza (formularios, respuestas libres, corrección del borrador);
+- las consultas que ignoran filtros;
+- las funciones que faltan;
+- las cifras imposibles en los datos;
+- la poca cobertura de mínimos y condiciones;
+- la medición del uso real.
+
+Sin eso, la tarjeta de decisión llegaría a un usuario que ya se ha rendido en el segundo turno.
+
+---
+
+## 7. Causas raíz, por impacto
 
 | # | Causa | Síntomas | Impacto |
 |---|---|---|---|
-| R1 | Diálogo sin estado de «tarea en curso»: lo escrito no rellena el formulario, la respuesta libre a una aclaración no casa con las opciones, no se puede editar el borrador activo, las frases se encadenan | Bucles, abandono, «mejor que sean 4» | Muy alto |
-| R2 | Comprensión por reglas y por un clasificador de catálogo cerrado | Respuestas distintas según cómo se escriba; la parte larga de lo que dice la gente no se cubre; aclaraciones genéricas | Muy alto |
-| R3 | Las consultas no extraen filtros (proveedor, fechas, número, persona, categoría, local) | «¿Cuánto le debo a Makro?» da el total de todos | Alto |
-| R4 | Sin búsqueda semántica ni redacción en producción | Confunde productos y da respuestas rígidas | Alto |
-| R5 | Huecos funcionales: proveedor nuevo, desarchivar, quién hizo qué, contacto del proveedor, guías «cómo se hace», comparativas (más barato, mermas por local, stock parado), instrucciones de receta, pedido al proveedor indicado | «No sé», o peor: otra cosa | Medio-alto |
-| R6 | Datos de producción imposibles repetidos sin sentido común | Stock en negativo, food cost del 3 %, cientos «a reponer» | Medio (destruye la confianza) |
-| R7 | Medición engañosa: batería ajustada, auditoría sin respuesta ni latencia, sin indicadores de resultado | Se cree que va bien | Alto (impide mejorar) |
-| R8 | Respuestas de reserva malas: lista de capacidades o «fuera de ámbito» ante lo no entendido | Sensación de que no escucha | Medio |
+| R1 | Diálogo sin «tarea en curso»: lo escrito no rellena lo pendiente, las respuestas libres no casan con las opciones, el borrador activo no se edita, las frases se encadenan | Bucles, abandono, «mejor que sean 4», traspasos con la frase completa que acaban en aclaración | Muy alto |
+| R2 | Comprensión por reglas de texto y un clasificador de catálogo cerrado | Respuestas distintas según cómo se escriba; aclaraciones genéricas; confusiones de producto | Muy alto |
+| R3 | Las consultas no extraen filtros (proveedor, fechas, número, persona, local) | «¿Cuánto le debo a Makro?» da el total de todos | Alto |
+| R4 | La reposición entrega una lista, no una decisión: comprar y traspasar separados, horizonte fijo, ficha del proveedor solo para avisar, cobertura que no cuenta lo que está en camino | El encargado sigue planificando a mano | Alto (diferenciador) |
+| R5 | Medición engañosa: baterías ajustadas, auditoría sin respuesta ni latencia, sin batería de decisiones | Se cree que va bien | Alto (impide mejorar) |
+| R6 | Datos maestros incompletos y sucios: 31 % de productos con niveles, 56 % de proveedores con condiciones, valoraciones negativas | Reposición pobre y cifras imposibles sin aviso | Medio-alto |
+| R7 | Huecos funcionales: crear proveedor, desarchivar, quién hizo qué, contacto, guías «cómo se hace», comparativas | «No sé», o peor: otra cosa | Medio |
+| R8 | Sin búsqueda semántica en producción | «zero» frente a «zero zero» | Medio |
+| R9 | Respuestas de reserva malas: lista de capacidades o «fuera de ámbito» | Sensación de que no escucha | Medio |
 
 ---
 
-## 6. Arquitectura objetivo
+## 8. Arquitectura objetivo
+
+Se mantiene el flujo fijo. Cambia la pieza que entiende y se añade la que decide.
 
 ```
-Panel ──► Entrada (jerga, archivo leído, borrador activo, foco)
-            │
-            ▼
-      Agente con herramientas (modelo de lenguaje, p. ej. Claude por el AI Gateway)
-       · entiende la frase y el contexto (historial corto, foco, borrador activo, catálogo resumido)
-       · llama herramientas TIPADAS:
-           lectura ─ stock(producto?, local?, zona?), movimientos(…, desde, hasta),
-                     compras(proveedor?, categoría?, desde, hasta), facturas(proveedor?, estado?, vence_antes?),
-                     albaranes(proveedor?, número?, desde, hasta, sin_factura?), ventas(…), escandallo(plato, campo?),
-                     equipo(persona?), catálogo(salud?, archivados?), auditoría(entidad, acción?) …
-           propuesta ─ proponer_merma | traspaso | recepción | pedido | precio | proveedor | … (devuelven BORRADOR)
-           edición ─ editar_borrador_activo(campo, valor)
-           ayuda ─ guía(tema)  ·  no_disponible(qué, dónde hacerlo)
-            │
-            ▼
-      Código (lo que ya existe y se conserva): permisos y alcance (RLS), cálculos con decimal.js, validadores
-      (unidades, stock, coherencia), sentido común de datos, borradores con confirmación, auditoría
-            │
-            ▼
-      Respuesta: corta y estructurada (cifra clave + tabla breve + 1–3 botones), sin muros de texto
+Panel ─► Entrada (jerga, archivo leído, TAREA EN CURSO: borrador activo y campos que faltan)
+           │
+           ▼
+     Vía rápida (código): comandos y frases inequívocas, p. ej. «cuántas cocas quedan en el vivero» → stock al instante
+           │ si no es inequívoca
+           ▼
+     Intérprete (modelo de lenguaje, una llamada, salida con esquema)
+       · rellena la MISMA petición tipada que hoy rellena Jev (jev/request.ts): intención, operación, productos,
+         cantidades, locales, filtros, periodo
+       · productos y locales: elige entre candidatos que recupera el código (catálogo, alcance del usuario)
+       · cantidades: solo números que aparecen en la frase (se comprueba, como el verificador del redactor)
+       · se prueba en sombra frente a las reglas y Jev; se activa por tipo de mensaje cuando gana
+           │
+           ▼
+     Puertas (Jev o umbrales): leer puede ir con lo probable; escribir no se adivina. Sin cambios
+           │
+           ▼
+     Código: consultas con filtros · decisión de reposición (traspasar antes que comprar, día de pedido, entrega,
+             mínimo, caja) · borradores · validadores de cifras · RLS
+           │
+           ▼
+     Respuesta: plantilla para las consultas simples; modelo solo para explicar una decisión, con verificador.
+                Corta: cifra o decisión, tabla breve y de 1 a 3 botones
 ```
 
 Principios:
-- **Nada se guarda sin confirmar.** Se sigue igual: el agente solo propone borradores.
-- **Las cifras las calcula siempre el código.** El modelo nunca escribe un número que no venga de una herramienta;
-  se comprueba en la respuesta.
-- **Una sola aclaración por dato.** Si falta algo, se pregunta lo justo, con opciones. Lo que se escriba después
-  rellena el hueco; no vuelve a empezar.
-- **Lo no soportado se dice:** «Eso no lo hago todavía; se hace en Proveedores › Nuevo».
-- **Jev** pasa a ser un verificador opcional en las operaciones de riesgo, o se retira, según lo que dé la medición
-  en sombra.
-- **Medir siempre en ciego,** con casos nuevos en cada ronda, y en uso real con indicadores de resultado.
+
+1. **Nada se guarda sin confirmar.**
+2. **Las cifras las calcula el código.** El modelo no escribe un número que no venga de una herramienta o de la frase.
+3. **Una sola aclaración por dato**, con la opción recomendada primero. Lo que se escriba después rellena el hueco.
+4. **Lo que no se puede hacer, se dice**, con el sitio de la app donde se hace.
+5. **La pregunta simple sigue siendo instantánea:** ni el intérprete ni el redactor se ponen delante de la vía rápida.
+6. **Se mide en ciego y con decisiones**, no solo con frases conocidas.
+
+Encaja con la regla del proyecto: «Jev decide y el código calcula; la IA solo interpreta o redacta, validada». El
+intérprete interpreta, sus salidas se validan y las puertas siguen decidiendo. No hace falta cambiar la regla, solo
+precisar en [JEV.md](JEV.md) que la interpretación puede venir del modelo.
 
 ---
 
-## 7. Decisiones que te tocan
+## 9. Decisiones que te tocan
 
-1. **Cambiar la regla «Jev decide y el código calcula; la IA solo interpreta o redacta».** Propuesta: «la IA decide
-   qué leer o qué proponer con herramientas; el código calcula, valida y pide confirmación». Es la causa de fondo
-   del techo actual. Se puede hacer por fases, en sombra y con marcha atrás.
-2. **Modelo y coste.** Un agente con herramientas usa un modelo más capaz (tipo Sonnet) para entender, y uno rápido
-   (tipo Haiku) para lo simple. Hay que fijar un presupuesto por mensaje.
-3. **Limpieza de datos de producción** (stock negativo, productos de prueba, artículos del TPV sin enlazar). Es
-   independiente del asistente, pero sin ella las respuestas seguirán dando cifras imposibles.
-4. **Qué no se hará desde el chat** (hoy: invitar personas y cambiar permisos). Confirmar la lista.
+1. **Intérprete con modelo de lenguaje** en la fase 3: el modelo y el presupuesto por mensaje. Por ejemplo, uno
+   rápido tipo Haiku por el AI Gateway, que ya está configurado, con un tope de coste y de latencia.
+2. **Completar los datos maestros:** condiciones de los 14 proveedores que no las tienen, y mínimos y objetivos.
+   Se puede hacer con propuestas del asistente a partir del consumo, siempre como borrador.
+3. **Limpiar los datos de producción:** valoraciones negativas, productos de prueba y artículos del TPV sin enlazar.
+4. **Qué no se hará desde el chat.** Hoy: invitar personas y cambiar permisos.
 
 ---
 
-## 8. Plan por fases (resumen)
+## 10. Plan por fases (resumen)
 
-El detalle, con criterios de aceptación y entregables, está en [PROMPT_MEJORA_ASISTENTE.md](PROMPT_MEJORA_ASISTENTE.md).
+El detalle, con criterios de aceptación, está en [PROMPT_MEJORA_ASISTENTE.md](PROMPT_MEJORA_ASISTENTE.md).
 
 | Fase | Qué | Criterio de salida |
 |---|---|---|
-| 0 | Medición honesta: la auditoría guarda respuesta, vía, latencia y resultado; indicadores de aclaraciones, bucles, abandono y borradores confirmados; batería ciega ampliada con un juez | Línea base publicada y repetible |
-| 1 | Diálogo: lo escrito rellena lo pendiente, editar el borrador activo, nunca más de una aclaración por dato, «no disponible» honesto, guías «cómo se hace», sin aclarar nombres exactos | Ciega: 0 bucles, aclaraciones ≤ 20 % |
-| 2 | Filtros en todas las consultas (proveedor, fechas, número, persona, local, categoría) y varias preguntas en una | Ciega: 0 filtros ignorados |
-| 3 | Agente con herramientas, en sombra y detrás de un interruptor; se compara con el actual | Ciega ≥ 85 % bien; p90 < 3 s; ninguna cifra inventada |
-| 4 | Huecos funcionales (sección 5, R5) | Cada hueco con su prueba y su caso ciego |
-| 5 | Sentido común de datos y búsqueda semántica de productos | Ninguna cifra imposible sin aviso; producto correcto ≥ 95 % |
-| 6 | Pulido del panel: respuestas cortas y «ver más», botones de corrección, capacidades breves | Uso real: aclaraciones < 15 %, abandono < 5 %, borradores confirmados > 50 % |
+| 0 | Medición: auditoría completa, indicadores, juez y conjunto ciego, y batería de decisiones con datos sintéticos | Línea base repetible |
+| 1 | Diálogo: tarea en curso, editar el borrador activo, una aclaración por dato con la opción recomendada, frases completas de escritura sin aclarar | Ciega sin bucles; aclaraciones ≤ 20 %; traspasos y mermas con la frase completa sin aclaración |
+| 2 | Consultas con filtros y preguntas dobles; plantilla obligatoria en consultas simples | Ningún filtro ignorado |
+| 3 | Intérprete con modelo, en sombra, que rellena la petición tipada | Ciega ≥ 85 % bien; p90 < 3 s; ninguna cantidad inventada |
+| 4 | Decisión de reposición: traspasar antes que comprar, horizonte hasta la entrega, día de pedido, mínimo, cobertura correcta, tarjeta de excepciones (puede ir en paralelo a la 1) | Batería de decisiones al 100 %; un turno hasta el borrador |
+| 5 | Huecos funcionales | Cada hueco con su prueba |
+| 6 | Datos: avisos de cifras imposibles, propuestas de niveles y condiciones, búsqueda semántica | Ninguna cifra imposible sin aviso; producto correcto ≥ 95 % |
+| 7 | Panel y parte de apertura | Aclaraciones < 15 %; abandono < 5 %; borradores confirmados > 50 % |
