@@ -35,7 +35,7 @@ resumen.
 
 | Archivo | Qué lee | Dónde se guarda |
 | --- | --- | --- |
-| Foto de albarán | proveedor, fecha, líneas y totales; avisa si hay un pedido pendiente de ese proveedor | Nueva recepción |
+| Foto de albarán (o varias, una por página) | proveedor, fecha, líneas y totales; avisa si hay un pedido pendiente de ese proveedor | Nueva recepción (varias fotos se adjuntan unidas en una imagen) |
 | PDF de albarán | lo mismo y el número de albarán | Nueva recepción |
 | PDF o foto de factura | proveedor, número, fecha, base, IVA, total y líneas; si cuadra; qué albaranes sin facturar le corresponden (los que nombra o los que suman su base) | Nueva factura, con esos albaranes marcados |
 | Excel de ventas del TPV | día, local, artículos e importe | Se cargan desde el chat (borrador con lo enlazado y lo que no, y confirmar) o en Ventas |
@@ -44,7 +44,13 @@ resumen.
 Después se puede preguntar por el archivo mientras dure la conversación (`agent/document-turn.ts`): «¿a cuánto
 nos cobra los limones esta factura?» (con nuestro último precio de compra al lado), «¿cuánto es el IVA de este
 albarán?», «¿qué trae esta factura?», «¿cuántas croquetas se vendieron en este excel?». Solo cuando la frase habla del
-archivo («esta factura», «el pdf», «ahí»); el resto de preguntas siguen su camino. Lo leído viaja con cada mensaje
+archivo («esta factura», «el pdf», «ahí»); el resto de preguntas siguen su camino.
+- **Subidas de precio** («¿ha subido algo de precio en esta factura?», también con un botón): cada línea que es un
+  producto del catálogo contra nuestro último precio de compra, por kilo, litro o unidad (`agent/document-prices.ts`).
+  Si la línea no dice la unidad, se toma la lectura más cercana a nuestro precio; si ninguna encaja, no se compara.
+- **Cuadrar factura y albarán** («¿cuadra la factura con el albarán?», o el botón que sale al leer el segundo): bases
+  y, línea a línea, qué falta en uno u otro y qué cambia de cantidad o de precio (`agent/document-compare.ts`).
+- **Varias fotos a la vez** (una factura de dos hojas): se leen como un solo documento (`readDocumentPages`). Lo leído viaja con cada mensaje
 (`ChatRequest.document`); no se guarda.
 
 ## Pendiente

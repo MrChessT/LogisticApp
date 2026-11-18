@@ -71,6 +71,22 @@ export async function readDocumentPdf(file: Blob): Promise<DocRead & { texts: Oc
 /** Lo que se lee de una factura o un albarán, con su texto para buscar el proveedor. */
 export type DocumentoLeido = DocRead & { texts: OcrText[] };
 
+/**
+ * Varias fotos de un mismo documento (una factura de dos hojas): cada página por el OCR, los renglones seguidos y un
+ * solo lector, como si fuera una hoja larga. Devuelve también las páginas unidas en una imagen, para adjuntarla.
+ */
+export async function readDocumentPages(files: File[]): Promise<{ read: DocumentoLeido; file: File }> {
+  const texts: OcrText[] = [];
+  const filas: string[] = [];
+  for (const page of files) {
+    const t = await ocrTextos(page);
+    texts.push(...t);
+    filas.push(filasDeOcr(t));
+  }
+  const { unirFotos } = await import("@/lib/foto-unir");
+  return { read: { ...readDocumentText(filas.join("\n")), texts }, file: await unirFotos(files) };
+}
+
 /** Foto o PDF: cada uno por su camino, con el mismo resultado. */
 export function readDocumentFile(file: File): Promise<DocumentoLeido> {
   const pdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");

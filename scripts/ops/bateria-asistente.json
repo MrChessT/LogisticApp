@@ -171,6 +171,22 @@
     ]
   },
   {
+    "nombre": "«Albaranes» no es albariño (captura del 18/11)",
+    "turnos": [
+      { "usuario": "que albaranes hay", "espera": "albar[áa]n", "no": "[Aa]lbariño|Stock", "especialista": "facturas" },
+      { "usuario": "que alabranes hay", "espera": "albar[áa]n", "no": "[Aa]lbariño|Stock", "especialista": "facturas" },
+      { "usuario": "dime los alabran", "espera": "albar[áa]n", "no": "[Aa]lbariño|Stock" },
+      { "usuario": "¿cuánto albariño queda?", "espera": "albariño", "especialista": "almacen" }
+    ]
+  },
+  {
+    "nombre": "Producto con cifras en el nombre (captura del 18/11, borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "han llegado 1 de Boj 570 Albariño a La Oliva", "espera": "Revísalo y confírmalo", "no": "No estoy seguro", "sinAclarar": true, "especialista": "compras" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
     "nombre": "Petición genérica no es alta de producto (reporte de opinión 13/11)",
     "turnos": [
       { "usuario": "Preparar una operación", "espera": "qué operación|Qué quieres hacer|operación", "no": "producto nuevo|Cómo se llama|créalo|Manualmente" }

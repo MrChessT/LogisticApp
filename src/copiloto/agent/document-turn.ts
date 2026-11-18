@@ -14,6 +14,8 @@ import { salesImport } from "../drafts/sales-import-builder";
 import type { InfoSource } from "../tools/info";
 import type { InventoryDataSource } from "../tools/types";
 import { productsNamed } from "./product-facts";
+import { compareDocuments } from "./document-compare";
+import { priceChanges, priceChangesText } from "./document-prices";
 import type { Session, SessionStore } from "./session";
 
 export interface DocumentTurn {
@@ -36,6 +38,12 @@ const NOUN = "archivo|documento|factura|albaran|pdf|excel|hoja|fichero|exportaci
 export const REFERS = new RegExp(`\\b(este|esta|estos|estas|ese|esa|esos|esas)\\s+(${NOUN})\\b|\\b(el|del|en el)\\s+(archivo|documento|pdf|excel|fichero)\\b|\\bahi\\b|\\ben el\\b$`);
 const LOAD = /\b(carga|cargar|cargalas|cargala|guarda|guardar|guardalas|importa|importar|importalas|sube|subir|registra|registrar|registralas|mete|meter)\b/;
 const DOC_WORDS = new Set(["factura", "albaran", "archivo", "documento", "pdf", "excel", "hoja", "fichero", "exportacion", "foto", "este", "esta", "estos", "estas", "ese", "esa", "cobra", "cobran", "cobrado", "cuesta", "cuestan", "vale", "valen", "pone", "viene", "vienen", "trae", "lleva", "ventas", "vendio", "vendieron", "vendimos", "vendido", "unidades", "importe", "total", "iva", "base", "linea", "lineas", "ahi", "sale", "salen", "nos", "les", "cada", "unidad", "kilo", "proveedor", "precio", "precios"]);
+
+/** «¿Ha subido algo?», «¿qué está más caro?», «compara los precios»: cada línea contra nuestro último precio. */
+const PRICE_CHANGE = /\b(subid[oa]s?|sube|suben|subio|subieron|mas car[oa]s?|encarec\w*|bajad[oa]s?|bajo|bajaron|mas barat[oa]s?|ha cambiado|han cambiado|compara|comparar|comparalo|comparalos)\b/;
+const PRICE_WORDS = new Set(["subido", "subida", "subidos", "subidas", "sube", "suben", "subio", "subieron", "caro", "cara", "caros", "caras", "encarecido", "bajado", "bajada", "bajo", "bajaron", "barato", "barata", "baratos", "baratas", "cambiado", "compara", "comparar", "comparalo", "comparalos", "algo", "nuestro", "nuestros", "ultimo"]);
+/** «¿Cuadra la factura con el albarán?»: nombra los dos (o «cuadran» con los dos leídos). */
+const BOTH = /\bfactura\b.*\balbaran\b|\balbaran\b.*\bfactura\b|\b(cuadran|coinciden|compara(?:los)?)\b/;
 
 const clean = (s: string) => normalize(s).replace(/[¿?¡!.,;:«»"()]/g, " ").replace(/\s+/g, " ").trim();
 const words = (s: string) => tokenize(s).filter((w) => w.length > 2 && !STOPWORDS.has(w) && !DOC_WORDS.has(w));
@@ -81,8 +89,14 @@ async function ourPrice(description: string, input: DocumentTurn): Promise<strin
 
 async function answer(doc: ChatDocument, text: string, input: DocumentTurn): Promise<{ text: string; table?: TableEvent }> {
   const what = doc.kind === "factura" ? "esta factura" : doc.kind === "albaran" ? "este albarán" : "estas ventas";
-  const said = words(text);
+  const priceAsk = doc.kind !== "ventas" && PRICE_CHANGE.test(text);
+  const said = words(text).filter((w) => !priceAsk || !PRICE_WORDS.has(w));
   const found = linesFor(said, doc);
+  if (priceAsk) {
+    if (!input.ctx.seesCosts) return { text: "Los precios de compra los ve la dirección (propiedad, administración y encargados) con el permiso «ve costes»." };
+    if (!input.retriever) return { text: "El catálogo no está disponible ahora mismo." };
+    return { text: priceChangesText(what, await priceChanges(found.length ? found : doc.lines, input.ctx, input.retriever, input.source)) };
+  }
   if (found.length > 0 && found.length <= 8) {
     if (doc.kind === "ventas") {
       const qty = found.reduce((s, l) => s.plus(l.qty), new Decimal(0));
@@ -120,7 +134,9 @@ export async function documentTurn(input: DocumentTurn): Promise<boolean> {
   if (!doc) return false;
   const text = clean(req.message);
   const load = doc.kind === "ventas" && LOAD.test(text) && /\b(ventas|esto|estas|archivo|excel|exportacion|fichero)\b/.test(text);
-  if (!load && !REFERS.test(text)) return false;
+  const other = req.otherDocument;
+  const pair = !!other && doc.kind !== "ventas" && other.kind !== doc.kind && other.kind !== "ventas" && BOTH.test(text);
+  if (!load && !pair && !REFERS.test(text)) return false;
 
   let reply: { text: string; table?: TableEvent };
   if (load) {
@@ -130,7 +146,7 @@ export async function documentTurn(input: DocumentTurn): Promise<boolean> {
       await emit({ event: "draft", data: built.draft });
       reply = { text: "He preparado la carga de las ventas. Revísalo y confírmalo si está bien." };
     } else reply = { text: built.kind === "error" ? built.message : "No he podido preparar la carga de las ventas." };
-  } else reply = await answer(doc, text, input);
+  } else reply = pair ? compareDocuments(doc, other!) : await answer(doc, text, input);
 
   sessions.addTurn(session, { role: "user", text: req.message });
   sessions.addTurn(session, { role: "assistant", text: reply.text });

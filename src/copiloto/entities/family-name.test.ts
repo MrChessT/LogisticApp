@@ -42,4 +42,13 @@ describe("nameGroupOf", () => {
   it("no parte palabras: «ron» no casa con «Bronce»", () => {
     expect(nameGroupOf("ron", [...catalog, product("5", "Cubitera Bronce", "Menaje › Menaje de Sala")])?.products.map((p) => p.id)).toEqual(["1", "2"]);
   });
+
+  it("las palabras de la app no son productos: «¿qué albaranes hay?» no es albariño", () => {
+    const vinos = [product("v1", "Vino Albariño Mar de Frades", "Bebida › Vinos"), product("v2", "Pazo de San Mauro Albariño", "Bebida › Vinos"), product("v3", "Tónica Schweppes", "Bebida › Refrescos")];
+    expect(nameGroupOf("que albaranes hay", vinos)).toBeNull();
+    // Con errata («alabran»): se parece más a «albarán» que a «albariño».
+    expect(nameGroupOf("que alabranes hay", vinos)).toBeNull();
+    expect(nameGroupOf("dime los alabran", vinos)).toBeNull();
+    expect(nameGroupOf("cuanto albariño queda", vinos)?.label).toBe("albariño");
+  });
 });
