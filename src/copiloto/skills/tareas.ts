@@ -2,60 +2,21 @@
 // termina en algo que se puede confirmar (borradores de pedido o de traspaso) o arreglar (el catálogo).
 // Todo el cálculo es determinista (decimal.js); Jev solo interviene al comprobar los borradores.
 //
-//   · pedidos     — qué hay que pedir la próxima semana en cada local, por proveedor y en cajas enteras.
-//   · equilibrar  — lo que sobra en un local y falta en otro: traspasos en vez de compras.
+//   · pedidos     — traspasos primero; luego lo que toca pedir hoy a cada proveedor según su ficha (reponer.ts).
+//   · equilibrar  — lo que sobra en un local y falta en otro: traspasos en vez de compras (reponer.ts).
 //   · catalogo    — lo que da cifras falsas o impide trabajar (sin precio, stock negativo, costes raros…).
 //   · parte       — el día de ayer en cada local: consumo, mermas, compras y lo que requiere atención.
 import Decimal from "decimal.js";
-import type { NavigateEvent, TableEvent } from "../contract/index";
-import type { Pack, Product, SessionContext } from "../domain";
-import type { ActionPlan, CatalogPlan, QueryPlan } from "../agent/plans";
-import { formatDecimal, formatMoney, formatStock } from "../entities/units";
+import type { SessionContext } from "../domain";
+import { formatMoney } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
 import { isLoss } from "../../lib/exit-kinds";
 import { addDays } from "../tools/periods";
-import { computeReorder } from "../tools/tools";
-import type { InventoryDataSource } from "../tools/types";
 
-const TAREAS = {
-  pedidos: { label: "Preparar pedidos", hint: "Todos los locales, por proveedor y en cajas" },
-  equilibrar: { label: "Equilibrar locales", hint: "Traspasos de donde sobra a donde falta" },
-  catalogo: { label: "Revisar catálogo", hint: "Precios, formatos y stock que no cuadran" },
-  parte: { label: "Parte de ayer", hint: "Consumo, mermas y alertas por local" },
-} as const;
-export type TareaId = keyof typeof TAREAS;
+import { equilibrar, pedidos } from "./reponer";
+import { locationName, MAX_ROWS, plural, TAREAS, type TareaFollowUp, type TareaId, type TareaInput, type TareaResult } from "./tarea-types";
 
-export interface TareaPlan {
-  type: "tarea";
-  tarea: TareaId;
-  locationIds: string[];
-}
-
-/** Lo que una tarea deja preparado para un toque: borradores o consultas ya resueltas. */
-interface TareaFollowUp {
-  label: string;
-  plan: QueryPlan | CatalogPlan | ActionPlan | TareaPlan;
-}
-
-export interface TareaResult {
-  tarea: TareaId;
-  /** Respuesta en una o dos frases (las cifras, ya formateadas). */
-  text: string;
-  table: TableEvent | null;
-  followUps: TareaFollowUp[];
-  navigate?: NavigateEvent;
-}
-
-interface TareaInput {
-  ctx: SessionContext;
-  source: InventoryDataSource;
-  locationIds: string[];
-  now: Date;
-}
-
-const ORDER_DAYS = 7;
-const MAX_ROWS = 15;
-const MAX_BUTTONS = 4;
+export type { TareaId, TareaPlan, TareaResult } from "./tarea-types";
 
 export async function runTarea(id: TareaId, input: TareaInput): Promise<TareaResult> {
   switch (id) {
@@ -70,197 +31,10 @@ export async function runTarea(id: TareaId, input: TareaInput): Promise<TareaRes
   }
 }
 
-const locationName = (ctx: SessionContext, id: string) => ctx.locations.find((l) => l.id === id)?.name ?? "local";
-const purchasePack = (p: Product): Pack | null => p.packs.find((k) => k.isPurchaseDefault) ?? (p.packs.length === 1 ? p.packs[0]! : null);
-/** Unidad en que se cuenta: 1 ud, o la botella / barril / kg (en unidad base). */
-const countUnit = (p: Product): Decimal => (p.dimension === "count" ? new Decimal(1) : new Decimal(p.packs.find((k) => k.isCountDefault)?.qtyBase ?? 1));
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function today(ctx: SessionContext, locationId: string | undefined, now: Date): string {
   const l = ctx.locations.find((x) => x.id === locationId) ?? ctx.locations[0];
   return businessDay(now, l?.timezone ?? "Europe/Madrid", l?.dayCutoff ?? "06:00");
-}
-
-// Pedidos ---------------------------------------------------------------------------------------------
-
-async function pedidos({ ctx, source, locationIds, now }: TareaInput): Promise<TareaResult> {
-  type Group = { locationId: string; supplier: string; lines: number; total: Decimal; priced: boolean };
-  const groups = new Map<string, Group>();
-  const urgent: Array<{ name: string; days: Decimal; location: string }> = [];
-  const perLocation = new Map<string, number>();
-  const noSupplier = new Set<string>();
-
-  for (const locationId of locationIds) {
-    const lines = (
-      await computeReorder(source, { locationIds: [locationId], areaId: null, productIds: [], period: null, horizonDays: ORDER_DAYS, horizonLabel: "la próxima semana", now }, ctx)
-    ).filter((l) => l.suggested.gt(0));
-    if (lines.length === 0) continue;
-    const prices = await source.supplierPrices(lines.map((l) => purchasePack(l.product)?.id).filter((x): x is string => !!x));
-    for (const l of lines) {
-      const pack = purchasePack(l.product);
-      const price = pack ? prices.find((p) => p.packId === pack.id) : undefined;
-      if (l.coverage && l.coverage.lt(3)) urgent.push({ name: l.product.name, days: l.coverage, location: locationName(ctx, locationId) });
-      perLocation.set(locationId, (perLocation.get(locationId) ?? 0) + 1);
-      if (!pack || !price) {
-        noSupplier.add(l.product.name);
-        continue;
-      }
-      const packs = l.suggested.div(pack.qtyBase).ceil();
-      const key = `${locationId}:${price.supplierId}`;
-      const g = groups.get(key) ?? { locationId, supplier: price.supplierName, lines: 0, total: new Decimal(0), priced: true };
-      g.lines += 1;
-      g.total = g.total.plus(packs.mul(price.lastPrice));
-      groups.set(key, g);
-    }
-  }
-
-  const rows = [...groups.values()].sort((a, b) => locationName(ctx, a.locationId).localeCompare(locationName(ctx, b.locationId)) || b.total.cmp(a.total));
-  if (rows.length === 0 && noSupplier.size === 0) {
-    return { tarea: "pedidos", text: "No hace falta pedir nada para la próxima semana: con el stock, los mínimos y lo que ya está en camino llega en todos los locales.", table: null, followUps: [] };
-  }
-  const total = rows.reduce((acc, g) => acc.plus(g.total), new Decimal(0));
-  const products = [...perLocation.values()].reduce((a, b) => a + b, 0);
-  urgent.sort((a, b) => a.days.cmp(b.days));
-  const parts = [
-    `Para la próxima semana hay que pedir ${plural(products, "producto", "productos")} en ${plural(perLocation.size, "local", "locales")}${total.gt(0) ? `, unos ${formatMoney(total)} sin IVA` : ""}.`,
-  ];
-  if (urgent.length > 0) parts.push(`Lo más urgente: ${urgent.slice(0, 3).map((u) => `${u.name} en ${u.location} (${formatDecimal(u.days, 1)} días)`).join(", ")}.`);
-  if (noSupplier.size > 0) parts.push(`Sin proveedor o precio (no entran en los pedidos): ${[...noSupplier].slice(0, 4).join(", ")}${noSupplier.size > 4 ? "…" : ""}.`);
-  parts.push("Cada botón deja el pedido de ese local en borrador para que lo revises y lo envíes desde Pedidos.");
-
-  const followUps: TareaFollowUp[] = [...perLocation.keys()]
-    .sort((a, b) => (perLocation.get(b) ?? 0) - (perLocation.get(a) ?? 0))
-    .slice(0, MAX_BUTTONS)
-    .map((locationId) => ({
-      label: `Preparar pedido · ${locationName(ctx, locationId)}`,
-      plan: { type: "catalogo", accion: "preparar_pedido", locationId, locationOutcome: "actuar", products: [], periodo: "semana" },
-    }));
-
-  return {
-    tarea: "pedidos",
-    text: parts.join(" "),
-    table: rows.length
-      ? {
-          columns: [
-            { key: "local", label: "Local" },
-            { key: "proveedor", label: "Proveedor" },
-            { key: "productos", label: "Productos", align: "right" },
-            { key: "importe", label: "Importe aprox.", align: "right" },
-          ],
-          rows: rows.slice(0, MAX_ROWS).map((g) => ({ local: locationName(ctx, g.locationId), proveedor: g.supplier, productos: String(g.lines), importe: formatMoney(g.total) })),
-          ...(rows.length > MAX_ROWS ? { more: rows.length - MAX_ROWS } : {}),
-        }
-      : null,
-    followUps,
-    navigate: { route: "/pedidos", filters: {}, auto: false },
-  };
-}
-
-// Equilibrar locales ------------------------------------------------------------------------------------
-
-async function equilibrar({ ctx, source, locationIds, now }: TareaInput): Promise<TareaResult> {
-  if (ctx.locations.length < 2) return { tarea: "equilibrar", text: "Solo tienes un local: no hay nada que equilibrar.", table: null, followUps: [] };
-  // Lo que falta, en los locales pedidos; lo que sobra, en cualquiera de los del usuario.
-  const all = ctx.locations.map((l) => l.id);
-  const [needs, balances, lps, movements] = await Promise.all([
-    computeReorder(source, { locationIds, areaId: null, productIds: [], period: null, horizonDays: 3, horizonLabel: "los próximos 3 días", now }, ctx),
-    source.balances({ locationIds: all }),
-    source.locationProducts({ locationIds: all }),
-    source.movements({ locationIds: all, since: `${addDays(today(ctx, all[0], now), -28)}T00:00:00Z` }),
-  ]);
-  const key = (l: string, p: string) => `${l}:${p}`;
-  const stock = new Map(balances.map((b) => [key(b.locationId, b.productId), new Decimal(b.qty)]));
-  const levels = new Map(lps.map((lp) => [key(lp.locationId, lp.productId), { min: new Decimal(lp.minQty), par: new Decimal(lp.parQty) }]));
-  const usedPerDay = new Map<string, Decimal>();
-  for (const m of movements) {
-    const q = new Decimal(m.qty);
-    if (m.type === "consumption" || m.type === "waste" || ((m.type === "count_adjustment" || m.type === "manual_adjustment") && q.lt(0))) {
-      usedPerDay.set(key(m.locationId, m.productId), (usedPerDay.get(key(m.locationId, m.productId)) ?? new Decimal(0)).plus(q.abs().div(28)));
-    }
-  }
-  // Lo que un local puede ceder sin quedarse corto: por encima de su objetivo, de su mínimo más una
-  // semana de consumo y, si no tiene niveles, de una semana de consumo.
-  const surplus = (locationId: string, productId: string): Decimal => {
-    const qty = stock.get(key(locationId, productId)) ?? new Decimal(0);
-    const lv = levels.get(key(locationId, productId)) ?? { min: new Decimal(0), par: new Decimal(0) };
-    const week = (usedPerDay.get(key(locationId, productId)) ?? new Decimal(0)).mul(7);
-    return Decimal.max(0, qty.minus(Decimal.max(lv.par, lv.min.plus(week), week)));
-  };
-
-  type Move = { product: Product; from: string; to: string; qty: Decimal; why: string; value: Decimal };
-  const moves: Move[] = [];
-  const given = new Map<string, Decimal>();
-  for (const need of needs) {
-    if (need.suggested.lte(0)) continue;
-    const unit = countUnit(need.product);
-    const donors = all
-      .filter((l) => l !== need.lp.locationId)
-      .map((l) => ({ l, free: surplus(l, need.product.id).minus(given.get(key(l, need.product.id)) ?? 0) }))
-      .filter((d) => d.free.gte(unit))
-      .sort((a, b) => b.free.cmp(a.free));
-    const donor = donors[0];
-    if (!donor) continue;
-    // Botellas o unidades enteras: no se traspasa media botella.
-    const qty = Decimal.min(need.suggested, donor.free).div(unit).floor().mul(unit);
-    if (qty.lte(0)) continue;
-    given.set(key(donor.l, need.product.id), (given.get(key(donor.l, need.product.id)) ?? new Decimal(0)).plus(qty));
-    const cost = balances.find((b) => b.locationId === donor.l && b.productId === need.product.id)?.avgCost ?? "0";
-    moves.push({
-      product: need.product,
-      from: donor.l,
-      to: need.lp.locationId,
-      qty,
-      value: qty.mul(cost),
-      why: `${locationName(ctx, need.lp.locationId)} tiene ${formatStock(need.qty, need.product)}${need.min.gt(0) ? ` (mínimo ${formatStock(need.min, need.product)})` : ""}; ${locationName(ctx, donor.l)} puede ceder ${formatStock(donor.free, need.product)}`,
-    });
-  }
-
-  if (moves.length === 0) {
-    const short = needs.filter((n) => n.suggested.gt(0)).length;
-    return {
-      tarea: "equilibrar",
-      text: short > 0
-        ? `Faltan ${plural(short, "producto", "productos")}, pero ningún otro local tiene de sobra para cederlos: tocará pedirlos.`
-        : "Todos los locales están por encima de sus mínimos: no hace falta mover nada.",
-      table: null,
-      followUps: short > 0 ? [{ label: TAREAS.pedidos.label, plan: { type: "tarea", tarea: "pedidos", locationIds } }] : [],
-    };
-  }
-  moves.sort((a, b) => b.value.cmp(a.value));
-  const saved = moves.reduce((acc, m) => acc.plus(m.value), new Decimal(0));
-  const followUps: TareaFollowUp[] = moves.slice(0, MAX_BUTTONS).map((m) => ({
-    label: `Pasar ${formatStock(m.qty, m.product)} de ${m.product.name} · ${locationName(ctx, m.from)} → ${locationName(ctx, m.to)}`,
-    plan: {
-      type: "accion",
-      accion: "traspaso",
-      locationId: m.from,
-      locationOutcome: "actuar",
-      toLocationId: m.to,
-      toLocationOutcome: "actuar",
-      areaId: null,
-      // En unidad base (ml, g, ud): la cantidad exacta, sin elegir formato.
-      products: [{ product: m.product, segmentIndex: 0, amount: m.qty.toString(), unit: m.product.baseUnit, price: null, quantityOutcome: "actuar", productOutcome: "actuar" }],
-      motivo: "no_indicado",
-      ambiguous: 0,
-    },
-  }));
-  return {
-    tarea: "equilibrar",
-    text: `${plural(moves.length, "producto se puede", "productos se pueden")} cubrir con stock de otro local en vez de comprarlo${saved.gt(0) ? ` (${formatMoney(saved)} a coste)` : ""}. Cada botón prepara el traspaso para confirmarlo.`,
-    table: {
-      columns: [
-        { key: "producto", label: "Producto" },
-        { key: "de", label: "De" },
-        { key: "a", label: "A" },
-        { key: "cantidad", label: "Cantidad", align: "right" },
-        { key: "motivo", label: "Por qué" },
-      ],
-      rows: moves.slice(0, MAX_ROWS).map((m) => ({ producto: m.product.name, de: locationName(ctx, m.from), a: locationName(ctx, m.to), cantidad: formatStock(m.qty, m.product), motivo: m.why })),
-      ...(moves.length > MAX_ROWS ? { more: moves.length - MAX_ROWS } : {}),
-    },
-    followUps,
-    navigate: { route: "/traspasos", filters: {}, auto: false },
-  };
 }
 
 // Revisar catálogo -------------------------------------------------------------------------------------

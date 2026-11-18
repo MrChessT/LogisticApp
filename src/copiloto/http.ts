@@ -29,6 +29,7 @@ import { cachedSource, invalidateBusinessCache } from "./supabase/business-cache
 import { SupabaseDraftPersistence, SupabaseHabitsPersistence, SupabaseSessionPersistence } from "./supabase/state";
 import { HabitsStore } from "./agent/habits";
 import { computeReorder, InventoryTools } from "./tools/tools";
+import { forOrdering } from "./tools/orderable";
 
 export interface RequestUser extends AuthUser {
   orgId: string;
@@ -333,7 +334,7 @@ async function reorder(url: URL, user: RequestUser): Promise<Response> {
   const packIds = lines.map((l) => packOf(l.product)?.id).filter((id): id is string => !!id);
   // supplierPrices viene ordenado por fecha: el primero de cada formato es el último precio.
   const latest = new Map<string, Awaited<ReturnType<typeof source.supplierPrices>>[number]>();
-  for (const price of await source.supplierPrices(packIds)) if (!latest.has(price.packId)) latest.set(price.packId, price);
+  for (const price of forOrdering(await source.supplierPrices(packIds))) if (!latest.has(price.packId)) latest.set(price.packId, price);
 
   return json({
     locationId: parsed.data.locationId,

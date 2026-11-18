@@ -150,6 +150,7 @@ export type Database = {
           min_order: number | null;
           payment_terms: string | null;
           location_ids: string[] | null;
+          is_price_source: boolean;
         };
         Insert: {
           id?: string;
@@ -169,6 +170,7 @@ export type Database = {
           min_order?: number | null;
           payment_terms?: string | null;
           location_ids?: string[] | null;
+          is_price_source?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["suppliers"]["Insert"]>;
         Relationships: [];

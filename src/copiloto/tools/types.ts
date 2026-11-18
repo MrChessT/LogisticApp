@@ -110,6 +110,8 @@ export interface SupplierPriceRaw {
   packId: string;
   lastPrice: string;
   lastPriceAt: string | null;
+  /** Fuente de precio (escandallos importados, estimados): vale para valorar, nunca para pedir (0061). */
+  priceSource?: boolean;
 }
 
 /** Acceso de solo lectura. La implementación real (fase 3) usa el cliente Supabase con el JWT del usuario. */

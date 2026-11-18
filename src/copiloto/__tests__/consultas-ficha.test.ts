@@ -55,7 +55,7 @@ describe("precios estimados", () => {
     const ron = PRODUCTS.filter((p) => p.name.startsWith("Ron"));
     const source = {
       supplierPrices: async () => [
-        { supplierId: "x", supplierName: "Precio de referencia (estimado)", packId: ron[0]!.packs[0]!.id, lastPrice: "10", lastPriceAt: null },
+        { supplierId: "x", supplierName: "Precio de referencia (estimado)", packId: ron[0]!.packs[0]!.id, lastPrice: "10", lastPriceAt: null, priceSource: true },
         { supplierId: "y", supplierName: "Makro", packId: ron[1]!.packs[0]!.id, lastPrice: "11", lastPriceAt: null },
       ],
     } as unknown as Parameters<typeof productFact>[3];

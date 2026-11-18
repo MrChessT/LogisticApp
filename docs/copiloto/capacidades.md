@@ -10,7 +10,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | --- | --- | --- | --- |
 | Panel | sí (cómo va el mes, avisos con `/avisos`) | — | «¿cómo voy este mes?» |
 | Stock | sí (por local, zona, familia, bajo mínimo, valor) | mínimos y objetivos | «¿cuánta coca queda en el Vivero?» |
-| Pedidos | sí (abiertos, retrasados, cuándo se pidió algo) | preparar, enviar, recibir, cancelar | «¿cuándo pedimos tónica por última vez?» |
+| Pedidos | sí (abiertos, retrasados, cuándo se pidió algo) | preparar (traspasos primero y lo que toca pedir hoy a cada proveedor según su ficha), enviar, recibir, cancelar | «prepárame el pedido», «/preparar» |
 | Recepciones | sí (qué ha llegado) | registrar; foto o PDF del albarán (botón, arrastrar o pegar): lo lee, lo resume y lo deja preparado en Nueva recepción | «han llegado 3 cajas de tónica al Parador» |
 | Traspasos | sí (pendientes de recibir) | preparar y enviar, recibir, cancelar | «pasa 2 cajas de coca del Parador al Vivero» |
 | Almacén | sí (salidas sin validar) | apuntar una salida o devolución; validar las de un local | «saca 2 cajas de coca a la barra 1» |
@@ -52,6 +52,20 @@ archivo («esta factura», «el pdf», «ahí»); el resto de preguntas siguen s
   y, línea a línea, qué falta en uno u otro y qué cambia de cantidad o de precio (`agent/document-compare.ts`).
 - **Varias fotos a la vez** (una factura de dos hojas): se leen como un solo documento (`readDocumentPages`). Lo leído viaja con cada mensaje
 (`ChatRequest.document`); no se guarda.
+
+## Reposición: qué pedir hoy
+
+«/preparar», «prepárame el pedido» y «/equilibrar» dan la misma decisión (`tools/reorder-plan.ts`):
+
+- **Lo primero, lo que se acaba antes de que llegue un pedido**, con cuándo llega lo próximo. Si otro local puede
+  cederlo, el botón es el traspaso; si no, hay que llamar al proveedor o comprarlo fuera.
+- **Traspasar antes que comprar:** lo que otro local puede ceder sin bajar de su objetivo no entra en el pedido.
+- **Pedir hoy, a cada proveedor, lo que cubre hasta que llegue su pedido siguiente** (lunes y jueves con entrega a
+  24 h: lo del lunes debe durar hasta el viernes). Sin días de pedido en la ficha, una semana, y se dice.
+- **Lo del proveedor que hoy no admite pedidos espera a su día** («Bebidas del Sur el jueves»): no va en el borrador.
+- **El pedido mínimo** se avisa; las fuentes de precio («Precios de escandallo», estimados) nunca reciben pedidos.
+
+Con cantidades, un proveedor o un periodo dichos («el pedido de la semana a Makro») se pide eso, como siempre.
 
 ## Pendiente
 

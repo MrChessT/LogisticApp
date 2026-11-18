@@ -26,7 +26,7 @@ describe("pedidos desde el chat", () => {
       [SUR.name, [[COCA.name, "Caja 24 ud", "7", "13.2"]]],
       [CANARIAS.name, [[BARCELO.name, "Caja 6 botellas", "1", "92.4"]]],
     ]);
-    expect(draft.orders[0]!.lines[0]!.note).toBe("quedan 1 caja + 6 ud · para 1,5 días");
+    expect(draft.orders[0]!.lines[0]!.note).toBe("quedan 1 caja + 6 ud · da para 1,5 días");
     // Condiciones de Bebidas del Sur (lunes y jueves hasta las 14:00, 48 h, mínimo 150 €): un miércoles
     // se pide el jueves y llega el sábado; 92,40 € no llega al mínimo.
     expect(draft.orders[0]!.expectedDate).toBe("2026-09-26");

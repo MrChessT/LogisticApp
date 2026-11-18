@@ -228,5 +228,12 @@
       { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro", "especialista": "catalogo" },
       { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
     ]
+  },
+  {
+    "nombre": "Reposición: traspasos primero y lo que toca pedir hoy (las fuentes de precio no reciben pedidos)",
+    "turnos": [
+      { "usuario": "/preparar", "espera": "toca pedir|no toca hacer ningún pedido|No hace falta pedir ni mover", "no": "Precio de referencia|Precios de escandallo", "sinAclarar": true },
+      { "usuario": "prepárame el pedido del parador", "espera": "He preparado un borrador|Revísalo y confírmalo|Hoy no toca pedir nada en Parador|No hace falta pedir nada en Parador", "no": "Precio de referencia|Precios de escandallo" }
+    ]
   }
 ]

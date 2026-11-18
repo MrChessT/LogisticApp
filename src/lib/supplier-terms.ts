@@ -70,6 +70,45 @@ export function nextDelivery(terms: Pick<SupplierTerms, "orderDays" | "orderCuto
   return { orderDate, orderToday: orderDate === today, deliveryDate };
 }
 
+export interface OrderCycle {
+  /** El próximo pedido posible y cuándo llegaría. */
+  next: DeliveryPlan;
+  /** El pedido siguiente a ese: lo de ahora tiene que durar hasta que llegue. */
+  followingOrderDate: string;
+  /** Días desde hoy hasta que llega el pedido siguiente: el horizonte de lo que se pide ahora. */
+  coverDays: number;
+  /** Días desde hoy hasta que llega el próximo pedido: lo que se rompa antes no lo arregla una compra. */
+  daysToDelivery: number;
+}
+
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+
+/**
+ * Revisión periódica: si hoy se pide a este proveedor, lo pedido tiene que cubrir hasta que llegue el pedido
+ * siguiente, no una semana fija. Lunes y jueves con entrega a 24 h: lo del lunes llega el martes y tiene que
+ * aguantar hasta el viernes. Sin plazo apuntado se cuenta un día, que es lo habitual en distribución.
+ */
+export function orderCycle(terms: Pick<SupplierTerms, "orderDays" | "orderCutoff" | "leadTimeHours">, now: Date, timeZone = "Europe/Madrid"): OrderCycle {
+  const next = nextDelivery(terms, now, timeZone);
+  const today = localParts(now, timeZone).date;
+  const days = terms.orderDays?.length ? terms.orderDays : null;
+  let followingOrderDate = addDays(next.orderDate, 1);
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const d = addDays(next.orderDate, offset);
+    if (!days || days.includes(isoWeekday(d))) {
+      followingOrderDate = d;
+      break;
+    }
+  }
+  const leadDays = terms.leadTimeHours === null ? 1 : Math.ceil(terms.leadTimeHours / 24);
+  return {
+    next,
+    followingOrderDate,
+    coverDays: Math.max(1, daysBetween(today, addDays(followingOrderDate, leadDays))),
+    daysToDelivery: Math.max(0, daysBetween(today, next.deliveryDate ?? addDays(next.orderDate, leadDays))),
+  };
+}
+
 /** Lo que falta para el pedido mínimo (null si no hay mínimo o ya se llega). */
 export function minOrderShortfall(total: Decimal.Value, minOrder: string | null): Decimal | null {
   if (minOrder === null) return null;

@@ -60,7 +60,8 @@ export async function loadReference(): Promise<Reference> {
     supabase.from("memberships").select("org_id, role, organizations(name)").eq("user_id", user.id).limit(1).maybeSingle(),
     supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
     supabase.from("locations").select("id, name").eq("active", true).order("name"),
-    supabase.from("suppliers").select("id, name, email, phone, order_days, order_cutoff, lead_time_hours, min_order").eq("active", true).order("name"),
+    // A las fuentes de precio (escandallos importados, estimados) no se les pide nada (0061).
+    supabase.from("suppliers").select("id, name, email, phone, order_days, order_cutoff, lead_time_hours, min_order").eq("active", true).eq("is_price_source", false).order("name"),
   ]);
   const member = membership.data as { org_id: string; role: Role; organizations: { name: string } | null } | null;
   if (!member) throw new Error("No perteneces a ninguna organización.");

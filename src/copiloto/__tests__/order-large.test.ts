@@ -6,7 +6,8 @@ import type { LocationProductRaw, BalanceRaw, SupplierPriceRaw, SupplierTermsRaw
 import type { DataFilter } from "../tools/types";
 import type { Product, SessionContext } from "../domain";
 import { FixtureDataSource, fixtureContext, LOCATIONS } from "../dev/fixture";
-import { CatalogDraftBuilder, nameList } from "../drafts/catalog-builder";
+import { CatalogDraftBuilder } from "../drafts/catalog-builder";
+import { nameList } from "../drafts/draft-checks";
 import { MAX_CHECK_DETAIL, MAX_CHECKS, MAX_ORDER_LINES, validateDraft } from "../drafts/schemas";
 import type { OrderDraft } from "../contract/index";
 import { NOW } from "./helpers";
@@ -42,7 +43,8 @@ class BigSource extends FixtureDataSource {
       .map(({ p, s }) => ({ supplierId: s.id, supplierName: s.name, packId: p.packs[0]!.id, lastPrice: "10.00", lastPriceAt: NOW.toISOString() }));
   }
   override async supplierTerms(ids: string[]): Promise<SupplierTermsRaw[]> {
-    return ids.map((supplierId) => ({ supplierId, orderDays: [1], orderCutoff: "12:00:00", leadTimeHours: 24, minOrder: "5000.00", locationIds: [LOCATIONS[1]!.id] }));
+    // Se pide los miércoles (el día de NOW) para que todo entre en el pedido de hoy.
+    return ids.map((supplierId) => ({ supplierId, orderDays: [3], orderCutoff: "23:00:00", leadTimeHours: 24, minOrder: "5000.00", locationIds: [LOCATIONS[1]!.id] }));
   }
 }
 
