@@ -192,10 +192,15 @@ nunca se cubre.
   - La vía rápida sigue delante para lo inequívoco.
 - **Retirar reglas.** Cada vía o expresión regular que el intérprete cubre se borra en el mismo PR que lo activa.
   Objetivo: menos de la mitad de las reglas actuales al terminar la fase.
-- **Coste y tiempo.**
-  - Modelo rápido por el AI Gateway, con presupuesto de tokens por mensaje.
-  - Sin la IA disponible, se vuelve al camino actual.
-  - Coste y latencia de cada llamada, en la auditoría.
+- **Modelo y coste (decidido: gasto medio).**
+  - **Modelo:** Claude Sonnet 5.5 (`claude-sonnet-5-5`) por el AI Gateway, con esfuerzo bajo, salida con esquema y la
+    parte fija del prompt (reglas, catálogo resumido) en caché.
+  - **Respaldo:** Claude Haiku 5.5 (`claude-haiku-5-5`) si falla o se pasa de tiempo. Si los dos fallan, el camino
+    actual.
+  - **Presupuesto:** objetivo de 1 céntimo por mensaje de media; tope de 3 céntimos.
+  - **Auditoría:** coste, modelo y latencia de cada llamada.
+  - **Comparación:** si Haiku 5.5 empata con Sonnet en la prueba ciega dentro del margen del juez, se usa Haiku.
+    Cuesta unas 20 veces menos.
 - **Documentación.** Se precisa en [JEV.md](JEV.md) y en CLAUDE.md que la interpretación puede venir del modelo. La
   regla «Jev decide y el código calcula» no cambia.
 
@@ -222,6 +227,12 @@ nunca se cubre.
 
 **Qué hacer**, todo en código y sin modelo:
 
+0. **Las fuentes de precio no son proveedores.** «Precio de referencia (estimado)» y «Precios de escandallo» sirven
+   para valorar, no para pedir, y hoy el borrador elige la primera porque tiene el último precio (ya tiene un pedido de
+   168 líneas en producción).
+   - Una marca en `suppliers` (migración, pgTAP y tipos) distingue la fuente de precio del proveedor.
+   - El borrador, la tarea `pedidos` y la pantalla de Pedidos solo eligen proveedores reales.
+   - Sin un proveedor real con precio, la línea va a «sin proveedor».
 1. **Cobertura correcta.** En `computeReorder`, la cobertura se calcula sobre lo disponible (stock más lo que está en
    camino), igual que la cantidad. Lo ya pedido no sale como urgente.
 2. **Traspasar antes que comprar.** «Qué pido» ejecuta primero la lógica de `equilibrar`. Lo que se cubre con un
@@ -247,8 +258,11 @@ nunca se cubre.
    - **Peso por día de la semana** en la media de 28 días.
    - **Consumo teórico:** si el producto está en escandallos enlazados a ventas, se mezcla el que sale de las ventas.
    - **Perecederos** (marca de categoría o de producto): horizonte corto y tope de lo que se tira.
-7. **Sin niveles.** Para los productos sin mínimo ni objetivo (el 69 %), se propone un mínimo a partir del consumo,
-   como borrador que la persona confirma. Nunca se escribe solo.
+7. **Sin niveles.** En la base actual ya están completados (informe, sección 3.6). En otra base de datos, o tras el
+   reinicio, se propone un mínimo a partir del consumo, como borrador que la persona confirma. La regla del 18/11:
+   - mínimo de 4 días de consumo, al menos 1 unidad;
+   - objetivo de 8 días, al menos una unidad por encima del mínimo;
+   - todo en la unidad de recuento.
 
 **Criterios de aceptación.**
 
@@ -300,8 +314,9 @@ parado) y las instrucciones de una receta. Hoy responde «no sé», otra cosa o 
 
 - **Validadores de cifras.** Antes de responder se comprueban rangos sensatos: stock negativo, márgenes fuera de rango,
   cantidades muy por encima del histórico. Si una cifra no pasa, se avisa junto a ella con la causa probable.
-- **Plan de limpieza propuesto, no ejecutado.** Recuentos y listado para que el propietario lo apruebe. Nada se borra
-  desde el asistente.
+- **Limpieza.** En la base actual ya se hizo parte (informe, sección 3.6): no queda stock negativo y los niveles y las
+  condiciones están completos. Queda un listado de lo pendiente (productos «PRUEBA-VOL», artículos del TPV sin
+  enlazar) para el reinicio. Nada se borra desde el asistente.
 - **Completar datos con borradores.** El asistente propone condiciones de proveedor (desde las fechas de pedidos y
   recepciones pasadas) y mínimos (desde el consumo). Siempre se confirman.
 - **Búsqueda de productos.**
