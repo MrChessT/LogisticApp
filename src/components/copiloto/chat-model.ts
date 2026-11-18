@@ -31,7 +31,7 @@ export type Item =
       actions?: ActionsEvent["actions"];
       error?: string;
       /** Archivo leído en el chat (foto, PDF u hoja): se revisa y guarda en su pantalla (documents.ts). */
-      file?: { file: File; open?: FileSummary["open"] };
+      file?: { file: File; open?: FileSummary["open"]; say?: FileSummary["say"] };
       /** Guía de /ayuda. */
       help?: boolean;
       /** Lista de /avisos. */

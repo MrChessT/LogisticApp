@@ -123,6 +123,11 @@ export class FixtureWriter implements InventoryWriter {
     this.record("createArea", args);
   }
 
+  async importSales(args: Parameters<InventoryWriter["importSales"]>[0]) {
+    this.record("importSales", args);
+    return { unlinked: 0 };
+  }
+
   async linkSalesItem(link: Parameters<InventoryWriter["linkSalesItem"]>[0]) {
     this.record("linkSalesItem", link);
   }

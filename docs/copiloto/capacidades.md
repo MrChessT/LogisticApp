@@ -19,7 +19,7 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría, alérgenos, formatos y proveedor de compra (sin precio) | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
 | Proveedores | sí (condiciones, qué nos trae cada uno) | condiciones (mínimo, días, hora límite, plazo, pago) | «el pedido mínimo de Makro es 200 €» |
 | Escandallos | sí (coste, food cost, margen, alérgenos) | crear un plato o una elaboración con sus ingredientes; cambiar los de uno que ya existe (añadir un producto o una elaboración, quitar, cambiar la cantidad); PVP de un plato | «crea el escandallo de croquetas con PVP 9,50» · «añade 20 g de queso a las croquetas» · «quita el ajo del gazpacho» |
-| Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | enlazar un artículo del TPV a un plato o a un producto (con lo que gasta cada venta), o ignorarlo; la exportación del TPV arrastrada al chat abre su vista previa | «enlaza el artículo CROQ CASERA del TPV con las croquetas» · «la COPA DE LA CASA son 150 ml de vino tinto» |
+| Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | cargar la exportación del TPV arrastrada al chat (borrador y confirmar); enlazar un artículo del TPV a un plato o a un producto (con lo que gasta cada venta), o ignorarlo | «enlaza el artículo CROQ CASERA del TPV con las croquetas» · «la COPA DE LA CASA son 150 ml de vino tinto» |
 | Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada; la factura en PDF (con texto o escaneada) o en foto arrastrada al chat: proveedor, número, fecha, base, IVA, total y líneas, y abre Nueva factura rellena | «marca como pagada la factura de Makro» |
 | Informes | sí (las mismas cifras, resumidas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
 | Equipo | sí (quién, puesto, locales) | no: invitar y cambiar permisos solo en la pantalla, a propósito | «dame los nombres del personal» |
@@ -37,9 +37,15 @@ resumen.
 | --- | --- | --- |
 | Foto de albarán | proveedor, fecha, líneas y totales; avisa si hay un pedido pendiente de ese proveedor | Nueva recepción |
 | PDF de albarán | lo mismo y el número de albarán | Nueva recepción |
-| PDF o foto de factura | proveedor, número, fecha, base, IVA, total y líneas; si cuadra | Nueva factura |
-| Excel de ventas del TPV | día, local, artículos e importe | Ventas (vista previa) |
+| PDF o foto de factura | proveedor, número, fecha, base, IVA, total y líneas; si cuadra; qué albaranes sin facturar le corresponden (los que nombra o los que suman su base) | Nueva factura, con esos albaranes marcados |
+| Excel de ventas del TPV | día, local, artículos e importe | Se cargan desde el chat (borrador con lo enlazado y lo que no, y confirmar) o en Ventas |
 | Excel o CSV de catálogo o escandallos | qué hoja es qué y cuántas filas | Importar (vista previa) |
+
+Después se puede preguntar por el archivo mientras dure la conversación (`agent/document-turn.ts`): «¿a cuánto
+nos cobra los limones esta factura?» (con nuestro último precio de compra al lado), «¿cuánto es el IVA de este
+albarán?», «¿qué trae esta factura?», «¿cuántas croquetas se vendieron en este excel?». Solo cuando la frase habla del
+archivo («esta factura», «el pdf», «ahí»); el resto de preguntas siguen su camino. Lo leído viaja con cada mensaje
+(`ChatRequest.document`); no se guarda.
 
 ## Pendiente
 

@@ -5,7 +5,7 @@ import { Camera, CheckCircle2, FileText, Paperclip, Trash2, X } from "lucide-rea
 import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
 import { civilToday } from "@/lib/business-day";
-import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
+import { addDays, invoiceMatch, paymentDays, proposeReceipts } from "@/lib/invoices";
 import { camposDeFactura, readDocumentFile, type DocumentoLeido } from "@/lib/documento-foto";
 import { InvoiceLinesTable, lineProblem, type LineaFactura } from "./invoice-lines";
 import { guessSupplier } from "@/lib/albaran-ocr";
@@ -175,7 +175,12 @@ export function InvoiceEditor({ invoice, preset, initialFile, initialRead, orgId
     setLines(leida.lines);
     setLinesDirty(true);
     setFile(doc);
-    setReadNote(c.aviso);
+    // Los albaranes de ese proveedor que nombra la factura, o los que suman su base: se marcan para revisarlos.
+    const sid = proveedor?.id ?? supplierId;
+    const proposal = sid ? proposeReceipts(c.subtotal ? dec(c.subtotal) : null, unbilled.filter((r) => r.supplierId === sid), leida.texts.map((t) => t.text)) : null;
+    if (proposal) setSelected(new Set(proposal.ids));
+    const marked = proposal ? ` He marcado ${proposal.ids.length === 1 ? "el albarán" : `${proposal.ids.length} albaranes`} que ${proposal.how === "numero" ? "nombra la factura" : "suman su base"}: compruébalo.` : "";
+    setReadNote({ ...c.aviso, text: `${c.aviso.text}${marked}` });
   }
 
   /** Foto o PDF de la factura: se lee en el navegador y se rellena el formulario. */

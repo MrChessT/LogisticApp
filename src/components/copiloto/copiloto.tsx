@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowRight, Camera, Check, Flag, FlaskConical, ImageUp, 
 import { ChartCard } from "@/components/charts/charts";
 import { createClient } from "@/lib/supabase/client";
 import { setPendingFile, type FileTarget } from "@/lib/pending-file";
-import type { ActionsEvent, ChartSpec, ClarifyEvent, DecisionEvent, DoneEvent, Draft, ErrorEvent, FormEvent as AssistantForm, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
+import type { ActionsEvent, ChartSpec, ChatDocument, ClarifyEvent, DecisionEvent, DoneEvent, Draft, ErrorEvent, FormEvent as AssistantForm, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
 import { QuickActions } from "./quick-actions";
 import { CommandPalette, HelpCard, localCommandOf, matchCommands, Welcome, type Command, type LocalCommand } from "./assistant-home";
@@ -43,6 +43,8 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const [reportFor, setReportFor] = useState<{ index: number | null; sessionId: string | null } | null>(null);
   const [reported, setReported] = useState<Set<string>>(new Set());
   const sessionId = useRef<string | null>(null);
+  // Lo leído del último archivo dado al chat: se manda con cada mensaje hasta el siguiente archivo o conversación.
+  const lastDocument = useRef<ChatDocument | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Comandos «/»: el resaltado de la lista (se mueve con ↑ ↓). Historial de lo escrito (↑ en el campo vacío).
@@ -125,7 +127,9 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
       const summary = await summarizeFile(file);
       // Queda preparado: al entrar en esa pantalla (por el botón o por el menú) se abre relleno y con el archivo.
       if (summary.open?.read !== undefined && currentRoute(pathname) !== ROUTE_OF[summary.open.target]) setPendingFile(summary.open.target, file, summary.open.read);
-      update(assistantId, () => ({ pending: false, text: summary.text, file: { file, open: summary.open } }));
+      // Lo leído viaja con los mensajes siguientes: así se puede preguntar por el archivo (document-turn.ts).
+      lastDocument.current = summary.doc ?? null;
+      update(assistantId, () => ({ pending: false, text: summary.text, file: { file, open: summary.open, say: summary.say } }));
     } catch (err) {
       // Los fallos del navegador al abrir un archivo llegan en inglés («could not be decoded»): se dice en claro.
       const decode = err instanceof Error && /decod|load|image|canvas|pdf|zip|password/i.test(err.message);
@@ -156,7 +160,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
       const res = await fetch("/api/copiloto/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId.current, message, page: currentRoute(pathname), ...(clarification ? { clarification } : {}), ...(followUpId ? { followUpId } : {}), ...(form ? { form } : {}) }),
+        body: JSON.stringify({ sessionId: sessionId.current, message, page: currentRoute(pathname), ...(clarification ? { clarification } : {}), ...(followUpId ? { followUpId } : {}), ...(form ? { form } : {}), ...(lastDocument.current ? { document: lastDocument.current } : {}) }),
       });
       if (!res.ok || !res.body) {
         const error = (await res.json().catch(() => null)) as ErrorEvent | null;
@@ -212,6 +216,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
     setInput("");
     if (command === "nueva") {
       sessionId.current = null;
+      lastDocument.current = null;
       setItems([]);
       setPendingClarify(null);
       void loadSuggestions();
@@ -457,9 +462,10 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                         ))}
                       </div>
                     )}
-                    {item.file?.open && (
+                    {(item.file?.open || item.file?.say) && (
                       <div className="copiloto-actions">
-                        <button type="button" onClick={() => item.file?.open && openFileIn(item.file.open.target, item.file.file, item.file.open.read)}>{item.file.open.label}</button>
+                        {item.file.say && <button type="button" disabled={busy} onClick={() => item.file?.say && void send(item.file.say.message)}>{item.file.say.label}</button>}
+                        {item.file.open && <button type="button" onClick={() => item.file?.open && openFileIn(item.file.open.target, item.file.file, item.file.open.read)}>{item.file.open.label}</button>}
                       </div>
                     )}
                     {item.navigate && (

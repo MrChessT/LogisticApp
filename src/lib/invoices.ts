@@ -38,3 +38,42 @@ export function daysUntil(isoDate: string, today = new Date()): number {
   const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   return Math.round((due - now) / 86_400_000);
 }
+
+const compact = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Albaranes sin facturar que corresponden a una factura leída, para marcarlos al registrarla:
+ *  1. los que la factura nombra por su número («Albarán 2024/117», «Alb. AL-7781»), si alguno aparece;
+ *  2. si no, la única combinación de albaranes (de los 14 más recientes) cuya suma sin IVA da la base, con el menor
+ *     número de albaranes. Si hay dos combinaciones igual de buenas, no se elige: lo decide la persona.
+ * Lo propuesto solo se marca; la persona lo revisa antes de registrar.
+ */
+export function proposeReceipts<R extends { id: string; docNumber: string | null; date: string; total: number }>(
+  base: number | null,
+  receipts: R[],
+  texts: string[],
+): { ids: string[]; how: "numero" | "suma" } | null {
+  if (receipts.length === 0) return null;
+  const tokens = new Set(texts.flatMap((t) => t.split(/[^\p{L}\p{N}/-]+/u)).map(compact).filter((t) => t.length >= 3));
+  const whole = compact(texts.join(" "));
+  const named = receipts.filter((r) => {
+    const n = r.docNumber ? compact(r.docNumber) : "";
+    return n.length >= 3 && (tokens.has(n) || (n.length >= 5 && whole.includes(n)));
+  });
+  if (named.length > 0) return { ids: named.map((r) => r.id), how: "numero" };
+  if (base === null || base <= 0) return null;
+  const pool = [...receipts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
+  const cents = Math.round(base * 100);
+  let best: { mask: number; size: number } | null = null;
+  let tie = false;
+  for (let mask = 1; mask < 1 << pool.length; mask++) {
+    let sum = 0;
+    let size = 0;
+    for (let i = 0; i < pool.length; i++) if (mask & (1 << i)) { sum += Math.round(pool[i]!.total * 100); size++; }
+    if (Math.abs(sum - cents) > 2) continue;
+    if (!best || size < best.size) { best = { mask, size }; tie = false; } else if (size === best.size) tie = true;
+  }
+  if (!best || tie) return null;
+  const picked = pool.filter((_, i) => best!.mask & (1 << i)).sort((a, b) => a.date.localeCompare(b.date));
+  return { ids: picked.map((r) => r.id), how: "suma" };
+}

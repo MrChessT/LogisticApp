@@ -19,6 +19,8 @@ export interface SalesItemRaw {
   foodCost: string | null;
 }
 export interface SalesDayRaw { date: string; locationId: string; total: string }
+export interface SalesImportLine { code: string; name: string; qty: string; unit: string | null; amount: string }
+export interface SalesPreview { replaced: boolean; linked: number; unlinked: number; unlinkedAmount: string; theoreticalCost: string | null; costedAmount: string | null }
 /** Artículo del TPV y a qué está enlazado (para enlazarlo desde el chat). */
 export interface SalesItemRef { id: string; code: string; name: string; link: SalesItemRaw["link"] }
 
@@ -26,6 +28,8 @@ export interface SalesSource {
   /** Por artículo en el periodo (locationId null = todos los locales). */
   salesReport(orgId: string, from: string, to: string, locationId: string | null): Promise<SalesItemRaw[]>;
   salesDays(orgId: string, from: string, to: string): Promise<SalesDayRaw[]>;
+  /** Vista previa de cargar las ventas de un día (import_sales sin aplicar): lo que pasaría, sin guardar nada. */
+  salesPreview(args: { orgId: string; locationId: string; date: string; lines: SalesImportLine[]; file: string }): Promise<SalesPreview>;
   /** Artículos del TPV de la organización. */
   salesItems(orgId: string): Promise<SalesItemRef[]>;
   /** Último día con ventas importadas (de cualquier local), o null si no hay ninguno. */

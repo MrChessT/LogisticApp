@@ -1,7 +1,7 @@
 // Datos de prueba (ficticios) de facturas, equipo, escandallos, zonas, inventarios y proveedores.
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
-import type { SalesDayRaw, SalesItemRaw, SalesItemRef } from "../tools/info-sales";
+import type { SalesDayRaw, SalesImportLine, SalesItemRaw, SalesItemRef, SalesPreview } from "../tools/info-sales";
 import type { AreaMoveRaw } from "../tools/info-warehouse";
 import { AREAS, LOCATIONS, PRODUCTS } from "./fixture";
 
@@ -130,6 +130,12 @@ export class FixtureInfoSource implements InfoSource {
       { name: "AGUA", link: "producto", linkName: "Agua mineral 50 cl", qty: "11", amount: "50.05", cost: "2.31", foodCost: "4.6" },
       { name: "Servicio de pan", link: "sin_enlazar", linkName: null, qty: "48", amount: "109.12", cost: null, foodCost: null },
     ];
+  }
+
+  async salesPreview(args: { lines: SalesImportLine[] }): Promise<SalesPreview> {
+    // Lo que no se llama como un plato de prueba queda sin enlazar.
+    const unlinked = args.lines.filter((l) => !/croquet/i.test(l.name));
+    return { replaced: false, linked: args.lines.length - unlinked.length, unlinked: unlinked.length, unlinkedAmount: unlinked.reduce((s, l) => s + Number(l.amount), 0).toFixed(2), theoreticalCost: "6.80", costedAmount: "20.00" };
   }
 
   async salesItems(): Promise<SalesItemRef[]> {

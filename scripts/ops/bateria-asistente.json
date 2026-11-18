@@ -153,6 +153,24 @@
     ]
   },
   {
+    "nombre": "Preguntas sobre una factura leída en el chat (datos inventados)",
+    "documento": {
+      "kind": "factura", "file": "factura-prueba.pdf", "number": "FN-2026-0042", "date": "2026-11-14", "party": null,
+      "base": "26.00", "vat": "2.60", "total": "28.60", "status": "cuadra",
+      "lines": [
+        { "code": null, "description": "Tónica botella 20 cl", "qty": "6", "unit": null, "price": "0.80", "amount": "4.80" },
+        { "code": null, "description": "Limones malla", "qty": "12", "unit": null, "price": "1.25", "amount": "15.00" },
+        { "code": null, "description": "Hielo bolsa 10 kg", "qty": "2", "unit": null, "price": "3.10", "amount": "6.20" }
+      ]
+    },
+    "turnos": [
+      { "usuario": "¿a cuánto nos cobra los limones esta factura?", "espera": "^En esta factura, Limones malla: 12 × 1,25 € = 15,00 €", "sinAclarar": true },
+      { "usuario": "¿cuánto es el IVA de esta factura?", "espera": "^El IVA de esta factura es 2,60 €" },
+      { "usuario": "¿qué trae esta factura?", "espera": "3 líneas" },
+      { "usuario": "¿cuánta tónica queda en el Vivero?", "espera": "tónica", "no": "esta factura" }
+    ]
+  },
+  {
     "nombre": "Petición genérica no es alta de producto (reporte de opinión 13/11)",
     "turnos": [
       { "usuario": "Preparar una operación", "espera": "qué operación|Qué quieres hacer|operación", "no": "producto nuevo|Cómo se llama|créalo|Manualmente" }

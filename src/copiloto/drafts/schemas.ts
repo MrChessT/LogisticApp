@@ -219,7 +219,7 @@ const OrderDraftSchema = base.extend({
 
 const DocumentDraftSchema = base.extend({
   kind: z.literal("documento"),
-  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo", "asociar_proveedor", "editar_escandallo", "enlazar_venta"]),
+  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo", "asociar_proveedor", "editar_escandallo", "enlazar_venta", "cargar_ventas"]),
   documentId: id,
   locationId: id,
   summary: z.string().min(1).max(200),
@@ -259,6 +259,14 @@ const DocumentDraftSchema = base.extend({
   salesLink: z
     .object({ itemId: id, itemName: z.string().min(1).max(200), recipeId: id.optional(), productId: id.optional(), qty: positive.optional(), ignored: z.boolean().optional() })
     .refine((l) => (l.ignored ? !l.recipeId && !l.productId : !!l.recipeId !== !!l.productId && !!l.qty), "escandallo o producto con cantidad, o ignorar")
+    .optional(),
+  salesImport: z
+    .object({
+      locationId: id,
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      file: z.string().max(200),
+      lines: z.array(z.object({ code: z.string().min(1).max(40), name: z.string().min(1).max(200), qty: z.string().regex(/^-?\d{1,9}(\.\d{1,6})?$/), unit: z.string().max(60).nullable(), amount: z.string().regex(/^-?\d{1,9}(\.\d{1,6})?$/) })).min(1).max(1500),
+    })
     .optional(),
   sheet: z.object({ productIds: z.array(id).min(1).max(12), categoryId: id.optional(), addAllergens: z.array(z.string().max(20)).max(14), removeAllergens: z.array(z.string().max(20)).max(14) }).optional(),
   move: z.object({ productId: id, qtyBase: positive, fromAreaId: id, toAreaId: id, kind: z.enum(["salida", "devolucion"]), input: quantityInput }).optional(),

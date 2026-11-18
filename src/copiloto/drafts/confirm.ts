@@ -63,7 +63,7 @@ const OPERATION_ROUTE: Record<DocumentDraft["operation"], AppRoute> = {
   recibir_traspaso: "/traspasos", cancelar_traspaso: "/traspasos", enviar_pedido: "/pedidos", recibir_pedido: "/pedidos", cancelar_pedido: "/pedidos",
   pagar_factura: "/facturas", validar_salidas: "/almacen", salida_almacen: "/almacen", precio_venta: "/escandallos", condiciones_proveedor: "/proveedores",
   ficha_producto: "/productos", formato_producto: "/productos", crear_zona: "/zonas", crear_escandallo: "/escandallos", editar_escandallo: "/escandallos",
-  asociar_proveedor: "/productos", enlazar_venta: "/ventas",
+  asociar_proveedor: "/productos", enlazar_venta: "/ventas", cargar_ventas: "/ventas",
 };
 
 /** Fecha de hoy en España (YYYY-MM-DD): pasada la medianoche UTC sigue siendo «hoy» en Madrid. */
@@ -324,6 +324,12 @@ export class ConfirmService {
               throw err;
             }
             return done(`${link.supplierName} asociado a ${link.productName}. El precio entra con su primera compra o factura.`);
+          }
+          case "cargar_ventas": {
+            const sales = draft.salesImport!;
+            const r = await writer.importSales({ orgId: ctx.orgId, ...sales });
+            const unlinked = r.unlinked > 0 ? ` ${r.unlinked} ${r.unlinked === 1 ? "artículo está" : "artículos están"} sin enlazar: dime «enlaza el artículo … del TPV con …» o hazlo en Ventas.` : "";
+            return done(`Ventas del ${sales.date.split("-").reverse().join("/")} cargadas: ${sales.lines.length} artículos.${unlinked}`);
           }
           case "enlazar_venta": {
             const link = draft.salesLink!;
