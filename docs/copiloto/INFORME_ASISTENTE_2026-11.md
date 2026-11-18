@@ -187,6 +187,26 @@ añade una llamada (fase 3): hay que medirla y mantener la vía rápida para lo 
 Con estos datos, una tarjeta de decisión perfecta en código seguiría proponiendo cosas raras. La calidad de la
 decisión depende tanto de estos datos como de la fórmula.
 
+**Completado el 18/11, con autorización expresa, en datos que se reiniciarán:**
+
+- **Condiciones de proveedor: 30 de 32.**
+  - «Proveedor prueba 01–08» reciben siempre martes y viernes: se piden lunes y jueves antes de las 12, con 24 h de
+    plazo y 100 € de mínimo.
+  - Los cuatro sin historial llevan condiciones genéricas: lunes, miércoles y viernes, 12:00, 24 h.
+  - Las dos que faltan no son proveedores sino fuentes de precio: «Precio de referencia (estimado)» y «Precios de
+    escandallo».
+- **Niveles: 3.480 de 3.484 productos por local.** Se calculan desde el consumo de 28 días y se redondean a la unidad
+  de recuento.
+  - Mínimo: 4 días de consumo (plazo más días entre pedidos), al menos 1 unidad.
+  - Objetivo: 8 días, y al menos una unidad por encima del mínimo.
+- **Stock negativo: 0.** Había 4 saldos, uno de ellos de −5.594 litros de un tequila. Se llevaron a cero con
+  `register_movement` como ajuste manual, con el usuario propietario: el stock solo cambia por funciones de la base de
+  datos.
+
+**Fallo encontrado al revisar los pedidos:** «Precio de referencia (estimado)», que no es un proveedor, tiene un pedido
+de 168 líneas. El borrador de pedido elige el proveedor por el último precio de cada formato, y esa fuente de precio
+gana. Se corrige en la fase 4.
+
 ### 3.7 El panel
 
 Bien resuelto:
@@ -316,7 +336,7 @@ Sin eso, la tarjeta de decisión llegaría a un usuario que ya se ha rendido en 
 | R3 | Las consultas no extraen filtros (proveedor, fechas, número, persona, local) | «¿Cuánto le debo a Makro?» da el total de todos | Alto |
 | R4 | La reposición entrega una lista, no una decisión: comprar y traspasar separados, horizonte fijo, ficha del proveedor solo para avisar, cobertura que no cuenta lo que está en camino | El encargado sigue planificando a mano | Alto (diferenciador) |
 | R5 | Medición engañosa: baterías ajustadas, auditoría sin respuesta ni latencia, sin batería de decisiones | Se cree que va bien | Alto (impide mejorar) |
-| R6 | Datos maestros incompletos y sucios: 31 % de productos con niveles, 56 % de proveedores con condiciones, valoraciones negativas | Reposición pobre y cifras imposibles sin aviso | Medio-alto |
+| R6 | Datos maestros incompletos y sucios. Antes del 18/11: 31 % de productos con niveles y 56 % de proveedores con condiciones. Ya completado (3.6), pero sin defensas en el código: fuentes de precio tratadas como proveedores y cifras imposibles sin aviso | Reposición pobre y cifras imposibles sin aviso | Medio |
 | R7 | Huecos funcionales: crear proveedor, desarchivar, quién hizo qué, contacto, guías «cómo se hace», comparativas | «No sé», o peor: otra cosa | Medio |
 | R8 | Sin búsqueda semántica en producción | «zero» frente a «zero zero» | Medio |
 | R9 | Respuestas de reserva malas: lista de capacidades o «fuera de ámbito» | Sensación de que no escucha | Medio |
@@ -368,13 +388,28 @@ precisar en [JEV.md](JEV.md) que la interpretación puede venir del modelo.
 
 ---
 
-## 9. Decisiones que te tocan
+## 9. Decisiones
 
-1. **Intérprete con modelo de lenguaje** en la fase 3: el modelo y el presupuesto por mensaje. Por ejemplo, uno
-   rápido tipo Haiku por el AI Gateway, que ya está configurado, con un tope de coste y de latencia.
-2. **Completar los datos maestros:** condiciones de los 14 proveedores que no las tienen, y mínimos y objetivos.
-   Se puede hacer con propuestas del asistente a partir del consumo, siempre como borrador.
-3. **Limpiar los datos de producción:** valoraciones negativas, productos de prueba y artículos del TPV sin enlazar.
+Tomadas el 18/11:
+
+1. **Gasto medio en el intérprete: Claude Sonnet 5.5** (`claude-sonnet-5-5`), por el AI Gateway.
+   - **Por qué este nivel.** A precios actuales (por millón de tokens: Haiku 5.5 a 0,10/0,50 $, Sonnet 5.5 a
+     2/10 $ y Opus 5.5 a 4/20 $), un mensaje de unos 3.000 tokens de entrada y 300 de salida cuesta unos
+     0,0005 $, 0,009 $ y 0,018 $. Sonnet es el nivel medio.
+   - **Coste real.** Con la parte fija del prompt en caché (catálogo resumido, reglas), queda por debajo de un
+     céntimo por mensaje. Solo pasa por el intérprete lo que la vía rápida no resuelve.
+   - **Configuración.** Esfuerzo bajo, salida con esquema y tope de 1.500 tokens de salida.
+   - **Respaldo.** Haiku 5.5 si falla o se pasa de tiempo. Si los dos fallan, el camino actual.
+   - **Presupuesto.** Objetivo de 1 céntimo por mensaje de media; tope de 3 céntimos. Se mide en la auditoría
+     (fase 0).
+2. **Datos maestros:** completados directamente en producción, sin pasar por borradores, porque los datos se
+   reiniciarán (sección 3.6). El código de la fase 4 tiene que seguir funcionando cuando falten, con valores por
+   defecto y avisos.
+3. **Limpieza:** hecha la del stock negativo. Quedan los productos «PRUEBA-VOL», las dos fuentes de precio tratadas
+   como proveedores y los artículos del TPV sin enlazar; se pueden limpiar en el reinicio.
+
+Pendiente:
+
 4. **Qué no se hará desde el chat.** Hoy: invitar personas y cambiar permisos.
 
 ---
