@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { usePermissions } from "@/lib/permissions";
 import { readXlsx } from "@/lib/xlsx";
+import { onPendingFile, takePending } from "@/lib/pending-file";
 import { guessLocation, parseSalesBook, type ParsedSales } from "@/lib/sales-import";
 import { LocationTabs, type LocationOption } from "@/components/ui/location-tabs";
 import { LoadingRows } from "@/components/ui/loading-rows";
@@ -134,7 +135,27 @@ export default function SalesPage() {
     setUpload({ ...next, busy: false, preview: data as unknown as Preview });
   }
 
-  async function onFile(list: FileList | null) {
+  // Exportación del TPV que llega desde el asistente: se abre su vista previa cuando ya están los locales.
+  const [incoming, setIncoming] = useState<File | null>(null);
+  useEffect(() => {
+    const take = () => {
+      const entry = takePending("ventas");
+      if (entry) setIncoming(entry.file);
+    };
+    void Promise.resolve().then(take);
+    return onPendingFile("ventas", take);
+  }, []);
+  useEffect(() => {
+    if (!incoming || locations.length === 0) return;
+    const file = incoming;
+    void Promise.resolve().then(() => {
+      setIncoming(null);
+      void onFile([file]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se abre una vez por archivo
+  }, [incoming, locations]);
+
+  async function onFile(list: ArrayLike<File> | null) {
     setError("");
     const f = list?.[0];
     if (input.current) input.current.value = "";

@@ -14,18 +14,6 @@ export function fileKind(file: File): FileKind {
   return "otro";
 }
 
-/** Qué hacer con un archivo que no es una foto (el panel solo lee fotos de albaranes). */
-export function otherFileReply(file: File, kind: Exclude<FileKind, "imagen">): string {
-  const name = file.name || "el archivo";
-  if (kind === "pdf") {
-    return `«${name}» es un PDF. Si es una factura, ábrela en Facturas con el PDF ya adjunto: pon el proveedor y los importes y márcale sus albaranes para cuadrarla. Si es un albarán, hazle una foto o una captura y arrástrala aquí.`;
-  }
-  if (kind === "hoja") {
-    return `«${name}» es una hoja de cálculo. Productos, ventas del TPV y escandallos se cargan desde Gestión › Importar, que revisa cada fila antes de guardar nada.`;
-  }
-  return `No sé leer «${name}». Arrástrame una foto o captura de un albarán (JPG, PNG o HEIC) y te digo qué llega.`;
-}
-
 const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
 
 export function useFileDrop(onFile: (file: File) => void, enabled: boolean) {

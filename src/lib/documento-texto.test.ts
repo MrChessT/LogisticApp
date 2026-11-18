@@ -140,8 +140,8 @@ describe("albarán con columnas Ud., Precio, Dto e Importe (IVA y totales en blo
     "00120 Racor de ejemplo 4.00 1.38 5.52",
     "97 Caldera de ejemplo 3.00 2.101,00 6.303,00",
     "B. Imponible IVA Total Albarán",
-    "7.711,87 € (21.00%) 1.619,49 €",
-    "9.331,36 €",
+    "7.570,12 € (21.00%) 1.589,73 €",
+    "9.159,85 €",
   ].join("\n");
 
   it("lee el descuento de la columna Dto y los totales de bloque", () => {
@@ -152,10 +152,31 @@ describe("albarán con columnas Ud., Precio, Dto e Importe (IVA y totales en blo
       ["00120", "4.00", "1.38", null, "5.52"],
       ["97", "3.00", "2101.00", null, "6303.00"],
     ]);
-    expect(r.base).toBe("7711.87");
-    expect(r.vatRows).toEqual([{ rate: "21.00", vat: "1619.49" }]);
-    expect(r.total).toBe("9331.36");
+    expect(r.base).toBe("7570.12");
+    expect(r.vatRows).toEqual([{ rate: "21.00", vat: "1589.73" }]);
+    expect(r.total).toBe("9159.85");
     expect(r.status).toBe("cuadra");
+  });
+});
+
+describe("factura en PDF con números dentro de la descripción", () => {
+  // «20 cl» o «10 kg» forman parte del nombre: la cantidad es el primer número; precio e importe, los dos últimos.
+  const doc = ["Factura FN-1", "Fecha 14/11/2026", "6 Tónica botella 20 cl 0,80 4,80", "12 Limones malla 1,25 15,00", "2 cajas Hielo bolsa 10 kg 3,10 6,20", "Base imponible 26,00", "IVA 10% 2,60", "Total 28,60"];
+
+  it("lee todas las líneas, con la unidad solo si va detrás de la cantidad", () => {
+    const r = readDocumentText(doc.join("\n"));
+    expect(r.lines.map((l) => [l.qty, l.unit, l.description, l.price, l.amount])).toEqual([
+      ["6", null, "Tónica botella 20 cl", "0.80", "4.80"],
+      ["12", null, "Limones malla", "1.25", "15.00"],
+      ["2", "cajas", "Hielo bolsa 10 kg", "3.10", "6.20"],
+    ]);
+    expect(r.status).toBe("cuadra");
+  });
+
+  it("sin subtotal escrito, una línea que no se lee no deja la factura como cuadrada", () => {
+    const r = readDocumentText(doc.filter((l) => !l.startsWith("6 ")).join("\n"));
+    expect(r.status).toBe("revisar");
+    expect(r.issues).toContain("Las líneas suman 21.20 y la base imponible es 26.00.");
   });
 });
 

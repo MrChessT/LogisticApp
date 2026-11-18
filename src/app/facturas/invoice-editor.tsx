@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CheckCircle2, FileText, Paperclip, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
 import { civilToday } from "@/lib/business-day";
 import { addDays, invoiceMatch, paymentDays } from "@/lib/invoices";
-import { camposDeFactura, readDocumentPhoto } from "@/lib/documento-foto";
+import { camposDeFactura, readDocumentFile, type DocumentoLeido } from "@/lib/documento-foto";
 import { InvoiceLinesTable, lineProblem, type LineaFactura } from "./invoice-lines";
 import { guessSupplier } from "@/lib/albaran-ocr";
 
@@ -28,10 +28,12 @@ const dec = (s: string) => {
 };
 const text = (n: number | null | undefined) => (n === null || n === undefined ? "" : n.toFixed(2).replace(".", ","));
 
-export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, unbilled, onClose, onChanged }: {
+export function InvoiceEditor({ invoice, preset, initialFile, initialRead, orgId, suppliers, unbilled, onClose, onChanged }: {
   invoice: InvoiceRow | null;
   /** PDF que llega del asistente: la factura nueva se abre con él ya adjunto. */
   initialFile?: File;
+  /** Lectura ya hecha por el asistente: se aplica sin volver a leer el archivo. */
+  initialRead?: DocumentoLeido | null;
   preset: { supplierId: string; receiptIds: string[] } | null;
   orgId: string;
   suppliers: SupplierOption[];
@@ -159,31 +161,48 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
     setTotal(text(b + v));
   }
 
-  /** Rellena los campos con lo que se lee en la foto. Solo en facturas nuevas; la persona revisa y registra. */
-  async function readPhoto(photo: File) {
+  /** Rellena los campos con lo que se lee del documento. Solo en facturas nuevas; la persona revisa y registra. */
+  function applyRead(leida: DocumentoLeido, doc: File) {
+    const c = camposDeFactura(leida);
+    // El proveedor sale de su nombre en la factura: así aparecen sus albaranes sin facturar para el cuadre.
+    const proveedor = supplierId ? null : guessSupplier(leida.texts, suppliers);
+    if (proveedor) pickSupplier(proveedor.id);
+    if (c.number) setNumber(c.number);
+    if (c.date) changeDate(c.date);
+    if (c.subtotal) setSubtotal(c.subtotal);
+    if (c.vat) setVat(c.vat);
+    if (c.total) setTotal(c.total);
+    setLines(leida.lines);
+    setLinesDirty(true);
+    setFile(doc);
+    setReadNote(c.aviso);
+  }
+
+  /** Foto o PDF de la factura: se lee en el navegador y se rellena el formulario. */
+  async function readDoc(doc: File) {
     setReading(true);
     setReadNote(null);
     try {
-      const leida = await readDocumentPhoto(photo);
-      const c = camposDeFactura(leida);
-      // El proveedor sale de su nombre en la factura: así aparecen sus albaranes sin facturar para el cuadre.
-      const proveedor = supplierId ? null : guessSupplier(leida.texts, suppliers);
-      if (proveedor) pickSupplier(proveedor.id);
-      if (c.number) setNumber(c.number);
-      if (c.date) changeDate(c.date);
-      if (c.subtotal) setSubtotal(c.subtotal);
-      if (c.vat) setVat(c.vat);
-      if (c.total) setTotal(c.total);
-      setLines(leida.lines);
-      setLinesDirty(true);
-      setFile(photo);
-      setReadNote(c.aviso);
+      applyRead(await readDocumentFile(doc), doc);
     } catch (e) {
-      setReadNote({ ok: false, text: e instanceof Error ? e.message : "No se pudo leer la foto." });
+      setReadNote({ ok: false, text: e instanceof Error ? e.message : "No se pudo leer el documento." });
     } finally {
       setReading(false);
     }
   }
+
+  // El documento que trae el asistente se aplica al abrir (con su lectura, o leyéndolo aquí si no la trae).
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || invoice || !initialFile) return;
+    started.current = true;
+    void (async () => {
+      await Promise.resolve();
+      if (initialRead) applyRead(initialRead, initialFile);
+      else await readDoc(initialFile);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir el formulario
+  }, []);
 
   async function save() {
     setError("");
@@ -285,8 +304,8 @@ export function InvoiceEditor({ invoice, preset, initialFile, orgId, suppliers, 
         <div className="editor-body invoice-body">
           {!invoice && (
             <div className="invoice-read">
-              <label className="ghost-button"><Camera size={14} /> {reading ? "Leyendo la foto…" : "Leer foto de la factura"}
-                <input type="file" hidden accept="image/*" disabled={reading} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void readPhoto(f); }} />
+              <label className="ghost-button"><Camera size={14} /> {reading ? "Leyendo la factura…" : "Leer foto o PDF de la factura"}
+                <input type="file" hidden accept="image/*,application/pdf" disabled={reading} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void readDoc(f); }} />
               </label>
               {readNote && <p className={`editor-message ${readNote.ok ? "" : "error"}`}>{readNote.text}</p>}
             </div>

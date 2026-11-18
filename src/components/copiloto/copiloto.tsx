@@ -8,18 +8,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Camera, Check, Flag, FlaskConical, ImageUp, LayoutGrid, Loader2, Mic, MicOff, MessagesSquare, RotateCcw, Send, X } from "lucide-react";
 import { ChartCard } from "@/components/charts/charts";
 import { createClient } from "@/lib/supabase/client";
-import { setPendingFile } from "@/lib/pending-file";
+import { setPendingFile, type FileTarget } from "@/lib/pending-file";
 import type { ActionsEvent, ChartSpec, ClarifyEvent, DecisionEvent, DoneEvent, Draft, ErrorEvent, FormEvent as AssistantForm, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
 import { QuickActions } from "./quick-actions";
 import { CommandPalette, HelpCard, localCommandOf, matchCommands, Welcome, type Command, type LocalCommand } from "./assistant-home";
 import { streamEvents } from "./chat-stream";
-import { currentRoute, hrefFor, newId, ROUTE_LABELS, type AssistantItem, type Item } from "./chat-model";
+import { currentRoute, hrefFor, newId, ROUTE_LABELS, ROUTE_OF, type AssistantItem, type Item } from "./chat-model";
 import { DraftCard } from "./draft-card";
 import { AssistantText, TableCard, Understood } from "./message-parts";
-import { summarizeAlbaranPhoto } from "./photo";
+import { summarizeFile } from "./documents";
 import { ReportForm } from "./report-form";
-import { fileKind, otherFileReply, useFileDrop } from "./use-file-drop";
+import { useFileDrop } from "./use-file-drop";
 import { FormCard, type FormValues } from "./form-card";
 import { useVoice } from "./use-voice";
 import "./copiloto.css";
@@ -113,44 +113,34 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   }
 
   /**
-   * Foto desde el chat: se lee aquí (en el navegador, sin subirla) y se resume. Registrar la recepción se
-   * hace en Nueva recepción, con las mismas comprobaciones que a mano: nada se guarda sin revisar.
+   * Archivo desde el chat (foto, PDF u hoja): se lee aquí, en el navegador y sin subirlo, y se resume (documents.ts).
+   * Guardar se hace en su pantalla, con las mismas comprobaciones que a mano: nada se guarda sin revisar.
    */
-  async function sendPhoto(file: File) {
+  async function handleFile(file: File) {
     if (busy) return;
     const assistantId = newId();
     setBusy(true);
-    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Foto: ${file.name || "albarán"}` }, { id: assistantId, role: "assistant", text: "", pending: true }]);
-    update(assistantId, () => ({ text: "Leyendo la foto…" }));
+    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Archivo: ${file.name || "foto"}` }, { id: assistantId, role: "assistant", text: "Leyendo el archivo…", pending: true }]);
     try {
-      const summary = await summarizeAlbaranPhoto(file);
-      // Queda preparada: al entrar en Recepciones (por el botón o por el menú) se abre rellena y con la foto adjunta.
-      if (summary.read && currentRoute(pathname) !== "/recepciones") setPendingFile("recepcion", file, summary.result);
-      update(assistantId, () => ({ pending: false, text: summary.text, photo: { file, read: summary.read, result: summary.result } }));
+      const summary = await summarizeFile(file);
+      // Queda preparado: al entrar en esa pantalla (por el botón o por el menú) se abre relleno y con el archivo.
+      if (summary.open?.read !== undefined && currentRoute(pathname) !== ROUTE_OF[summary.open.target]) setPendingFile(summary.open.target, file, summary.open.read);
+      update(assistantId, () => ({ pending: false, text: summary.text, file: { file, open: summary.open } }));
     } catch (err) {
-      // Los fallos del navegador al abrir la imagen llegan en inglés («could not be decoded»): se dice en claro.
-      const decode = err instanceof Error && /decod|load|image|canvas/i.test(err.message);
-      const message = decode ? "No he podido abrir la imagen (¿está dañada o en un formato raro?). Prueba con otra foto o una captura en JPG o PNG." : "No se pudo leer la foto.";
-      update(assistantId, () => ({ pending: false, error: message, photo: { file, read: false } }));
+      // Los fallos del navegador al abrir un archivo llegan en inglés («could not be decoded»): se dice en claro.
+      const decode = err instanceof Error && /decod|load|image|canvas|pdf|zip|password/i.test(err.message);
+      update(assistantId, () => ({ pending: false, error: decode ? "No he podido abrir el archivo (¿está dañado, protegido o en un formato raro?). Prueba con otro o con una captura en JPG o PNG." : "No se pudo leer el archivo." }));
     } finally {
       setBusy(false);
     }
   }
-
-  /** Archivo arrastrado, pegado o elegido: las fotos se leen; del resto se dice dónde va. */
-  function handleFile(file: File) {
-    const kind = fileKind(file);
-    if (kind === "imagen") return void sendPhoto(file);
-    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Archivo: ${file.name}` }, { id: newId(), role: "assistant", text: otherFileReply(file, kind), pending: false, ...(kind === "pdf" ? { invoiceFile: file } : {}) }]);
-  }
-  const drop = useFileDrop(handleFile, !busy);
+  const drop = useFileDrop((file) => void handleFile(file), !busy);
 
   /** El panel se cierra para dejar a la vista la pantalla (la conversación sigue al volver a abrirlo). */
-  function openFileIn(target: "recepcion" | "factura", file: File, read?: unknown) {
+  function openFileIn(target: FileTarget, file: File, read?: unknown) {
     setOpen(false);
     setPendingFile(target, file, read);
-    const route = target === "recepcion" ? "/recepciones" : "/facturas";
-    if (currentRoute(pathname) !== route) router.push(route);
+    if (currentRoute(pathname) !== ROUTE_OF[target]) router.push(ROUTE_OF[target]);
   }
 
   /** `display`: lo que se enseña como mensaje del usuario (el menú de funciones manda un atajo). */
@@ -467,18 +457,9 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                         ))}
                       </div>
                     )}
-                    {item.photo && (
+                    {item.file?.open && (
                       <div className="copiloto-actions">
-                        <button type="button" onClick={() => item.photo && openFileIn("recepcion", item.photo.file, item.photo.result)}>
-                          {item.photo.read ? "Revisar y registrar la recepción" : "Registrar en Recepciones"}
-                        </button>
-                      </div>
-                    )}
-                    {item.invoiceFile && (
-                      <div className="copiloto-actions">
-                        <button type="button" onClick={() => item.invoiceFile && openFileIn("factura", item.invoiceFile)}>
-                          Registrar la factura con este PDF
-                        </button>
+                        <button type="button" onClick={() => item.file?.open && openFileIn(item.file.open.target, item.file.file, item.file.open.read)}>{item.file.open.label}</button>
                       </div>
                     )}
                     {item.navigate && (
@@ -529,20 +510,20 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                 className="copiloto-functions-toggle"
                 onClick={() => photoInput.current?.click()}
                 disabled={busy}
-                aria-label="Enviar una foto"
-                title="Foto de un albarán (o arrástrala aquí)"
+                aria-label="Enviar una foto o un archivo"
+                title="Foto o PDF de un albarán o una factura, o un Excel (también puedes arrastrarlo aquí)"
               >
                 <Camera size={16} />
               </button>
               <input
                 ref={photoInput}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf,.xlsx,.csv,text/csv"
                 hidden
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   event.target.value = "";
-                  if (file) handleFile(file);
+                  if (file) void handleFile(file);
                 }}
               />
               <input

@@ -45,7 +45,34 @@ export function camposDeFactura(r: DocRead): CamposLeidos {
  * Lee una foto de factura o de albarán: el OCR del navegador (la foto no sale del dispositivo), renglones y el
  * mismo lector que el texto. Devuelve también el texto del OCR, para buscar el proveedor. No guarda nada.
  */
-export async function readDocumentPhoto(file: Blob): Promise<DocRead & { texts: OcrText[] }> {
+async function readDocumentPhoto(file: Blob): Promise<DocRead & { texts: OcrText[] }> {
   const texts = await ocrTextos(file);
   return { ...readDocumentText(filasDeOcr(texts)), texts };
+}
+
+/**
+ * Lee un PDF de factura o de albarán con el mismo lector: su texto, ordenado en renglones (pdf-texto.ts). Si es un
+ * escaneado sin texto, cada página pasa por el OCR de las fotos. `texts` lleva los renglones, para buscar el proveedor.
+ */
+export async function readDocumentPdf(file: Blob): Promise<DocRead & { texts: OcrText[]; escaneado: boolean }> {
+  const { leerPdf } = await import("@/lib/pdf-texto");
+  const { lines, pages } = await leerPdf(file);
+  if (pages.length === 0) return { ...readDocumentText(lines.join("\n")), texts: lines.map((text) => ({ text, box: [] })), escaneado: false };
+  const texts: OcrText[] = [];
+  const filas: string[] = [];
+  for (const page of pages) {
+    const t = await ocrTextos(page);
+    texts.push(...t);
+    filas.push(filasDeOcr(t));
+  }
+  return { ...readDocumentText(filas.join("\n")), texts, escaneado: true };
+}
+
+/** Lo que se lee de una factura o un albarán, con su texto para buscar el proveedor. */
+export type DocumentoLeido = DocRead & { texts: OcrText[] };
+
+/** Foto o PDF: cada uno por su camino, con el mismo resultado. */
+export function readDocumentFile(file: File): Promise<DocumentoLeido> {
+  const pdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  return pdf ? readDocumentPdf(file) : readDocumentPhoto(file);
 }

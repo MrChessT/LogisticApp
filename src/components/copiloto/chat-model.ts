@@ -1,5 +1,7 @@
 // Modelo del chat en el navegador: los mensajes de la conversación, las rutas de la app y cómo se
 // resume un mensaje al adjuntarlo a un reporte.
+import type { FileTarget } from "@/lib/pending-file";
+import type { FileSummary } from "./documents";
 import type { TranscriptEntry } from "@/lib/copilot-feedback";
 import type { ActionsEvent, AppRoute, ChartSpec, ClarifyEvent, DecisionEvent, Draft, FormEvent, NavigateEvent, ResolvedEvent, TableEvent } from "@/copiloto/contract";
 import type { Suggestion } from "@/copiloto/suggestions/engine";
@@ -28,10 +30,8 @@ export type Item =
       table?: TableEvent;
       actions?: ActionsEvent["actions"];
       error?: string;
-      /** Foto de un albarán leída en el chat: se revisa y registra en Nueva recepción. */
-      photo?: { file: File; read: boolean; result?: unknown };
-      /** PDF arrastrado al chat: se registra como factura en Facturas, con el PDF ya adjunto. */
-      invoiceFile?: File;
+      /** Archivo leído en el chat (foto, PDF u hoja): se revisa y guarda en su pantalla (documents.ts). */
+      file?: { file: File; open?: FileSummary["open"] };
       /** Guía de /ayuda. */
       help?: boolean;
       /** Lista de /avisos. */
@@ -58,6 +58,9 @@ export const ROUTE_LABELS: Record<AppRoute, string> = {
   "/equipo": "Equipo",
   "/zonas": "Zonas",
 };
+
+/** Pantalla donde se revisa y guarda cada archivo que llega al chat. */
+export const ROUTE_OF: Record<FileTarget, string> = { recepcion: "/recepciones", factura: "/facturas", importar: "/importar", ventas: "/ventas" };
 
 export function currentRoute(pathname: string | null): AppRoute {
   const route = (Object.keys(ROUTE_LABELS) as AppRoute[]).find((r) => r !== "/" && pathname?.startsWith(r));

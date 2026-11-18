@@ -21,7 +21,8 @@ import { euros as formatCurrency, quantity } from "@/lib/format";
 import { toBaseQty, unitChoices, type UnitChoice } from "@/lib/packs";
 import { clearLookupCache, lookupPackRows, purchasePack, type LookupProduct } from "@/lib/product-lookup";
 import { onPendingFile, takePending } from "@/lib/pending-file";
-import { guessSupplier, packForRead, readAlbaranPhoto, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
+import { guessSupplier, packForRead, type AlbaranPhotoRead } from "@/lib/albaran-ocr";
+import { readAlbaranFile } from "@/lib/albaran-pdf";
 import { civilToday } from "@/lib/business-day";
 import { ProductPicker } from "@/components/product-picker/product-picker";
 import { attachReceiptPhoto, describeDiff, INCIDENT_LABEL, INCIDENTS, priceCheck, type Incident } from "@/lib/receipt-checks";
@@ -385,7 +386,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
     setFormError("");
     setScan({ stage: "reading" });
     try {
-      const result = preRead ?? (await readAlbaranPhoto(file));
+      const result = preRead ?? (await readAlbaranFile(file));
       if (result.lines.length === 0) {
         setScan({ stage: "error", message: "No he encontrado líneas con cantidad, precio e importe. Rellénalas a mano; la foto queda adjunta." });
         return;
@@ -399,7 +400,7 @@ export function OperationsPage({ kind }: { kind: OperationKind }) {
         }
       }
       if (result.date) setRDocDate(result.date);
-      const number = albaranNumber(filasDeOcr(result.texts));
+      const number = result.number ?? albaranNumber(filasDeOcr(result.texts));
       if (number && !rDocNumber.trim()) setRDocNumber(number);
       setRLines(await matchReadLines(result, supplierId, rLocation));
       setScan({ stage: "done", result });

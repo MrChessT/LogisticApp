@@ -6,7 +6,8 @@ import { CirclePlus, FileText, Paperclip, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { euros, normalizeText } from "@/lib/format";
 import { usePermissions } from "@/lib/permissions";
-import { onPendingFile, takePendingFile } from "@/lib/pending-file";
+import { onPendingFile, takePending } from "@/lib/pending-file";
+import type { DocumentoLeido } from "@/lib/documento-foto";
 import { daysUntil, invoiceMatch } from "@/lib/invoices";
 import { InvoiceEditor, type InvoiceRow, type SupplierOption, type UnbilledReceipt } from "./invoice-editor";
 import "../productos/productos.css";
@@ -31,15 +32,15 @@ export default function InvoicesPage() {
   const [tab, setTab] = useState<Tab>("pendientes");
   const [query, setQuery] = useState("");
   // `file`: el PDF que llega del asistente; la factura nueva se abre con él adjunto.
-  const [open, setOpen] = useState<{ invoice: InvoiceRow | null; preset: { supplierId: string; receiptIds: string[] } | null; file?: File } | null>(null);
+  const [open, setOpen] = useState<{ invoice: InvoiceRow | null; preset: { supplierId: string; receiptIds: string[] } | null; file?: File; read?: DocumentoLeido | null } | null>(null);
   const perms = usePermissions();
   const allowed = perms ? ["owner", "admin", "manager"].includes(perms.role) && perms.seesCosts : null;
 
-  // El asistente deja aquí un PDF arrastrado («Registrar la factura con este PDF»): se abre la factura nueva con él.
+  // El asistente deja aquí el PDF o la foto de una factura, ya leída: se abre la factura nueva con él y sus datos.
   useEffect(() => {
     const take = () => {
-      const file = takePendingFile("factura");
-      if (file) setOpen({ invoice: null, preset: null, file });
+      const entry = takePending<DocumentoLeido>("factura");
+      if (entry) setOpen({ invoice: null, preset: null, file: entry.file, read: entry.read });
     };
     take();
     return onPendingFile("factura", take);
@@ -204,6 +205,7 @@ export default function InvoicesPage() {
           invoice={open.invoice}
           preset={open.preset}
           initialFile={open.file}
+          initialRead={open.read ?? null}
           orgId={orgId}
           suppliers={suppliers}
           unbilled={unbilled}
