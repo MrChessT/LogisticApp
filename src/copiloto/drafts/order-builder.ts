@@ -40,7 +40,7 @@ function decisionChecks(plan: ReplenishmentPlan, locationName: (id: string) => s
     const items = plan.later.map((b) => `${b.supplierName} el ${formatDayLong(b.cycle!.next.orderDate)} (${b.lines.length})`);
     out.push(check("espera", "Día de pedido", "ok", `Esperan a su día, no van hoy: ${nameList(items, 200)}.`));
   }
-  const stranded = plan.urgent.filter((u) => u.fix === "ninguno");
+  const stranded = plan.urgent.filter((u) => u.fix !== "traspaso");
   if (stranded.length > 0) {
     out.push(check("urgente", "Se acaba antes", "aviso", `No llega a tiempo ningún pedido: ${nameList(stranded.map((u) => u.product.name), 180)}. Llama al proveedor o cómpralo fuera.`));
   }

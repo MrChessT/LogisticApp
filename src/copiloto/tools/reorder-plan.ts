@@ -63,10 +63,10 @@ export interface SupplierBatch {
 interface UrgentLine {
   locationId: string;
   product: Product;
-  /** Días que aguanta con lo que hay y lo que ya llega (null: sin consumo y por debajo del mínimo). */
-  days: Decimal | null;
-  /** Qué lo arregla: un traspaso propuesto, o nada en ruta (hay que llamar o comprar fuera). */
-  fix: "traspaso" | "ninguno";
+  /** Días que aguanta con lo que hay y lo que ya llega. */
+  days: Decimal;
+  /** Qué lo arregla: un traspaso propuesto, nada en ruta (llamar o comprar fuera) o no hay a quién pedirlo. */
+  fix: "traspaso" | "ninguno" | "sin_proveedor";
   /** Cuándo llega el próximo pedido de su proveedor (null: sin plazo en su ficha). */
   arrives: string | null;
 }
@@ -173,9 +173,10 @@ export async function planReplenishment({ ctx, source, locationIds, now, product
     let need = needFor(line, coverDays);
     if (need.lte(0)) continue;
 
-    // Se queda a cero antes de que pueda llegar lo que se pida (sin condiciones: mañana como pronto).
+    // Se queda a cero antes de que pueda llegar lo que se pida (sin condiciones: mañana como pronto). Lo que no se
+    // gasta no se acaba: sin consumo no es urgente aunque esté a cero (en producción eran cientos de falsas alarmas).
     const daysToDelivery = cycle?.daysToDelivery ?? 1;
-    const breaks = line.avg.gt(0) ? line.available.div(line.avg).lt(daysToDelivery) : line.available.lte(0);
+    const breaks = line.avg.gt(0) && line.available.div(line.avg).lt(daysToDelivery);
 
     let moved = new Decimal(0);
     if (surplus) {
@@ -207,8 +208,8 @@ export async function planReplenishment({ ctx, source, locationIds, now, product
       plan.urgent.push({
         locationId,
         product: line.product,
-        days: line.avg.gt(0) ? line.available.div(line.avg) : null,
-        fix: moved.gt(0) ? "traspaso" : "ninguno",
+        days: line.available.div(line.avg),
+        fix: moved.gt(0) ? "traspaso" : price ? "ninguno" : "sin_proveedor",
         arrives: cycle?.next.deliveryDate ?? null,
       });
     }

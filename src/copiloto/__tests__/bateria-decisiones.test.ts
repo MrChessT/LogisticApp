@@ -177,6 +177,29 @@ describe("batería de decisiones de reposición", () => {
     expect(p.urgent.map((u) => [u.product.name, u.fix, u.arrives])).toEqual([[TONICA.name, "ninguno", "2026-11-20"]]);
   });
 
+  it("7b · sin consumo no se acaba: a cero y sin salidas no es urgente (se repone hasta el mínimo, sin alarma)", async () => {
+    const p = await plan({
+      stock: [[A.id, TONICA.id, "0"]],
+      perDay: [],
+      levels: [[A.id, TONICA.id, "24", "24"]],
+      prices: [[DIARIO, caja(TONICA), "12.00"]],
+      terms: [[DIARIO.id, DAILY_TERMS]],
+    });
+    expect(p.urgent).toEqual([]);
+    expect(p.today[0]!.lines[0]!.packs.toString()).toBe("1");
+  });
+
+  it("7c · se acaba y no tiene proveedor: se dice que hay que comprarlo fuera", async () => {
+    const p = await plan({
+      stock: [[A.id, TONICA.id, "0"]],
+      perDay: [[A.id, TONICA.id, 10]],
+      levels: [[A.id, TONICA.id, "24", "48"]],
+      prices: [],
+    });
+    expect(p.urgent.map((u) => u.fix)).toEqual(["sin_proveedor"]);
+    expect(p.noSupplier.map((x) => x.product.name)).toEqual([TONICA.name]);
+  });
+
   it("8 · urgente con stock en otro local: el traspaso lo arregla y va primero", async () => {
     const p = await plan({
       now: WEDNESDAY_9,

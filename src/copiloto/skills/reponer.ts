@@ -40,9 +40,14 @@ function urgentText(ctx: TareaInput["ctx"], plan: ReplenishmentPlan): string | n
   if (plan.urgent.length === 0) return null;
   const items = plan.urgent.slice(0, MAX_LISTED).map((u) => {
     const where = `${u.product.name} en ${locationName(ctx, u.locationId)}`;
-    const facts = [u.days ? `da para ${formatDecimal(u.days, 1)} días` : null, u.arrives ? `lo próximo llega el ${formatDayLong(u.arrives)}` : null].filter(Boolean);
+    const facts = [`da para ${formatDecimal(u.days, 1)} días`, u.arrives ? `lo próximo llega el ${formatDayLong(u.arrives)}` : null].filter(Boolean);
     const days = facts.length ? ` (${facts.join("; ")})` : "";
-    return `${where}${days}${u.fix === "traspaso" ? ", que se cubre con un traspaso" : ", sin pedido que llegue a tiempo: llama al proveedor o cómpralo fuera"}`;
+    const fix = {
+      traspaso: ", que se cubre con un traspaso",
+      ninguno: ", sin pedido que llegue a tiempo: llama al proveedor o cómpralo fuera",
+      sin_proveedor: ", sin proveedor apuntado: cómpralo fuera",
+    }[u.fix];
+    return `${where}${days}${fix}`;
   });
   const more = plan.urgent.length > MAX_LISTED ? ` y ${plan.urgent.length - MAX_LISTED} más` : "";
   return `Se acaba antes de que llegue un pedido: ${items.join("; ")}${more}.`;
