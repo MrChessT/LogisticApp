@@ -14,16 +14,16 @@ import type { LookupProduct } from "@/lib/product-lookup";
 
 export type ScanState = { stage: "idle" } | { stage: "reading" } | { stage: "error"; message: string } | { stage: "done"; result: AlbaranPhotoRead };
 
-/** Bloque «Leer albarán con foto»: elegir la foto, el estado de la lectura y su resultado. */
+/** Bloque «Leer albarán»: elegir la foto o el PDF, el estado de la lectura y su resultado. */
 export function ReceiptScan({ scan, missing, onFile, children }: { scan: ScanState; missing: number; onFile: (file: File | null) => void; children?: ReactNode }) {
   return (
     <div className="op-scan">
-      <span className="op-scan-title"><Camera size={16} aria-hidden="true" /> Leer albarán con foto</span>
+      <span className="op-scan-title"><Camera size={16} aria-hidden="true" /> Leer albarán (foto o PDF)</span>
       {scan.stage === "reading" ? (
         <p className="op-scan-status" role="status">Leyendo el albarán…</p>
       ) : (
         <>
-          <FilePick file={null} onChange={onFile} accept="image/*" capture="environment" label={scan.stage === "done" ? "Leer otra foto" : "Hacer foto del albarán"} />
+          <FilePick file={null} onChange={onFile} accept="image/*,application/pdf" capture="environment" label={scan.stage === "done" ? "Leer otro albarán" : "Foto o PDF del albarán"} />
           {scan.stage === "idle" && <small>Rellena las líneas solas. Se lee en este dispositivo; revísalo antes de registrar.</small>}
         </>
       )}

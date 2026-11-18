@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ChefHat, Loader2, RotateCcw, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -23,7 +23,8 @@ type Stage =
 const BATCH = 50;
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("es-ES")} ${n === 1 ? one : many}`;
 
-export function RecipeImportPanel({ orgId }: { orgId: string }) {
+/** `incoming`: escandallos que llegan desde el asistente; se comprueban al recibirlos. */
+export function RecipeImportPanel({ orgId, incoming }: { orgId: string; incoming?: File | null }) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [createMissing, setCreateMissing] = useState(true);
   const [error, setError] = useState("");
@@ -73,9 +74,14 @@ export function RecipeImportPanel({ orgId }: { orgId: string }) {
     }
   }
 
-  async function onFiles(list: FileList | null) {
+  useEffect(() => {
+    if (incoming) void Promise.resolve().then(() => onFiles([incoming]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez por archivo
+  }, [incoming]);
+
+  async function onFiles(list: ArrayLike<File> | null) {
     setError("");
-    const files = [...(list ?? [])];
+    const files = Array.from(list ?? []);
     if (!files.length) return;
     if (files.some((f) => !/\.xlsx$/i.test(f.name))) return setError("Sube ficheros de Excel (.xlsx).");
     setStage({ kind: "checking" });

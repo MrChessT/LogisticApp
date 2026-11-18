@@ -121,7 +121,7 @@
 .op-photo-title, .receive-photo-title { display: block; color: var(--text); font-size: var(--fs-sm); font-weight: 600; }
 .op-photo small { display: block; margin-top: 6px; color: var(--text-3); font-size: var(--fs-sm); }
 
-/* Leer albarán con foto */
+/* Leer albarán (foto o PDF) */
 .op-scan { display: flex; margin-bottom: 4px; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--brand-softer); border: 1px solid var(--brand-line); border-radius: var(--r-md); }
 .op-scan-title { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: var(--fs-sm); font-weight: 600; }
 .op-scan small { color: var(--text-3); font-size: var(--fs-sm); }

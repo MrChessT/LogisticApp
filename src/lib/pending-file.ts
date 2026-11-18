@@ -1,8 +1,8 @@
-// Archivo que el asistente pasa a otra pantalla sin recargar la página: la foto de un albarán a Nueva
-// recepción, el PDF de una factura a Nueva factura. Queda en memoria hasta que esa pantalla lo recoge; si
+// Archivo que el asistente pasa a otra pantalla sin recargar la página: la foto o el PDF de un albarán a Nueva
+// recepción, el PDF de una factura a Nueva factura, un Excel a Importar (catálogo, escandallos) o a Ventas. Queda en memoria hasta que esa pantalla lo recoge; si
 // ya está abierta, se le avisa con un evento.
 
-export type FileTarget = "recepcion" | "factura";
+export type FileTarget = "recepcion" | "factura" | "importar" | "ventas";
 
 const EVENT = "logisticapp:archivo-pendiente";
 /**
@@ -21,11 +21,6 @@ export function takePending<T>(target: FileTarget): { file: File; read: T | null
   const entry = pending.get(target) ?? null;
   pending.delete(target);
   return entry as { file: File; read: T | null } | null;
-}
-
-/** El archivo pendiente para esa pantalla (una sola vez). */
-export function takePendingFile(target: FileTarget): File | null {
-  return takePending(target)?.file ?? null;
 }
 
 /** Avisa cuando llega un archivo para esa pantalla ya abierta. Devuelve la función para dejar de escuchar. */

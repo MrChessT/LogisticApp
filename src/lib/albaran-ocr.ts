@@ -54,7 +54,8 @@ async function imageDataOf(file: Blob, turns: number): Promise<ImageData> {
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-export type AlbaranPhotoRead = AlbaranRead & { texts: OcrText[] };
+/** Lectura de un albarán con su texto. `number`: el número del albarán, cuando el lector ya lo trae (PDF). */
+export type AlbaranPhotoRead = AlbaranRead & { texts: OcrText[]; number?: string | null };
 
 /** Texto y cajas que el OCR saca de una foto. El lector se descarga la primera vez y queda en caché. */
 export async function ocrTextos(file: Blob, turns = 0): Promise<OcrText[]> {

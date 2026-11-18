@@ -5,7 +5,8 @@ Cómo se leen los documentos de compra y qué comprueba cada lectura. Hay dos ca
 | Camino | Entrada | Módulo | Estado |
 |---|---|---|---|
 | **Foto** (Nueva recepción) | Imagen → OCR en el navegador → cajas de texto | `src/lib/albaran-reader.ts` (geometría) | En producción |
-| **Texto** (PDF, texto copiado, OCR ya ordenado en filas) | Texto por líneas | `src/lib/documento-texto.ts` | Módulo y pruebas; sin integrar |
+| **PDF** (Nueva factura, Nueva recepción y el asistente) | PDF → texto con pdf.js en el navegador, en renglones; si es un escaneado, cada página pasa por el OCR | `src/lib/pdf-texto.ts` → `documento-texto.ts`; `albaran-pdf.ts` lo pasa a la forma de la foto | En producción |
+| **Texto** (texto copiado, OCR ya ordenado en filas) | Texto por líneas | `src/lib/documento-texto.ts` | Lo usan el PDF y la factura desde foto |
 | **Factura desde foto** (Nueva factura) | Imagen → OCR → renglones → texto | `src/lib/documento-foto.ts`, `documento-filas.ts` | En Nueva factura; se guarda al registrar |
 
 Un documento leído nunca se guarda sin que la persona lo confirme. Si algo no cuadra, la lectura sale como
@@ -60,11 +61,18 @@ Una línea de producto cumple siempre **cantidad × precio = importe**. Formas a
 Cuando la columna «Dto» trae solo el número (`5` en vez de `5%`), se acepta si es entero entre 1 y 99 y la
 línea cuadra con él.
 
+4. `cantidad descripción-con-números precio importe` — por ejemplo `6 Tónica botella 20 cl 0,80 4,80`. Si las formas
+   de arriba no encajan y la línea empieza por un número, ese es la cantidad, y precio e importe son los dos últimos:
+   lo de en medio («20 cl», «10 kg») es parte de la descripción. La unidad solo se toma si va justo detrás de la
+   cantidad («2 cajas Hielo…»).
+
 Un renglón que no cumple ninguna forma no es línea. Las tolerancias son de un céntimo más un 0,05 %.
 
 ## Reglas de totales
 
-- **Subtotal** = suma de las líneas. Si el documento trae subtotal, debe coincidir con ella.
+- **Subtotal** = suma de las líneas. Si el documento trae subtotal, debe coincidir con ella. Si no lo trae, la base
+  imponible debe coincidir con la suma de las líneas (menos el descuento de cabecera): así una línea que no se ha
+  leído no deja el documento como «cuadra».
 - **Base imponible** = subtotal − descuento de cabecera (si la base no viene escrita, se calcula).
 - **IVA:** cada tipo da una cuota = base × tipo. Con varios tipos, se suman las cuotas de la tabla.
 - **Total** = base + IVA + recargo de equivalencia.

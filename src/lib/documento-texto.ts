@@ -158,7 +158,29 @@ export function productLine(text: string): DocLine | null {
       return { ref, description: desc, qty: nums.at(-3)!, unit, price: nums.at(-2)!, discountPct: null, vatPct: null, amount: nums.at(-1)! };
     }
   }
-  return null;
+  return leadingQtyLine(text);
+}
+
+/**
+ * Cantidad al principio y números dentro de la descripción: «6 Tónica botella 20 cl 0,80 4,80», «2 Hielo bolsa 10 kg
+ * 3,10 6,20». La cantidad es el primer número; precio e importe, los dos últimos; lo de en medio («20 cl») es parte de
+ * la descripción. Solo vale si cantidad × precio = importe, como el resto de formas.
+ */
+function leadingQtyLine(text: string): DocLine | null {
+  const toks = text.trim().split(/\s+/).filter((t) => t !== "€");
+  if (toks.length < 4) return null;
+  const qty = parseNumber(toks[0]!);
+  const price = parseNumber(toks.at(-2)!);
+  const amount = parseNumber(toks.at(-1)!);
+  if (qty === null || price === null || amount === null || /%$/.test(toks.at(-2)!)) return null;
+  if (D(qty).mul(price).minus(amount).abs().gt(TOL.plus(D(amount).abs().mul("0.0005")))) return null;
+  let middle = toks.slice(1, -2);
+  // «6 cajas Tónica…»: la unidad va justo detrás de la cantidad; la de «20 cl» es de la descripción.
+  const unit = middle.length > 1 && UNITS.has(middle[0]!.toLowerCase()) ? middle[0]!.toLowerCase() : null;
+  if (unit) middle = middle.slice(1);
+  const description = middle.join(" ").trim();
+  if (!/\p{L}/u.test(description)) return null;
+  return { ref: null, description, qty, unit, price, discountPct: null, vatPct: null, amount };
 }
 
 export function readDocumentText(text: string): DocRead {
@@ -256,6 +278,12 @@ export function readDocumentText(text: string): DocRead {
   if (!lines.length) issues.push("No se reconoce ninguna línea de producto.");
   if (subtotal !== null && lines.length && D(subtotal).minus(linesTotal).abs().gt(TOL)) {
     issues.push(`Las líneas suman ${linesTotal} y el subtotal del documento es ${money(D(subtotal))}.`);
+  }
+  // Sin subtotal escrito, la base se compara con lo que suman las líneas (menos el descuento de cabecera): si no, una
+  // línea que no se ha leído pasaría por buena.
+  if (subtotal === null && base !== null && lines.length) {
+    const exp = discountPct !== null ? D(linesTotal).minus(D(linesTotal).mul(discountPct).div(100)) : D(linesTotal);
+    if (exp.minus(base).abs().gt(TOL)) issues.push(`Las líneas suman ${linesTotal}${discountPct !== null ? ` (con el descuento, ${money(exp)})` : ""} y la base imponible es ${money(D(base))}.`);
   }
   // Base imponible: subtotal menos descuento de cabecera (si la base no viene escrita).
   const sub = subtotal !== null ? D(subtotal) : lines.length ? D(linesTotal) : null;

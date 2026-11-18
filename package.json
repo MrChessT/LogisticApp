@@ -34,6 +34,7 @@
     "decimal.js": "10.6.0",
     "lucide-react": "1.47.0",
     "next": "16.4.6",
+    "pdfjs-dist": "5.4.394",
     "pdfkit": "0.20.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

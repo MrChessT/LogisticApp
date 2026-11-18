@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { parseWorkbook, SHEET_LABEL, templateSheets, type ParsedImport, type RowIssue, type SheetKey } from "@/lib/catalog-import";
 import { readXlsx, writeXlsx } from "@/lib/xlsx";
 import { ImportDetect } from "@/components/importar/import-detect";
+import { onPendingFile, takePending } from "@/lib/pending-file";
 import "../productos/productos.css";
 import "../productos/product-editor.css";
 import { RecipeImportPanel } from "./recipe-import-panel";
@@ -51,6 +52,27 @@ export default function ImportarPage() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  // Excel que llega desde el asistente: el catálogo va a su vista previa; los escandallos, a su panel.
+  const [incoming, setIncoming] = useState<{ file: File; kind: string } | null>(null);
+  const [recipeFile, setRecipeFile] = useState<File | null>(null);
+  useEffect(() => {
+    const take = () => {
+      const entry = takePending<string>("importar");
+      if (entry) setIncoming({ file: entry.file, kind: entry.read ?? "catalogo" });
+    };
+    void Promise.resolve().then(take);
+    return onPendingFile("importar", take);
+  }, []);
+  useEffect(() => {
+    if (!incoming || !org?.admin) return;
+    const { file, kind } = incoming;
+    void Promise.resolve().then(() => {
+      setIncoming(null);
+      if (kind === "escandallos") setRecipeFile(file);
+      else void onFile(file);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez por archivo
+  }, [incoming, org]);
 
   useEffect(() => {
     void (async () => {
@@ -241,7 +263,7 @@ export default function ImportarPage() {
               </section>
             )}
 
-            <RecipeImportPanel orgId={org.id} />
+            <RecipeImportPanel orgId={org.id} incoming={recipeFile} />
           </>
         )}
       </div>

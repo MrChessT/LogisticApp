@@ -46,7 +46,7 @@ export interface Command {
 export const COMMANDS: Command[] = [
   { name: "ayuda", label: "Ayuda", hint: "Qué sé hacer y cómo pedírmelo", icon: HelpCircle, local: "ayuda" },
   { name: "avisos", label: "Avisos", hint: "Lo que conviene revisar ahora", icon: Bell, local: "avisos" },
-  { name: "foto", label: "Foto de albarán", hint: "Leer un albarán y registrar la recepción", icon: Camera, local: "foto" },
+  { name: "foto", label: "Foto o archivo", hint: "Albarán o factura (foto o PDF), Excel de ventas o del catálogo", icon: Camera, local: "foto" },
   { name: "parte", label: "Parte de ayer", hint: "Consumo, mermas y compras por local", icon: Newspaper },
   { name: "preparar", label: "Preparar pedidos", hint: "Qué pedir por proveedor, en borrador", icon: ShoppingCart, arg: "local (opcional)" },
   { name: "equilibrar", label: "Equilibrar locales", hint: "Traspasos en vez de compras", icon: ArrowLeftRight },
@@ -195,7 +195,7 @@ export function Welcome({ route, alerts, onAsk, onFill }: WelcomeProps) {
         </button>
         <button type="button" onClick={() => onAsk("/foto")}>
           <Camera size={16} />
-          <span><b>Foto de albarán</b><small>La leo y te abro la recepción</small></span>
+          <span><b>Albarán o factura</b><small>Foto o PDF: lo leo y te lo dejo preparado</small></span>
         </button>
       </div>
 
@@ -254,8 +254,8 @@ export function HelpCard({ onAsk }: { onAsk: (text: string) => void }) {
         </section>
       ))}
       <section>
-        <header><Camera size={15} /> <b>Fotos</b></header>
-        <p>Con el botón de la cámara (o <code>/foto</code>) leo un albarán, compruebo que cuadra y te abro la recepción rellena.</p>
+        <header><Camera size={15} /> <b>Archivos</b></header>
+        <p>Con el botón de la cámara (o <code>/foto</code>), arrastrándolo o pegándolo: leo la foto o el PDF de un albarán o una factura, compruebo que cuadra y te dejo la recepción o la factura rellena. Un Excel de ventas del TPV o del catálogo lo reconozco y te abro su vista previa. No guardo nada sin que lo revises.</p>
       </section>
       <section>
         <header><LayoutGrid size={15} /> <b>Comandos</b></header>
