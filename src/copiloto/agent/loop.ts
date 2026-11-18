@@ -33,6 +33,7 @@ import { multiTaskTurn } from "./multi-task";
 import { runQuery } from "./run-query";
 import { tokenize } from "../entities/normalize";
 import { corregirJerga } from "../entities/jerga";
+import { documentTurn } from "./document-turn";
 import { especialistaDe } from "../especialistas/mapa";
 import { fueraDeAlcance } from "../especialistas/puerta";
 import { dropStaleDraft } from "./stale-draft";
@@ -129,6 +130,8 @@ export class Agent {
     deps.metrics.messages += 1;
 
     try {
+      // Preguntas sobre el archivo que se dio al chat, o cargar sus ventas (document-turn.ts).
+      if (req.document && !req.clarification && !req.form && !req.followUpId && (await documentTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, ...(deps.info ? { info: deps.info } : {}), ...(deps.retriever ? { retriever: deps.retriever } : {}), source: toolset.source, emit }))) return;
       // Varias órdenes de oficina en una frase: un borrador por orden, sin Jev (multi-task.ts).
       if (!req.clarification && !req.form && !req.followUpId && (await multiTaskTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, builder: deps.builder, source: toolset.source, info: deps.info, retriever: deps.retriever, emit }))) return;
 

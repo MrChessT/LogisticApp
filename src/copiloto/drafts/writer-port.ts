@@ -114,6 +114,8 @@ export interface InventoryWriter {
   /** Zona nueva en un local, la última del orden (como «Añadir zona» en Zonas). */
   createArea(args: { locationId: string; name: string; kind: "almacen" | "servicio" }): Promise<void>;
   /** Escandallo nuevo con sus ingredientes (como «Nuevo» en Escandallos; la base lo valida y lo calcula). */
+  /** Cargar las ventas de un día (import_sales, 0040); si el día ya estaba, se sustituye. */
+  importSales(args: { orgId: string } & NonNullable<DocumentDraft["salesImport"]>): Promise<{ unlinked: number }>;
   /** Enlazar un artículo del TPV (link_sales_item, 0040), como en Ventas. */
   linkSalesItem(link: NonNullable<DocumentDraft["salesLink"]>): Promise<void>;
   /** Cambios en los ingredientes de un escandallo, de una vez (edit_recipe_lines, 0060). */
@@ -420,6 +422,12 @@ export class SupabaseInventoryWriter implements InventoryWriter {
       await this.db.from("recipes").delete().eq("id", data.id);
       raise("recipe_lines", lineError);
     }
+  }
+
+  async importSales(args: Parameters<InventoryWriter["importSales"]>[0]): Promise<{ unlinked: number }> {
+    const { data, error } = await this.db.rpc("import_sales", { p_org: args.orgId, p_location: args.locationId, p_date: args.date, p_lines: args.lines, p_source: "tpv", p_file: args.file, p_apply: true });
+    if (error) raise("import_sales", error);
+    return { unlinked: ((data as { unlinked?: unknown[] } | null)?.unlinked ?? []).length };
   }
 
   async linkSalesItem(link: Parameters<InventoryWriter["linkSalesItem"]>[0]): Promise<void> {

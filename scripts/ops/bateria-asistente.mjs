@@ -12,6 +12,8 @@
 // src/copiloto/especialistas/registro.ts. Al final se resume el acierto del enrutado por especialista).
 // scripts/ops/bateria-alcance.json se pasa con una cuenta de pruebas limitada a la cuenta Comida (Equipo → Cuentas de
 // análisis): comprueba que lo de otras cuentas se avisa en vez de responder sin filtro.
+// «documento» en una conversación: lo leído de un archivo (ChatRequest.document), que viaja con cada mensaje como
+// lo manda el panel tras soltar un archivo en el chat.
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
@@ -37,10 +39,10 @@ const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
 
 // Como el panel del chat: si el turno anterior fue una aclaración, la respuesta escrita viaja con su identificador
 // (opción «otra» + texto libre). Sin esto, la batería probaba un camino que la app no usa al escribir.
-async function ask(sessionId, message, pending) {
+async function ask(sessionId, message, pending, document) {
   const started = Date.now();
   const clarification = pending ? { clarifyId: pending.clarifyId, optionId: "otra", freeText: message, field: pending.field } : undefined;
-  const res = await fetch(`${BASE}/api/copiloto/chat`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ sessionId, message, page: "/", ...(clarification ? { clarification } : {}) }) });
+  const res = await fetch(`${BASE}/api/copiloto/chat`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ sessionId, message, page: "/", ...(clarification ? { clarification } : {}), ...(document ? { document } : {}) }) });
   const raw = await res.text();
   let text = "";
   let clarify = null;
@@ -74,7 +76,7 @@ for (const conversation of cases) {
   const sessionId = randomUUID();
   let pending = null;
   for (const turn of conversation.turnos) {
-    const r = await ask(sessionId, turn.usuario, pending);
+    const r = await ask(sessionId, turn.usuario, pending, conversation.documento);
     pending = r.clarify ?? null;
     total += 1;
     const why = [];

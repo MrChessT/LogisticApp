@@ -52,6 +52,7 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   crear_escandallo: "Escandallo nuevo",
   editar_escandallo: "Cambiar escandallo",
   enlazar_venta: "Enlazar artículo del TPV",
+  cargar_ventas: "Cargar ventas del TPV",
   asociar_proveedor: "Proveedor del producto",
 };
 
@@ -76,6 +77,7 @@ const FOR_JEV: Record<DocumentDraft["operation"], string> = {
   crear_escandallo: "create a dish or kitchen preparation (recipe) with its ingredients",
   editar_escandallo: "change the ingredients of an existing recipe",
   enlazar_venta: "link a point-of-sale item to a recipe or product (or ignore it) so its sales get a cost",
+  cargar_ventas: "load the point-of-sale sales of a day",
   asociar_proveedor: "link a supplier to a product as its purchase source (format), without a price yet",
 };
 

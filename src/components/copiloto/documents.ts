@@ -8,6 +8,7 @@ import type { FileTarget } from "@/lib/pending-file";
 import type { AlbaranPhotoRead } from "@/lib/albaran-ocr";
 import type { DocumentoLeido } from "@/lib/documento-foto";
 import type { ImportKind } from "@/lib/import-classify";
+import type { ChatDocument } from "@/copiloto/contract";
 import { fileKind } from "./use-file-drop";
 
 export interface FileSummary {
@@ -15,7 +16,14 @@ export interface FileSummary {
   text: string;
   /** Pantalla donde se revisa y guarda, con lo ya leído (así no se vuelve a leer) y el texto del botón. */
   open?: { target: FileTarget; label: string; read?: unknown };
+  /** Lo leído, para preguntar por ello en el chat («¿a cuánto cobra los limones esta factura?»). */
+  doc?: ChatDocument;
+  /** Botón que manda una frase al chat («Cargar aquí las ventas»). */
+  say?: { label: string; message: string };
 }
+
+/** Número a cadena decimal con punto (el formato del contrato), o null. */
+const dec = (v: number | string | null | undefined) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : String(Math.round(Number(v) * 1e4) / 1e4));
 
 const money = (v: number) => `${v.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const fecha = (iso: string | null) => (iso ? ` del ${iso.split("-").reverse().join("/")}` : "");
@@ -54,10 +62,30 @@ async function albaranSummary(result: AlbaranPhotoRead, what: "la foto" | "el PD
   const lines = `${result.lines.length} ${result.lines.length === 1 ? "línea" : "líneas"} por ${money(result.linesTotal)}`;
   const total = result.total !== null ? `, total con IVA ${money(result.total)}` : "";
   const number = result.number ? ` nº ${result.number}` : "";
+  const doc: ChatDocument = {
+    kind: "albaran", file: "", number: result.number ?? null, date: result.date, party: supplier?.name ?? null,
+    base: dec(result.base), vat: dec(result.vat), total: dec(result.total), status: result.status === "cuadra" || result.status === "parcial" ? "cuadra" : "revisar",
+    lines: result.lines.map((l) => ({ code: l.ref, description: l.description, qty: dec(l.qty) ?? "0", unit: l.unit, price: dec(l.price), amount: dec(l.amount) ?? "0" })),
+  };
   return {
+    doc,
     text: `Albarán${number}${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${fecha(result.date)}: ${lines}${total}; ${status}.${supplier ? await pendingOrderNote(supplier) : ""} Ya está preparado en Recepciones, con ${what} adjunto: revisa los productos y regístralo.`,
     open: { target: "recepcion", label: "Revisar y registrar la recepción", read: result },
   };
+}
+
+/** Albaranes sin facturar del proveedor que corresponden a la factura (por número o por suma), en una frase. */
+async function receiptsFor(supplierId: string, subtotal: string | null, texts: string[]): Promise<string> {
+  const supabase = createClient();
+  if (!supabase) return "";
+  const { data } = await supabase.from("v_unbilled_receipts").select("id, code, doc_number, doc_date, total, supplier_id").eq("supplier_id", supplierId).limit(200);
+  const rows = ((data ?? []) as Array<{ id: string; code: string | null; doc_number: string | null; doc_date: string; total: number }>).map((r) => ({ id: r.id, code: r.code, docNumber: r.doc_number, date: r.doc_date, total: Number(r.total) }));
+  const { proposeReceipts } = await import("@/lib/invoices");
+  const base = subtotal ? Number(subtotal.replace(",", ".")) : null;
+  const p = proposeReceipts(base, rows, texts);
+  if (!p) return rows.length ? ` Tiene ${rows.length} ${rows.length === 1 ? "albarán" : "albaranes"} sin facturar; no he visto cuál${rows.length === 1 ? "" : "es"} corresponde${rows.length === 1 ? "" : "n"}.` : "";
+  const names = rows.filter((r) => p.ids.includes(r.id)).map((r) => r.docNumber ?? r.code ?? "sin número");
+  return ` Cuadra con ${p.ids.length === 1 ? "el albarán" : "los albaranes"} ${names.join(", ")} (${p.how === "numero" ? "los nombra la factura" : "suman su base"}).`;
 }
 
 async function invoiceSummary(read: DocumentoLeido): Promise<FileSummary> {
@@ -67,8 +95,16 @@ async function invoiceSummary(read: DocumentoLeido): Promise<FileSummary> {
   const supplier = guessSupplier(read.texts, await activeSuppliers());
   const parts = [c.subtotal && `base ${c.subtotal} €`, c.vat && `IVA ${c.vat} €`, c.total && `total ${c.total} €`].filter(Boolean).join(", ");
   const lines = read.lines.length ? `${read.lines.length} ${read.lines.length === 1 ? "línea" : "líneas"}` : "sin líneas reconocidas";
+  const receipts = supplier ? await receiptsFor(supplier.id, c.subtotal, read.texts.map((t) => t.text)) : "";
+  const base = c.subtotal?.replace(/\./g, "").replace(",", ".") ?? null;
+  const doc: ChatDocument = {
+    kind: "factura", file: "", number: c.number, date: c.date, party: supplier?.name ?? null,
+    base: dec(base), vat: dec(c.vat?.replace(/\./g, "").replace(",", ".")), total: dec(c.total?.replace(/\./g, "").replace(",", ".")), status: read.status,
+    lines: read.lines.map((l) => ({ code: l.ref, description: l.description, qty: dec(l.qty) ?? "0", unit: l.unit, price: dec(l.price), amount: dec(l.amount) ?? "0" })),
+  };
   return {
-    text: `Factura${c.number ? ` ${c.number}` : ""}${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${fecha(c.date)}: ${lines}${parts ? `; ${parts}` : ""}. ${c.aviso.text} En Nueva factura queda rellena con el PDF adjunto; márcale sus albaranes para cuadrarla.`,
+    doc,
+    text: `Factura${c.number ? ` ${c.number}` : ""}${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${fecha(c.date)}: ${lines}${parts ? `; ${parts}` : ""}. ${c.aviso.text}${receipts} En Nueva factura queda rellena con el archivo adjunto${receipts ? " y esos albaranes marcados" : "; márcale sus albaranes para cuadrarla"}.`,
     open: { target: "factura", label: "Revisar y registrar la factura", read },
   };
 }
@@ -104,7 +140,15 @@ async function sheetSummary(file: File): Promise<FileSummary> {
     const { parseSalesBook } = await import("@/lib/sales-import");
     const parsed = Object.values(book).map(parseSalesBook).find((p) => p && p.lines.length > 0) ?? null;
     const detail = parsed ? ` Ventas${fecha(parsed.date)}${parsed.costCentre ? ` (${parsed.costCentre})` : ""}: ${parsed.lines.length} artículos por ${money(parsed.total)}.` : "";
-    return { text: `«${file.name}» es una exportación de ventas del TPV.${detail} En Ventas ves qué artículos están enlazados a sus platos antes de guardarla.`, open: { target: "ventas", label: "Revisar y cargar las ventas" } };
+    const doc: ChatDocument | undefined = parsed
+      ? { kind: "ventas", file: file.name.slice(0, 200), number: null, date: parsed.date, party: parsed.costCentre, base: null, vat: null, total: dec(parsed.total), status: null,
+          lines: parsed.lines.slice(0, 1500).map((l) => ({ code: l.code || null, description: l.name.slice(0, 200), qty: dec(l.qty) ?? "0", unit: l.unit, price: null, amount: dec(l.amount) ?? "0" })) }
+      : undefined;
+    return {
+      text: `«${file.name}» es una exportación de ventas del TPV.${detail} Puedo cargarlas desde aquí (te enseño antes lo que queda sin enlazar) o puedes revisarlas en Ventas. También puedes preguntarme por ellas: «¿cuántas croquetas se vendieron en este excel?».`,
+      open: { target: "ventas", label: "Revisar en Ventas" },
+      ...(doc ? { doc, say: { label: "Cargar aquí las ventas", message: "carga estas ventas" } } : {}),
+    };
   }
   if (kinds.has("ventas")) return { text: `En «${file.name}» hay ${list}. Las ventas se cargan desde Ventas y el resto desde Importar: sepáralas en archivos distintos.` };
   const what = kinds.has("catalogo") ? "catalogo" : "escandallos";
@@ -116,6 +160,11 @@ async function sheetSummary(file: File): Promise<FileSummary> {
 
 /** Lee y resume un archivo. Lanza si el navegador no puede abrirlo. */
 export async function summarizeFile(file: File): Promise<FileSummary> {
+  const summary = await summarize(file);
+  return summary.doc ? { ...summary, doc: { ...summary.doc, file: (file.name || summary.doc.file || "archivo").slice(0, 200) } } : summary;
+}
+
+async function summarize(file: File): Promise<FileSummary> {
   const kind = fileKind(file);
   if (kind === "imagen") {
     const { readAlbaranPhoto } = await import("@/lib/albaran-ocr");

@@ -33,6 +33,26 @@ export interface Decision {
 
 // POST /chat ---------------------------------------------------------------
 
+/** Importe o cantidad como cadena decimal con punto (sin coma flotante). */
+const DecimalText = z.string().regex(/^-?\d{1,9}(\.\d{1,6})?$/);
+
+export const ChatDocument = z.object({
+  kind: z.enum(["factura", "albaran", "ventas"]),
+  file: z.string().max(200),
+  number: z.string().max(60).nullable(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  /** Proveedor reconocido (factura, albarán) o centro de coste del TPV (ventas). */
+  party: z.string().max(160).nullable(),
+  base: DecimalText.nullable(),
+  vat: DecimalText.nullable(),
+  total: DecimalText.nullable(),
+  status: z.enum(["cuadra", "revisar", "sin_lineas"]).nullable(),
+  lines: z
+    .array(z.object({ code: z.string().max(40).nullable(), description: z.string().max(200), qty: DecimalText, unit: z.string().max(60).nullable(), price: DecimalText.nullable(), amount: DecimalText }))
+    .max(1500),
+});
+export type ChatDocument = z.infer<typeof ChatDocument>;
+
 export const ChatRequest = z.object({
   orgId: Uuid,
   sessionId: Uuid,
@@ -50,6 +70,11 @@ export const ChatRequest = z.object({
       field: z.string().max(40).optional(),
     })
     .optional(),
+  /**
+   * Lo leído del último archivo que se dio al chat (factura, albarán o exportación del TPV), tal como lo leyó el
+   * navegador: para preguntar por él («¿a cuánto cobra los limones esta factura?») o cargar las ventas. No se guarda.
+   */
+  document: ChatDocument.optional(),
   /** Botón de seguimiento de una respuesta anterior (se ejecuta sin volver a llamar a Jev). */
   followUpId: z.string().min(1).max(64).optional(),
   /** Miniformulario enviado: la operación y lo elegido en cada campo (el servidor lo valida todo). */
@@ -416,7 +441,7 @@ export interface CountDraft extends DraftBase {
  */
 export interface DocumentDraft extends DraftBase {
   kind: "documento";
-  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona" | "formato_producto" | "crear_escandallo" | "asociar_proveedor" | "editar_escandallo" | "enlazar_venta";
+  operation: "recibir_traspaso" | "cancelar_traspaso" | "enviar_pedido" | "recibir_pedido" | "cancelar_pedido" | "pagar_factura" | "validar_salidas" | "precio_venta" | "condiciones_proveedor" | "salida_almacen" | "ficha_producto" | "crear_zona" | "formato_producto" | "crear_escandallo" | "asociar_proveedor" | "editar_escandallo" | "enlazar_venta" | "cargar_ventas";
   documentId: string;
   /** Local para enlazar la pantalla al terminar. */
   locationId: string;
@@ -444,6 +469,8 @@ export interface DocumentDraft extends DraftBase {
   recipeEdit?: { recipeId: string; recipeName: string; changes: Array<{ op: "add"; productId?: string; subRecipeId?: string; qty: string } | { op: "remove"; lineId: string } | { op: "set"; lineId: string; qty: string }> };
   /** Artículo del TPV enlazado a un escandallo o producto (cantidad por venta, en raciones o unidad base), o ignorado. */
   salesLink?: { itemId: string; itemName: string; recipeId?: string; productId?: string; qty?: string; ignored?: boolean };
+  /** Ventas de un día del TPV leídas en el chat, para cargarlas con import_sales. */
+  salesImport?: { locationId: string; date: string; file: string; lines: Array<{ code: string; name: string; qty: string; unit: string | null; amount: string }> };
   /** Ficha de producto: categoría nueva y alérgenos que se añaden o quitan, en esos productos. */
   sheet?: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] };
   /** Condiciones de proveedor: los campos que cambian, con su valor nuevo. */

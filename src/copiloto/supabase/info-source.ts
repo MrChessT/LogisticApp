@@ -3,7 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
-import type { SalesDayRaw, SalesItemRaw, SalesItemRef } from "../tools/info-sales";
+import type { SalesDayRaw, SalesImportLine, SalesItemRaw, SalesItemRef, SalesPreview } from "../tools/info-sales";
 import type { AreaMoveRaw } from "../tools/info-warehouse";
 import { DataError, readAll } from "./client";
 
@@ -223,6 +223,21 @@ export class SupabaseInfoSource implements InfoSource {
       cost: textOrNull(r.cost),
       foodCost: textOrNull(r.food_cost_pct),
     }));
+  }
+
+  async salesPreview(args: { orgId: string; locationId: string; date: string; lines: SalesImportLine[]; file: string }): Promise<SalesPreview> {
+    const { data, error } = await this.db.rpc("import_sales", { p_org: args.orgId, p_location: args.locationId, p_date: args.date, p_lines: args.lines, p_source: "tpv", p_file: args.file, p_apply: false });
+    if (error) throw new DataError("No se pudo comprobar las ventas", { cause: error });
+    const r = (data ?? {}) as Record<string, unknown>;
+    const unlinked = (r.unlinked as Array<{ amount: number }> | null) ?? [];
+    return {
+      replaced: r.replaced === true,
+      linked: Number(r.linked_recipes ?? 0) + Number(r.linked_products ?? 0),
+      unlinked: unlinked.length,
+      unlinkedAmount: unlinked.reduce((s, u) => s + Number(u.amount ?? 0), 0).toFixed(2),
+      theoreticalCost: textOrNull(r.theoretical_cost),
+      costedAmount: textOrNull(r.costed_amount),
+    };
   }
 
   async salesItems(orgId: string): Promise<SalesItemRef[]> {
