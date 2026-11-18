@@ -10,6 +10,7 @@ import { mentionedSupplier } from "../entities/catalog-parser";
 import { familyOf } from "../entities/family";
 import { normalize, tokenize } from "../entities/normalize";
 import type { Retriever } from "../entities/retriever";
+import { forOrdering } from "../tools/orderable";
 import type { InventoryDataSource } from "../tools/types";
 import type { TopicReply } from "./topics";
 
@@ -35,12 +36,6 @@ export async function productsNamed(phrase: string, ctx: SessionContext, retriev
   if (!best || best.score < 0.8) return [];
   return found.filter((c) => c.score >= best.score * 0.75).map((c) => c.product);
 }
-
-/**
- * Los precios estimados se guardan como si fueran de un proveedor «Precio de referencia (estimado)»: no
- * es nadie a quien se compre, así que no cuenta como proveedor.
- */
-const isReferencePrice = (supplierName: string) => /precio de referencia|\(estimado\)/i.test(supplierName);
 
 const listed = (names: string[]) => (names.length > MAX_LISTED ? `${names.length} productos` : names.join(", "));
 
@@ -75,7 +70,8 @@ function categoryOf(products: Product[]): TopicReply | null {
 
 async function suppliersOf(products: Product[], source: InventoryDataSource): Promise<TopicReply> {
   const packOf = new Map(products.flatMap((p) => p.packs.map((k) => [k.id, p] as const)));
-  const prices = (await source.supplierPrices([...packOf.keys()])).filter((sp) => !isReferencePrice(sp.supplierName));
+  // Las fuentes de precio (escandallos, estimados) no son nadie a quien se compre.
+  const prices = forOrdering(await source.supplierPrices([...packOf.keys()]));
   const bySupplier = new Map<string, Set<string>>();
   const supplied = new Set<string>();
   for (const sp of prices) {
@@ -99,7 +95,8 @@ async function suppliersOf(products: Product[], source: InventoryDataSource): Pr
 
 async function supplierCatalog(supplierName: string, ctx: SessionContext, source: InventoryDataSource): Promise<TopicReply> {
   const packOf = new Map(ctx.products.flatMap((p) => p.packs.map((k) => [k.id, p] as const)));
-  const prices = (await source.supplierPrices([...packOf.keys()])).filter((sp) => !isReferencePrice(sp.supplierName));
+  // Las fuentes de precio (escandallos, estimados) no son nadie a quien se compre.
+  const prices = forOrdering(await source.supplierPrices([...packOf.keys()]));
   const names = [...new Set(prices.filter((sp) => sp.supplierName === supplierName).map((sp) => packOf.get(sp.packId)?.name).filter((n): n is string => !!n))].sort((a, b) => a.localeCompare(b, "es"));
   const route = "/proveedores" as const;
   if (names.length === 0) return { text: `No hay ningún producto con ${supplierName} como proveedor. Se asigna en la ficha de cada producto.`, route };

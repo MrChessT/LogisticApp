@@ -72,6 +72,12 @@ en [copiloto/JEV.md](copiloto/JEV.md)):
    reescritura vuelve a pasar por Jev. Solo se adopta si ahora se entiende.
 6. **Ejecución**: consulta (`run-query.ts` + `tools/`), información de gestión (`tools/info*.ts`), tarea
    (`skills/tareas.ts`) o borrador (`drafts/`). **Las cifras salen siempre del código.**
+   La reposición («preparar pedidos», «equilibrar» y el borrador de pedido sin cantidades) sale de una sola
+   decisión, `tools/reorder-plan.ts`: traspasar antes que comprar, pedir a cada proveedor lo que cubre hasta su
+   pedido siguiente (días, hora límite y plazo de su ficha, `orderCycle` en `src/lib/supplier-terms.ts`), dejar
+   para su día lo del proveedor que hoy no admite pedidos y poner primero lo que se acaba antes de que llegue
+   nada. Las fuentes de precio (`suppliers.is_price_source`, 0061) valoran pero nunca reciben pedidos
+   (`tools/orderable.ts`). La comprueba la batería de decisiones (`__tests__/bateria-decisiones.test.ts`).
 7. **Respuesta** (`writer/`): plantillas con las cifras exactas. Un borrador no se guarda hasta que el
    usuario lo confirma (`drafts/confirm.ts`, con las mismas funciones de la base que las pantallas).
 

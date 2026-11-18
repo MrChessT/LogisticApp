@@ -39,7 +39,8 @@ describe("analítica (decimal.js, cifras exactas)", () => {
   it("cobertura con horizonte de referencia y variación de precios", async () => {
     const coverage = await analytics.coverage(q(), 5);
     expect(coverage.reference).toEqual({ value: "5", label: "Horizonte: 5 días" });
-    expect(coverage.series[0]!.points.find((p) => p.label.startsWith("Coca-Cola 20 cl · Vivero"))?.display).toBe("1,2 días");
+    // 48 en stock + 48 en camino a 40 al día: lo que ya llega cuenta.
+    expect(coverage.series[0]!.points.find((p) => p.label.startsWith("Coca-Cola 20 cl · Vivero"))?.display).toBe("2,4 días");
     const prices = await analytics.priceChanges(q({ days: 30 }));
     expect(prices.series[0]!.points[0]).toMatchObject({ value: "10", display: "10 %" });
   });

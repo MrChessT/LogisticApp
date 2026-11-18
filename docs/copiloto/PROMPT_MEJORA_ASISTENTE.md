@@ -15,6 +15,14 @@ Hay que resolver dos problemas, en este orden:
 Lo que no cambia: el asistente sigue siendo un **flujo fijo**, no un agente que planifique. El código calcula, las
 puertas deciden si se actúa o se pregunta, y nada se guarda sin confirmación.
 
+## Estado
+
+| Fase | Estado |
+|---|---|
+| 0 | En curso. Hecha: la batería de decisiones (`src/copiloto/__tests__/bateria-decisiones.test.ts`, 11 casos, en `npm test`). Falta: auditoría completa, indicadores, juez de la prueba ciega y línea base |
+| 4 | En curso. Hechos los pasos 0 a 5: fuentes de precio (0061), cobertura con lo que está en camino, traspasar antes que comprar, ficha del proveedor para decidir (`orderCycle`), excepciones primero y borrador que solo lleva lo de hoy. Faltan el paso 6 (peso por día de la semana, consumo teórico desde ventas, perecederos) y la tarjeta compacta, que pasa a la fase 7 |
+| 1–3, 5–7 | Sin empezar |
+
 ---
 
 ## 0. Cómo trabajar (para todas las fases)

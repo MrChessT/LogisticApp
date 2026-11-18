@@ -111,8 +111,8 @@ describe("enrutado del agente", () => {
     const evalState = jev.calls[1]!.state as { horizon: string; items: Array<Record<string, string>> };
     expect(evalState.horizon).toBe("el fin de semana");
     const vivCoca = evalState.items.find((i) => i.product === "Coca-Cola 20 cl" && i.venue === "Vivero")!;
-    // stock 48, consumo 40/día, 48 en camino, mínimo 96, 5 días → 40·5 + 96 − 96 = 200
-    expect(vivCoca).toMatchObject({ stock: "2 cajas", avg_daily_use: "1 caja + 16 ud", coverage_days: "1,2", pending_in: "2 cajas", suggested: "8 cajas + 8 ud" });
+    // stock 48, consumo 40/día, 48 en camino, mínimo 96, 5 días → 40·5 + 96 − 96 = 200; cobertura (48 + 48) / 40
+    expect(vivCoca).toMatchObject({ stock: "2 cajas", avg_daily_use: "1 caja + 16 ud", coverage_days: "2,4", pending_in: "2 cajas", suggested: "8 cajas + 8 ud" });
     expect(Object.keys(jev.calls[1]!.questions)).toEqual(expect.arrayContaining(["reponer_0", "urgencia_0"]));
     const text = find(events, "done")!.text;
     expect(text).toMatch(/^Para el fin de semana conviene reponer 5 productos, \d con urgencia alta o crítica\./);

@@ -60,13 +60,24 @@ describe("botones para seguir desde una respuesta", () => {
   });
 
   it("«Qué reponer» en un local ofrece «Preparar pedido», que prepara el borrador del pedido", async () => {
+    const reorder = { intent: "pedir_sugerencias", intent_alt: "leer", herramienta: "query_reorder", local: "Parador" };
+    const jev = new FakeJev([reorder, {}, { coherencia: 0.95 }]);
+    const { agent } = makeAgent(jev);
+    const actions = find(await run(agent, chat("¿qué me falta en el Parador?")), "actions")!.actions;
+    expect(actions.map((a) => a.label)).toEqual(["Preparar pedido"]);
+    const draft = find(await run(agent, chat("Preparar pedido", { followUpId: actions[0]!.id })), "draft")!;
+    expect(draft).toMatchObject({ kind: "pedido" });
+  });
+
+  it("«Preparar pedido» un día que su proveedor no admite pedidos: dice cuándo, no un borrador", async () => {
+    // Miércoles: Bebidas del Sur (lunes y jueves) se pide mañana; la coca de Vivero espera a su día.
     const reorder = { intent: "pedir_sugerencias", intent_alt: "leer", herramienta: "query_reorder", local: "Vivero" };
     const jev = new FakeJev([reorder, {}, { coherencia: 0.95 }]);
     const { agent } = makeAgent(jev);
     const actions = find(await run(agent, chat("¿qué me falta en el Vivero?")), "actions")!.actions;
-    expect(actions.map((a) => a.label)).toEqual(["Preparar pedido"]);
-    const draft = find(await run(agent, chat("Preparar pedido", { followUpId: actions[0]!.id })), "draft")!;
-    expect(draft).toMatchObject({ kind: "pedido" });
+    const after = await run(agent, chat("Preparar pedido", { followUpId: actions[0]!.id }));
+    expect(find(after, "draft")).toBeUndefined();
+    expect(find(after, "done")!.text).toMatch(/^Hoy no toca pedir nada en Vivero\..*Bebidas del Sur el jueves 24 sep/);
   });
 
   it("un botón que ya no existe se trata como un mensaje normal", async () => {

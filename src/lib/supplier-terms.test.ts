@@ -1,6 +1,6 @@
 import Decimal from "decimal.js";
 import { describe, expect, it } from "vitest";
-import { describeDays, describeTerms, formatDayLong, minOrderShortfall, nextDelivery, shortDays } from "./supplier-terms";
+import { describeDays, describeTerms, formatDayLong, minOrderShortfall, nextDelivery, orderCycle, shortDays } from "./supplier-terms";
 
 // Octubre de 2026: el sábado 24 Madrid está en UTC+2; desde el domingo 25, en UTC+1.
 const at = (iso: string) => new Date(iso);
@@ -28,6 +28,23 @@ describe("condiciones de proveedor", () => {
 
   it("si solo admite hoy y ya pasó la hora, la semana que viene", () => {
     expect(nextDelivery({ orderDays: [1], orderCutoff: "10:00", leadTimeHours: 24 }, at("2026-10-26T12:00:00Z")).orderDate).toBe("2026-11-02");
+  });
+
+  it("ciclo: lunes y jueves a 24 h, el lunes por la mañana lo pedido llega el martes y debe durar hasta el viernes", () => {
+    const cycle = orderCycle({ orderDays: [1, 4], orderCutoff: "12:00", leadTimeHours: 24 }, at("2026-10-26T08:00:00Z"));
+    expect(cycle).toMatchObject({ followingOrderDate: "2026-10-29", coverDays: 4, daysToDelivery: 1 });
+    expect(cycle.next.orderToday).toBe(true);
+  });
+
+  it("ciclo: pasado el corte del lunes, el próximo es el jueves y lo pedido debe durar hasta el martes siguiente", () => {
+    const cycle = orderCycle({ orderDays: [1, 4], orderCutoff: "12:00", leadTimeHours: 24 }, at("2026-10-26T13:00:00Z"));
+    expect(cycle).toMatchObject({ followingOrderDate: "2026-11-02", coverDays: 8, daysToDelivery: 4 });
+    expect(cycle.next.orderToday).toBe(false);
+  });
+
+  it("ciclo: un proveedor diario cubre dos días; sin condiciones, se cuenta un día de plazo", () => {
+    expect(orderCycle({ orderDays: null, orderCutoff: null, leadTimeHours: 24 }, at("2026-10-26T08:00:00Z")).coverDays).toBe(2);
+    expect(orderCycle({ orderDays: null, orderCutoff: null, leadTimeHours: null }, at("2026-10-26T08:00:00Z"))).toMatchObject({ coverDays: 2, daysToDelivery: 1 });
   });
 
   it("pedido mínimo: lo que falta, o nada si se llega", () => {

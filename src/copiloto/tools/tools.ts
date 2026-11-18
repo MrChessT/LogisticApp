@@ -140,7 +140,8 @@ export async function computeReorder(source: InventoryDataSource, params: ToolPa
       const avg = (used.get(key) ?? new Decimal(0)).div(CONSUMPTION_WINDOW_DAYS);
       const pendingIn = incoming.get(key) ?? new Decimal(0);
       const available = qty.plus(pendingIn);
-      const coverage = avg.gt(0) ? qty.div(avg) : null;
+      // Con lo que ya está en camino, igual que la cantidad: si no, lo ya pedido salía como urgente.
+      const coverage = avg.gt(0) ? available.div(avg) : null;
       const needForHorizon = avg.mul(horizonDays).plus(min).minus(available);
       const toPar = par.minus(available);
       const suggested = Decimal.max(0, needForHorizon, toPar);

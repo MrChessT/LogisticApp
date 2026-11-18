@@ -72,7 +72,7 @@ export class SupabaseDataSource implements InventoryDataSource {
     const all = await readAll<Row>("los últimos precios", (from, to) => {
       const q = this.db
         .from("supplier_prices")
-        .select("supplier_id,pack_id,last_price:last_price::text,last_price_at,supplier:suppliers(name)")
+        .select("supplier_id,pack_id,last_price:last_price::text,last_price_at,supplier:suppliers(name,is_price_source)")
         .not("last_price", "is", null);
       return (short(packIds) ? q.in("pack_id", packIds) : q)
         .order("last_price_at", { ascending: false })
@@ -86,6 +86,7 @@ export class SupabaseDataSource implements InventoryDataSource {
       packId: String(r.pack_id),
       lastPrice: str(r.last_price),
       lastPriceAt: strOrNull(r.last_price_at),
+      priceSource: (r.supplier as { is_price_source?: boolean } | null)?.is_price_source === true,
     }));
   }
 
