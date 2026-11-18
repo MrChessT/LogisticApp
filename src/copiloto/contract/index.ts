@@ -75,6 +75,8 @@ export const ChatRequest = z.object({
    * navegador: para preguntar por él («¿a cuánto cobra los limones esta factura?») o cargar las ventas. No se guarda.
    */
   document: ChatDocument.optional(),
+  /** El otro documento leído antes (una factura si el último es un albarán, o al revés): para cuadrarlos. */
+  otherDocument: ChatDocument.optional(),
   /** Botón de seguimiento de una respuesta anterior (se ejecuta sin volver a llamar a Jev). */
   followUpId: z.string().min(1).max(64).optional(),
   /** Miniformulario enviado: la operación y lo elegido en cada campo (el servidor lo valida todo). */

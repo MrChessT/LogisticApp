@@ -13,4 +13,10 @@ describe("corregirJerga", () => {
     expect(corregirJerga("Aquarius Kiwi y Kas Limón")).toBe("Aquarius Kiwi y Kas Limón");
     expect(corregirJerga("¿Cuántas cajas de Mahou quedan?")).toBe("¿Cuántas cajas de Mahou quedan?");
   });
+
+  it("erratas de las palabras de la app («alabran» no es albariño)", () => {
+    expect(corregirJerga("que alabranes hay")).toBe("que albaranes hay");
+    expect(corregirJerga("dime los albran de makro")).toBe("dime los albaran de makro");
+    expect(corregirJerga("las facutras pendientes")).toBe("las facturas pendientes");
+  });
 });

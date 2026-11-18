@@ -17,7 +17,7 @@ import { streamEvents } from "./chat-stream";
 import { currentRoute, hrefFor, newId, ROUTE_LABELS, ROUTE_OF, type AssistantItem, type Item } from "./chat-model";
 import { DraftCard } from "./draft-card";
 import { AssistantText, TableCard, Understood } from "./message-parts";
-import { summarizeFile } from "./documents";
+import { summarizeFiles } from "./documents";
 import { ReportForm } from "./report-form";
 import { useFileDrop } from "./use-file-drop";
 import { FormCard, type FormValues } from "./form-card";
@@ -25,6 +25,13 @@ import { useVoice } from "./use-voice";
 import "./copiloto.css";
 
 /** `initial`: se acaba de cargar porque se pidió abrir (botón, Ctrl+K o una pregunta desde otra pantalla). */
+/** Lo que viaja con el mensaje: el último archivo y, si es factura o albarán, el último del otro tipo. */
+function documentsFor(d: { last: ChatDocument | null; factura?: ChatDocument; albaran?: ChatDocument }) {
+  if (!d.last) return {};
+  const other = d.last.kind === "factura" ? d.albaran : d.last.kind === "albaran" ? d.factura : undefined;
+  return { document: d.last, ...(other ? { otherDocument: other } : {}) };
+}
+
 export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -43,8 +50,9 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
   const [reportFor, setReportFor] = useState<{ index: number | null; sessionId: string | null } | null>(null);
   const [reported, setReported] = useState<Set<string>>(new Set());
   const sessionId = useRef<string | null>(null);
-  // Lo leído del último archivo dado al chat: se manda con cada mensaje hasta el siguiente archivo o conversación.
-  const lastDocument = useRef<ChatDocument | null>(null);
+  // Lo leído de los archivos dados al chat: el último se manda con cada mensaje, y con él la última factura o el último
+  // albarán (el que no es), para poder cuadrarlos. Se olvidan al empezar otra conversación.
+  const docs = useRef<{ last: ChatDocument | null; factura?: ChatDocument; albaran?: ChatDocument }>({ last: null });
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Comandos «/»: el resaltado de la lista (se mueve con ↑ ↓). Historial de lo escrito (↑ en el campo vacío).
@@ -118,18 +126,24 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
    * Archivo desde el chat (foto, PDF u hoja): se lee aquí, en el navegador y sin subirlo, y se resume (documents.ts).
    * Guardar se hace en su pantalla, con las mismas comprobaciones que a mano: nada se guarda sin revisar.
    */
-  async function handleFile(file: File) {
-    if (busy) return;
+  async function handleFile(files: File[]) {
+    if (busy || files.length === 0) return;
     const assistantId = newId();
     setBusy(true);
-    setItems((prev) => [...prev, { id: newId(), role: "user", text: `Archivo: ${file.name || "foto"}` }, { id: assistantId, role: "assistant", text: "Leyendo el archivo…", pending: true }]);
+    const label = files.length > 1 ? `${files.length} archivos: ${files.map((f) => f.name || "foto").join(", ")}` : `Archivo: ${files[0]!.name || "foto"}`;
+    setItems((prev) => [...prev, { id: newId(), role: "user", text: label }, { id: assistantId, role: "assistant", text: "Leyendo el archivo…", pending: true }]);
     try {
-      const summary = await summarizeFile(file);
+      const summary = await summarizeFiles(files);
+      // Varias fotos se adjuntan unidas en una imagen; un archivo, tal cual.
+      const file = summary.attach ?? files[0]!;
       // Queda preparado: al entrar en esa pantalla (por el botón o por el menú) se abre relleno y con el archivo.
       if (summary.open?.read !== undefined && currentRoute(pathname) !== ROUTE_OF[summary.open.target]) setPendingFile(summary.open.target, file, summary.open.read);
       // Lo leído viaja con los mensajes siguientes: así se puede preguntar por el archivo (document-turn.ts).
-      lastDocument.current = summary.doc ?? null;
-      update(assistantId, () => ({ pending: false, text: summary.text, file: { file, open: summary.open, say: summary.say } }));
+      const doc = summary.doc ?? null;
+      docs.current = { ...docs.current, last: doc, ...(doc?.kind === "factura" ? { factura: doc } : doc?.kind === "albaran" ? { albaran: doc } : {}) };
+      const pair = doc?.kind === "factura" ? docs.current.albaran : doc?.kind === "albaran" ? docs.current.factura : undefined;
+      const say = [...(summary.say ?? []), ...(pair ? [{ label: doc?.kind === "factura" ? "Cuadrarla con el albarán" : "Cuadrarlo con la factura", message: "¿cuadra la factura con el albarán?" }] : [])];
+      update(assistantId, () => ({ pending: false, text: summary.text, file: { file, open: summary.open, say } }));
     } catch (err) {
       // Los fallos del navegador al abrir un archivo llegan en inglés («could not be decoded»): se dice en claro.
       const decode = err instanceof Error && /decod|load|image|canvas|pdf|zip|password/i.test(err.message);
@@ -138,7 +152,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
       setBusy(false);
     }
   }
-  const drop = useFileDrop((file) => void handleFile(file), !busy);
+  const drop = useFileDrop((files) => void handleFile(files), !busy);
 
   /** El panel se cierra para dejar a la vista la pantalla (la conversación sigue al volver a abrirlo). */
   function openFileIn(target: FileTarget, file: File, read?: unknown) {
@@ -160,7 +174,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
       const res = await fetch("/api/copiloto/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId.current, message, page: currentRoute(pathname), ...(clarification ? { clarification } : {}), ...(followUpId ? { followUpId } : {}), ...(form ? { form } : {}), ...(lastDocument.current ? { document: lastDocument.current } : {}) }),
+        body: JSON.stringify({ sessionId: sessionId.current, message, page: currentRoute(pathname), ...(clarification ? { clarification } : {}), ...(followUpId ? { followUpId } : {}), ...(form ? { form } : {}), ...documentsFor(docs.current) }),
       });
       if (!res.ok || !res.body) {
         const error = (await res.json().catch(() => null)) as ErrorEvent | null;
@@ -216,7 +230,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
     setInput("");
     if (command === "nueva") {
       sessionId.current = null;
-      lastDocument.current = null;
+      docs.current = { last: null };
       setItems([]);
       setPendingClarify(null);
       void loadSuggestions();
@@ -464,7 +478,7 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                     )}
                     {(item.file?.open || item.file?.say) && (
                       <div className="copiloto-actions">
-                        {item.file.say && <button type="button" disabled={busy} onClick={() => item.file?.say && void send(item.file.say.message)}>{item.file.say.label}</button>}
+                        {item.file.say?.map((s) => <button key={s.label} type="button" disabled={busy} onClick={() => void send(s.message)}>{s.label}</button>)}
                         {item.file.open && <button type="button" onClick={() => item.file?.open && openFileIn(item.file.open.target, item.file.file, item.file.open.read)}>{item.file.open.label}</button>}
                       </div>
                     )}
@@ -525,11 +539,12 @@ export function Copiloto({ initial }: { initial?: { message?: string } } = {}) {
                 ref={photoInput}
                 type="file"
                 accept="image/*,application/pdf,.xlsx,.csv,text/csv"
+                multiple
                 hidden
                 onChange={(event) => {
-                  const file = event.target.files?.[0];
+                  const files = Array.from(event.target.files ?? []);
                   event.target.value = "";
-                  if (file) void handleFile(file);
+                  if (files.length) void handleFile(files);
                 }}
               />
               <input

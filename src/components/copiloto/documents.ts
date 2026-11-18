@@ -18,8 +18,10 @@ export interface FileSummary {
   open?: { target: FileTarget; label: string; read?: unknown };
   /** Lo leído, para preguntar por ello en el chat («¿a cuánto cobra los limones esta factura?»). */
   doc?: ChatDocument;
-  /** Botón que manda una frase al chat («Cargar aquí las ventas»). */
-  say?: { label: string; message: string };
+  /** Lo que se adjunta en la pantalla, si no es el archivo tal cual (varias fotos unidas en una imagen). */
+  attach?: File;
+  /** Botones que mandan una frase al chat («Cargar aquí las ventas», «¿Ha subido algo de precio?»). */
+  say?: Array<{ label: string; message: string }>;
 }
 
 /** Número a cadena decimal con punto (el formato del contrato), o null. */
@@ -69,7 +71,8 @@ async function albaranSummary(result: AlbaranPhotoRead, what: "la foto" | "el PD
   };
   return {
     doc,
-    text: `Albarán${number}${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${fecha(result.date)}: ${lines}${total}; ${status}.${supplier ? await pendingOrderNote(supplier) : ""} Ya está preparado en Recepciones, con ${what} adjunto: revisa los productos y regístralo.`,
+    say: [{ label: "¿Ha subido algo de precio?", message: "¿ha subido algo de precio en este albarán?" }],
+    text: `Albarán${number}${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${fecha(result.date)}: ${lines}${total}; ${status}.${supplier ? await pendingOrderNote(supplier) : ""} Ya está preparado en Recepciones, con ${what} ${what === "la foto" ? "adjunta" : "adjunto"}: revisa los productos y regístralo.`,
     open: { target: "recepcion", label: "Revisar y registrar la recepción", read: result },
   };
 }
@@ -104,6 +107,7 @@ async function invoiceSummary(read: DocumentoLeido): Promise<FileSummary> {
   };
   return {
     doc,
+    say: [{ label: "¿Ha subido algo de precio?", message: "¿ha subido algo de precio en esta factura?" }],
     text: `Factura${c.number ? ` ${c.number}` : ""}${supplier ? ` de ${supplier.name}` : " (proveedor sin identificar)"}${fecha(c.date)}: ${lines}${parts ? `; ${parts}` : ""}. ${c.aviso.text}${receipts} En Nueva factura queda rellena con el archivo adjunto${receipts ? " y esos albaranes marcados" : "; márcale sus albaranes para cuadrarla"}.`,
     open: { target: "factura", label: "Revisar y registrar la factura", read },
   };
@@ -147,7 +151,7 @@ async function sheetSummary(file: File): Promise<FileSummary> {
     return {
       text: `«${file.name}» es una exportación de ventas del TPV.${detail} Puedo cargarlas desde aquí (te enseño antes lo que queda sin enlazar) o puedes revisarlas en Ventas. También puedes preguntarme por ellas: «¿cuántas croquetas se vendieron en este excel?».`,
       open: { target: "ventas", label: "Revisar en Ventas" },
-      ...(doc ? { doc, say: { label: "Cargar aquí las ventas", message: "carga estas ventas" } } : {}),
+      ...(doc ? { doc, say: [{ label: "Cargar aquí las ventas", message: "carga estas ventas" }] } : {}),
     };
   }
   if (kinds.has("ventas")) return { text: `En «${file.name}» hay ${list}. Las ventas se cargan desde Ventas y el resto desde Importar: sepáralas en archivos distintos.` };
@@ -158,8 +162,31 @@ async function sheetSummary(file: File): Promise<FileSummary> {
   };
 }
 
-/** Lee y resume un archivo. Lanza si el navegador no puede abrirlo. */
-export async function summarizeFile(file: File): Promise<FileSummary> {
+/** Varias fotos de un mismo documento: se leen como uno solo y se adjuntan unidas. */
+async function pagesSummary(files: File[]): Promise<FileSummary> {
+  const { readDocumentPages } = await import("@/lib/documento-foto");
+  const { read, file } = await readDocumentPages(files);
+  const { albaranDeDocumento } = await import("@/lib/albaran-pdf");
+  const summary = read.kind === "factura" ? await invoiceSummary(read) : await albaranSummary(albaranDeDocumento(read), "la foto");
+  return { ...summary, text: `${files.length} fotos leídas como un solo documento. ${summary.text}`, attach: file };
+}
+
+/**
+ * Lee y resume lo que llega al chat. Varias fotos juntas son las páginas de un documento; con otros archivos mezclados
+ * se lee el primero. Lanza si el navegador no puede abrirlo.
+ */
+export async function summarizeFiles(files: File[]): Promise<FileSummary> {
+  const images = files.filter((f) => fileKind(f) === "imagen");
+  if (files.length > 1 && images.length === files.length) return withName(await pagesSummary(images), files[0]!);
+  const summary = await summarizeFile(files[0]!);
+  return files.length > 1 ? { ...summary, text: `${summary.text} (He leído solo «${files[0]!.name}»: dame los demás archivos de uno en uno.)` } : summary;
+}
+
+function withName(summary: FileSummary, file: File): FileSummary {
+  return summary.doc ? { ...summary, doc: { ...summary.doc, file: (file.name || "fotos").slice(0, 200) } } : summary;
+}
+
+async function summarizeFile(file: File): Promise<FileSummary> {
   const summary = await summarize(file);
   return summary.doc ? { ...summary, doc: { ...summary.doc, file: (file.name || summary.doc.file || "archivo").slice(0, 200) } } : summary;
 }

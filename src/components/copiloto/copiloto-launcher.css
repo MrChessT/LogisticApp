@@ -10,3 +10,7 @@
   .copiloto-launcher { right: 14px; bottom: 14px; width: 46px; height: 46px; padding: 0; justify-content: center; }
   .copiloto-launcher span, .copiloto-launcher kbd { display: none; }
 }
+/* Mientras llega el panel la primera vez: el botón se queda, girando. */
+.copiloto-launcher[aria-busy="true"] { cursor: progress; opacity: .92; }
+.copiloto-launcher-spin { animation: copiloto-launcher-spin 0.9s linear infinite; }
+@keyframes copiloto-launcher-spin { to { transform: rotate(360deg); } }

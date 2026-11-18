@@ -30,9 +30,28 @@ function editDistance(a: string, b: string): number {
  * («cervesas»). No vale empezar igual: «gasta» no es «Sin gas», «espera» no es «Especias».
  */
 function sameWord(w: string, t: string): boolean {
-  if (w === t || singular(w) === singular(t)) return true;
-  return Math.min(w.length, t.length) >= 5 && editDistance(singular(w), singular(t)) <= (Math.min(w.length, t.length) >= 8 ? 2 : 1);
+  const [a, b] = [singular(w), singular(t)];
+  if (w === t || a === b) return true;
+  // La tolerancia se mide sobre la palabra en singular: «albaranes» (albaran, 7 letras) no admite 2 cambios y no
+  // llega a «albariño».
+  const shortest = Math.min(a.length, b.length);
+  return shortest >= 5 && editDistance(a, b) <= (shortest >= 8 ? 2 : 1);
 }
+
+/**
+ * Una errata de una palabra de la app («alabran», «facutras») que no está en ningún producto: se parece más a la palabra
+ * de la app que a cualquier palabra del catálogo. «albariño» sigue siendo albariño: está escrito igual en el catálogo.
+ */
+function closerToApp(w: string, products: Product[]): boolean {
+  const app = Math.min(...[...APP_WORDS].map((a) => (a[0] === w[0] ? editDistance(singular(w), singular(a)) : 99)));
+  if (app > 2) return false;
+  let best = 99;
+  for (const p of products) for (const t of tokenize(p.name)) if (t[0] === w[0]) best = Math.min(best, editDistance(singular(w), singular(t)));
+  return app < best;
+}
+
+/** Palabras de la propia app: nombran documentos o pantallas, nunca un producto («¿qué albaranes hay?»). */
+const APP_WORDS = new Set(["albaran", "albaranes", "factura", "facturas", "pedido", "pedidos", "traspaso", "traspasos", "recepcion", "recepciones", "inventario", "inventarios", "merma", "mermas", "proveedor", "proveedores", "escandallo", "escandallos", "receta", "recetas", "venta", "ventas", "compra", "compras", "zona", "zonas", "local", "locales", "stock", "informe", "informes"]);
 
 /**
  * La familia que nombra el texto. Si nombra varias encadenadas («vino blanco» → «Vinos» y «Blanco»), los
@@ -87,7 +106,7 @@ export function nameGroupOf(text: string, products: Product[], options: { exact?
   const inSome = (w: string) => products.some((p) => tokensOf.get(p.id)!.some((t) => sameWord(w, t)));
   // Solo cuentan las palabras que están en algún producto: «pasada» (de «la semana pasada») o «gastó» son de la
   // frase, no del grupo.
-  const asked = tokenize(text).filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+  const asked = tokenize(text).filter((w) => w.length >= 3 && !STOPWORDS.has(w) && !APP_WORDS.has(w) && !closerToApp(w, products));
   // exact: el texto no dice nada más que el grupo («¿cuánto dinero tenemos en ginebra?» no es solo «ginebra»).
   if (options.exact && !asked.every(inSome)) return null;
   const groupOf = (ws: string[]) => products.filter((p) => ws.every((w) => tokensOf.get(p.id)!.some((t) => sameWord(w, t))));

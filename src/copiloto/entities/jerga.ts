@@ -11,6 +11,11 @@ const JERGA: Record<string, string> = {
   ke: "que", q: "que", xq: "porque", pq: "porque", xk: "porque",
   ai: "hay", ay: "hay",
   aki: "aqui", tb: "tambien", tmb: "tambien", dnd: "donde", cn: "con", tng: "tengo", tenems: "tenemos",
+  // Erratas de las palabras de la app que se parecen a productos: «alabran» acababa en albariño.
+  alabran: "albaran", alabranes: "albaranes", albran: "albaran", albranes: "albaranes", albarn: "albaran", albarnes: "albaranes",
+  ablaran: "albaran", ablaranes: "albaranes", alabaran: "albaran", alabaranes: "albaranes", albaram: "albaran",
+  factrua: "factura", factruas: "facturas", fatura: "factura", faturas: "facturas", facutra: "factura", facutras: "facturas",
+  pedio: "pedido", pedios: "pedidos", tarspaso: "traspaso",
 };
 
 /** El mensaje con la jerga de chat corregida; el resto del texto queda igual (mayúsculas, signos, nombres). */

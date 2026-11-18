@@ -16,7 +16,8 @@ export function fileKind(file: File): FileKind {
 
 const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
 
-export function useFileDrop(onFile: (file: File) => void, enabled: boolean) {
+/** `onFiles`: varios a la vez (las páginas de una factura en fotos); un archivo suelto llega como lista de uno. */
+export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean) {
   const [dragging, setDragging] = useState(false);
   // dragenter/dragleave saltan en cada hijo: se cuentan para saber cuándo se sale de verdad del panel.
   const depth = useRef(0);
@@ -44,8 +45,8 @@ export function useFileDrop(onFile: (file: File) => void, enabled: boolean) {
       event.preventDefault();
       depth.current = 0;
       setDragging(false);
-      const file = event.dataTransfer.files[0];
-      if (file && enabled) onFile(file);
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length && enabled) onFiles(files);
     },
   };
 
@@ -53,7 +54,7 @@ export function useFileDrop(onFile: (file: File) => void, enabled: boolean) {
     const file = Array.from(event.clipboardData?.files ?? []).find((f) => fileKind(f) === "imagen");
     if (!file || !enabled) return;
     event.preventDefault();
-    onFile(file);
+    onFiles([file]);
   }
 
   return { dragging, dropHandlers, onPaste };

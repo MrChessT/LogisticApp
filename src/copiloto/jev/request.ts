@@ -3,6 +3,7 @@
 import type { JsonValue, Questions } from "@typesafe-ai/sdk";
 import type { AppRoute } from "../contract/index";
 import { areaLabel, type Product, type SessionContext } from "../domain";
+import { joinNamesWithNumbers } from "../entities/name-numbers";
 import { parseQuantities, type Segment } from "../entities/quantity-parser";
 import type { Retriever } from "../entities/retriever";
 import { namesAll } from "../entities/mentions";
@@ -99,7 +100,8 @@ export async function buildRouting(
   /** Título del borrador que espera respuesta: se pregunta si el mensaje lo confirma o cancela. */
   pendingDraft?: string,
 ): Promise<RoutingRequest> {
-  const parsed = parseQuantities(message);
+  // «1 de Boj 570 Albariño»: la cifra del nombre no es otra cantidad (name-numbers.ts).
+  const parsed = joinNamesWithNumbers(parseQuantities(message), ctx.products.map((p) => p.name));
   // Sin cantidades: un segmento "mención" con el mensaje completo, para consultas del tipo "¿cuánto ron queda?".
   const segments: Segment[] = parsed.length > 0 ? parsed : [{ text: message, amount: null, unit: null, productText: message, price: null }];
 

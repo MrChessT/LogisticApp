@@ -547,7 +547,8 @@ export const QUERY_PAY = /\b(de|por|sin|que|hay que|tengo que|tenemos que|quedan
 const TOPICS: Array<[InfoTool, RegExp]> = [
   // Ventas del TPV. «Facturación» y «facturamos» son ventas, no facturas de proveedor.
   ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost\b.*\b(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b|\bvende (mas|menos)\b|\b(pasta|dinero|pelas)\b.*\b(hicimos|hemos hecho|sacamos|hemos sacado|se hizo)\b|\bcaja (de |del )?(ayer|hoy|anoche|anteayer|\d{1,2}|lunes|martes|miercoles|jueves|viernes|sabado|domingo|esta semana|la semana)\b/],
-  ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b/],
+  // «¿Qué albaranes hay?»: los albaranes se miran contra sus facturas (los que faltan por facturar).
+  ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b|\balbaran(es)?\b/],
   ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
   ["query_areas", /\b(zonas?|secciones|seccion|almacenes)\b/],

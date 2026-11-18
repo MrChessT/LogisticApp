@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { euros } from "@/lib/format";
 import { civilToday } from "@/lib/business-day";
 import { addDays, invoiceMatch, paymentDays, proposeReceipts } from "@/lib/invoices";
-import { camposDeFactura, readDocumentFile, type DocumentoLeido } from "@/lib/documento-foto";
+import { camposDeFactura, readDocumentFile, readDocumentPages, type DocumentoLeido } from "@/lib/documento-foto";
 import { InvoiceLinesTable, lineProblem, type LineaFactura } from "./invoice-lines";
 import { guessSupplier } from "@/lib/albaran-ocr";
 
@@ -183,12 +183,15 @@ export function InvoiceEditor({ invoice, preset, initialFile, initialRead, orgId
     setReadNote({ ...c.aviso, text: `${c.aviso.text}${marked}` });
   }
 
-  /** Foto o PDF de la factura: se lee en el navegador y se rellena el formulario. */
-  async function readDoc(doc: File) {
+  /** Foto o PDF de la factura (o varias fotos, una por página): se lee en el navegador y se rellena el formulario. */
+  async function readDoc(doc: File, more: File[] = []) {
     setReading(true);
     setReadNote(null);
     try {
-      applyRead(await readDocumentFile(doc), doc);
+      if (more.length > 0) {
+        const pages = await readDocumentPages([doc, ...more]);
+        applyRead(pages.read, pages.file);
+      } else applyRead(await readDocumentFile(doc), doc);
     } catch (e) {
       setReadNote({ ok: false, text: e instanceof Error ? e.message : "No se pudo leer el documento." });
     } finally {
@@ -309,8 +312,8 @@ export function InvoiceEditor({ invoice, preset, initialFile, initialRead, orgId
         <div className="editor-body invoice-body">
           {!invoice && (
             <div className="invoice-read">
-              <label className="ghost-button"><Camera size={14} /> {reading ? "Leyendo la factura…" : "Leer foto o PDF de la factura"}
-                <input type="file" hidden accept="image/*,application/pdf" disabled={reading} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void readDoc(f); }} />
+              <label className="ghost-button"><Camera size={14} /> {reading ? "Leyendo la factura…" : "Leer fotos o PDF de la factura"}
+                <input type="file" hidden multiple accept="image/*,application/pdf" disabled={reading} onChange={(e) => { const [f, ...rest] = Array.from(e.target.files ?? []); e.target.value = ""; if (f) void readDoc(f, f.type.startsWith("image/") ? rest.filter((r) => r.type.startsWith("image/")) : []); }} />
               </label>
               {readNote && <p className={`editor-message ${readNote.ok ? "" : "error"}`}>{readNote.text}</p>}
             </div>
