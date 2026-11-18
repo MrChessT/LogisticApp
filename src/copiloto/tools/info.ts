@@ -33,6 +33,8 @@ export interface InvoiceRaw {
 }
 export interface UnbilledRaw { supplierName: string; date: string; total: string; locationName: string }
 export interface TeamRaw { name: string; role: string; allLocations: boolean; locationIds: string[]; pending: boolean }
+/** Un ingrediente de un escandallo: producto o elaboración, con su cantidad en unidad base o de rendimiento. */
+export interface RecipeLineRaw { id: string; productId: string | null; subRecipeId: string | null; name: string; qty: string; unit: "g" | "ml" | "ud" | "racion" }
 export interface RecipeRaw {
   /** Para cambiar su PVP desde el chat. */
   id?: string;
@@ -74,6 +76,7 @@ export interface InfoSource extends FiguresSource, SalesSource, WarehouseSource 
   unbilled(orgId: string): Promise<UnbilledRaw[]>;
   team(): Promise<TeamRaw[]>;
   recipes(orgId: string): Promise<RecipeRaw[]>;
+  recipeLines(recipeId: string): Promise<RecipeLineRaw[]>;
   areaStock(locationIds: string[]): Promise<AreaStockRaw[]>;
   counts(locationIds: string[]): Promise<CountRaw[]>;
   suppliers(orgId: string): Promise<SupplierRaw[]>;

@@ -12,6 +12,8 @@ import { mentionedSupplier } from "../entities/catalog-parser";
 import { parseTermChanges } from "./supplier-terms";
 import { parseSheet } from "./product-sheet";
 import { NEW_RECIPE } from "./recipe-chat";
+import { recipeEditFromMessage } from "./recipe-edit";
+import { SALES_LINK } from "../drafts/sales-link-builder";
 import { PACK_RE } from "../drafts/pack-builder";
 
 const QUESTION = /^(que|cual|cuales|cuant[oa]s?|hay|esta|estan|tengo|tenemos|cuando|donde|quien|como|se ha|se han|me dices|dime si)\b/;
@@ -64,6 +66,9 @@ const SUPPLY_VERB = /\b(nos lo trae|nos la trae|lo trae|la trae|lo compramos a|l
 const ASKS_FIRST = /^(quien|que|cual|cuales|cuanto|cuantos|donde|dime|dame|muestrame|ensename|cuantas)\b/;
 const supplierLinkMessage = (text: string) => ((SUPPLIER_WORD.test(text) && ASSIGN_VERB.test(text)) || (SUPPLY_VERB.test(text) && !QUANTITY.test(text))) && !ASKS_FIRST.test(text);
 
+/** «Crea…», «nuevo…»: es un escandallo nuevo aunque se parezca a uno que ya existe. */
+const NEW_RECIPE_VERB = /\b(crea|crear|creame|nuevo|nueva|da de alta|dar de alta)\b/;
+
 const VALIDATE_MOVES =
   /\b(valida|validar|validame|validalas|validalo|aprueba|aprobar|apruebalas|acepta|aceptar|confirma|confirmar|confirmalas|da por buenas)\b.*\b(salidas?|movimientos?|devoluciones?|almacen)\b/;
 
@@ -74,6 +79,10 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
     ? "pagar_factura"
     : VALIDATE_MOVES.test(text)
       ? "validar_salidas"
+      : SALES_LINK.test(text)
+        ? "enlazar_venta"
+      : !NEW_RECIPE_VERB.test(text) && recipeEditFromMessage(message, ctx.recipes)
+        ? "editar_escandallo"
       : NEW_RECIPE.test(text)
         ? "crear_escandallo"
       : supplierLinkMessage(text) && mentionedSupplier(message, ctx.suppliers)

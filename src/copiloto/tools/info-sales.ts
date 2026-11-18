@@ -19,11 +19,15 @@ export interface SalesItemRaw {
   foodCost: string | null;
 }
 export interface SalesDayRaw { date: string; locationId: string; total: string }
+/** Artículo del TPV y a qué está enlazado (para enlazarlo desde el chat). */
+export interface SalesItemRef { id: string; code: string; name: string; link: SalesItemRaw["link"] }
 
 export interface SalesSource {
   /** Por artículo en el periodo (locationId null = todos los locales). */
   salesReport(orgId: string, from: string, to: string, locationId: string | null): Promise<SalesItemRaw[]>;
   salesDays(orgId: string, from: string, to: string): Promise<SalesDayRaw[]>;
+  /** Artículos del TPV de la organización. */
+  salesItems(orgId: string): Promise<SalesItemRef[]>;
   /** Último día con ventas importadas (de cualquier local), o null si no hay ninguno. */
   lastSaleDate(orgId: string): Promise<string | null>;
 }

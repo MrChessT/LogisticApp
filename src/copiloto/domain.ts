@@ -44,6 +44,14 @@ export interface NamedRef {
   name: string;
 }
 
+/** Escandallo: un plato (rinde raciones) o una elaboración (rinde g, ml o ud y se usa dentro de otros). */
+export interface RecipeRef {
+  id: string;
+  name: string;
+  kind: "plato" | "elaboracion";
+  yieldUnit: "racion" | "g" | "ml" | "ud";
+}
+
 /** Contexto del usuario, cacheado por sesión. Todo lo que contiene ya ha pasado por RLS. */
 export interface SessionContext {
   userId: string;
@@ -63,6 +71,8 @@ export interface SessionContext {
   catalogHash: string;
   /** Modo pruebas (memberships.assistant_test): lo que se confirme en el asistente no se guarda. */
   testMode?: boolean;
+  /** Escandallos activos que ve (nombre, tipo y unidad de rendimiento): para editarlos desde el chat. */
+  recipes?: RecipeRef[];
   /** Cuentas de análisis a las que está limitado (Comida, Bebida…), por nombre. Sin el campo: todas. */
   cuentas?: string[];
   /** Palabras del catálogo que no ve, con su cuenta (0059): para decir «eso es de Bebida» (especialistas/cuentas.ts). */

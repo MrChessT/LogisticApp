@@ -24,7 +24,7 @@ interface RecipeInput {
 }
 
 /** Cómo se mide cada unidad dicha: dimensión del producto y factor a la unidad base (g, ml o ud). */
-const UNIT: Record<string, { dimension: Product["dimension"]; factor: number }> = {
+export const UNIT: Record<string, { dimension: Product["dimension"]; factor: number }> = {
   g: { dimension: "mass", factor: 1 },
   kg: { dimension: "mass", factor: 1000 },
   ml: { dimension: "volume", factor: 1 },
@@ -36,7 +36,7 @@ const UNIT: Record<string, { dimension: Product["dimension"]; factor: number }> 
 type Resolved = { ok: true; productId: string; name: string; qtyBase: Decimal; qtyText: string; baseUnit: Product["baseUnit"] } | { ok: false; warning: string };
 
 /** Un ingrediente de la frase contra el catálogo: el producto, su cantidad base, o el motivo por el que no entra. */
-async function resolveIngredient(item: RecipeIngredient, ctx: SessionContext, retriever: Retriever): Promise<Resolved> {
+export async function resolveIngredient(item: RecipeIngredient, ctx: SessionContext, retriever: Retriever): Promise<Resolved> {
   // Un nombre dicho entero es ese producto («Ron Barceló Añejo 70 cl»), aunque otro se le parezca («Ron Brugal»).
   const exact = ctx.products.filter((p) => normalize(p.name) === normalize(item.phrase));
   const products = exact.length > 0 ? exact : await productsNamed(item.phrase, ctx, retriever, 6);

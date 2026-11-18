@@ -18,8 +18,8 @@ Leyenda: **sí** = desde el chat · **enlace** = lo explica y abre la pantalla �
 | Mermas | sí (por local, periodo, producto) | registrar | «se han roto 2 botellas de Larios en barra» |
 | Productos | sí (ficha, categoría, formatos, proveedores, precios) | alta, precio de compra, archivar, categoría, alérgenos, formatos y proveedor de compra (sin precio) | «pon el pacharán en Licores», «la tónica lleva sulfitos» |
 | Proveedores | sí (condiciones, qué nos trae cada uno) | condiciones (mínimo, días, hora límite, plazo, pago) | «el pedido mínimo de Makro es 200 €» |
-| Escandallos | sí (coste, food cost, margen, alérgenos) | crear un plato o una elaboración con sus ingredientes; PVP de un plato | «crea el escandallo de croquetas con PVP 9,50» · «pon el PVP de las croquetas a 10 €» |
-| Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | la exportación del TPV arrastrada al chat: día, local, artículos e importe, y abre su vista previa en Ventas | «¿cuánto vendimos este mes?» |
+| Escandallos | sí (coste, food cost, margen, alérgenos) | crear un plato o una elaboración con sus ingredientes; cambiar los de uno que ya existe (añadir un producto o una elaboración, quitar, cambiar la cantidad); PVP de un plato | «crea el escandallo de croquetas con PVP 9,50» · «añade 20 g de queso a las croquetas» · «quita el ajo del gazpacho» |
+| Ventas | sí (vendido, lo más vendido, food cost de lo vendido, sin enlazar) | enlazar un artículo del TPV a un plato o a un producto (con lo que gasta cada venta), o ignorarlo; la exportación del TPV arrastrada al chat abre su vista previa | «enlaza el artículo CROQ CASERA del TPV con las croquetas» · «la COPA DE LA CASA son 150 ml de vino tinto» |
 | Facturas | sí (pendientes, vencidas, sin cuadrar, albaranes sin factura) | marcar pagada; la factura en PDF (con texto o escaneada) o en foto arrastrada al chat: proveedor, número, fecha, base, IVA, total y líneas, y abre Nueva factura rellena | «marca como pagada la factura de Makro» |
 | Informes | sí (las mismas cifras, resumidas) | abre la vista pedida | «llévame a los informes de mermas de este mes» |
 | Equipo | sí (quién, puesto, locales) | no: invitar y cambiar permisos solo en la pantalla, a propósito | «dame los nombres del personal» |
@@ -44,5 +44,5 @@ resumen.
 ## Pendiente
 
 Nada del mapa está sin hacer desde el chat. Lo que no se hará desde el chat: invitar personas o cambiar
-permisos (riesgo alto por un malentendido). En escandallos, desde el chat no se editan las líneas de un
-escandallo existente ni se usan elaboraciones como ingrediente: eso se hace en la pantalla de Escandallos.
+permisos (riesgo alto por un malentendido). En escandallos, la merma de cada línea, el rendimiento, la categoría
+y las instrucciones se cambian en la pantalla: desde el chat, ingredientes, cantidades y PVP.

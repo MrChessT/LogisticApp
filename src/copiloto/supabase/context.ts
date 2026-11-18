@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { ROLES, type Role } from "../contract/index";
-import { baseUnitOf, type Dimension, type SessionContext } from "../domain";
+import { baseUnitOf, type Dimension, type RecipeRef, type SessionContext } from "../domain";
 import { AuthError, type AuthUser, type ContextPort } from "../security/auth";
 import { palabrasOcultas } from "../especialistas/cuentas";
 import { DataError, readAll, userClient, type SupabaseSettings } from "./client";
@@ -38,7 +38,7 @@ export class SupabaseContext implements ContextPort {
     // primera, así un usuario ajeno recibe "forbidden" aunque el resto de consultas hayan fallado.
     // Los espacios se filtran por el join con sus locales (activos, de la organización) en lugar de
     // esperar a tener la lista de locales: mismo resultado, una petición menos en serie.
-    const [membership, locations, products, areas, suppliers, categories, archived, scope, hidden] = await Promise.all([
+    const [membership, locations, products, areas, suppliers, categories, archived, scope, hidden, recipes] = await Promise.all([
       // «*»: también assistant_test (0025) sin romper si esa migración aún no está aplicada.
       db.from("memberships").select("*").eq("org_id", orgId).eq("user_id", user.userId).maybeSingle(),
       db.from("locations").select("id,name,timezone,day_cutoff").eq("org_id", orgId).eq("active", true).order("name"),
@@ -74,6 +74,10 @@ export class SupabaseContext implements ContextPort {
       db.from("membership_accounts").select("account_id").eq("org_id", orgId).eq("user_id", user.userId),
       // Son miles de palabras: por páginas, como el catálogo (una respuesta trae 1000 filas como mucho).
       settle(readAll<{ word: string; account: string }>("las palabras fuera de alcance", (from, to) => db.rpc("hidden_catalog_words").range(from, to))),
+      // Escandallos que ve (RLS, también por cuentas): para reconocer «añade 20 g de queso a las croquetas».
+      settle(readAll<{ id: string; name: string; kind: string; yield_unit: string }>("los escandallos", (from, to) =>
+        db.from("recipes").select("id,name,kind,yield_unit").eq("org_id", orgId).eq("active", true).order("name").order("id").range(from, to),
+      )),
     ]);
     if (membership.error) fail("la pertenencia", membership.error);
     const role = membership.data?.role as Role | undefined;
@@ -134,6 +138,10 @@ export class SupabaseContext implements ContextPort {
       archivedProducts: refs(archived),
       catalogHash,
       testMode: (membership.data as { assistant_test?: boolean } | null)?.assistant_test === true,
+      recipes: recipes.error ? [] : (recipes.data ?? []).map((r) => ({
+        id: r.id, name: r.name, kind: r.kind === "elaboracion" ? ("elaboracion" as const) : ("plato" as const),
+        yieldUnit: (["g", "ml", "ud"].includes(r.yield_unit) ? r.yield_unit : "racion") as RecipeRef["yieldUnit"],
+      })),
       ...alcance,
     };
   }

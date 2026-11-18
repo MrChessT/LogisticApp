@@ -64,6 +64,8 @@ const POR_DOCUMENTO: Record<DocumentPlan["accion"], EspecialistaId> = {
   pagar_factura: "facturas",
   precio_venta: "escandallos",
   crear_escandallo: "escandallos",
+  editar_escandallo: "escandallos",
+  enlazar_venta: "ventas",
   ficha_producto: "catalogo",
   formato_producto: "catalogo",
 };

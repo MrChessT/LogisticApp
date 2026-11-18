@@ -123,6 +123,14 @@ export class FixtureWriter implements InventoryWriter {
     this.record("createArea", args);
   }
 
+  async linkSalesItem(link: Parameters<InventoryWriter["linkSalesItem"]>[0]) {
+    this.record("linkSalesItem", link);
+  }
+
+  async editRecipeLines(recipeId: string, changes: Parameters<InventoryWriter["editRecipeLines"]>[1]) {
+    this.record("editRecipeLines", { recipeId, changes });
+  }
+
   async createRecipe(args: Parameters<InventoryWriter["createRecipe"]>[0]) {
     this.record("createRecipe", args);
   }

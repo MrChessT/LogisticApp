@@ -219,7 +219,7 @@ const OrderDraftSchema = base.extend({
 
 const DocumentDraftSchema = base.extend({
   kind: z.literal("documento"),
-  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo", "asociar_proveedor"]),
+  operation: z.enum(["recibir_traspaso", "cancelar_traspaso", "enviar_pedido", "recibir_pedido", "cancelar_pedido", "pagar_factura", "validar_salidas", "precio_venta", "condiciones_proveedor", "salida_almacen", "ficha_producto", "crear_zona", "formato_producto", "crear_escandallo", "asociar_proveedor", "editar_escandallo", "enlazar_venta"]),
   documentId: id,
   locationId: id,
   summary: z.string().min(1).max(200),
@@ -239,6 +239,26 @@ const DocumentDraftSchema = base.extend({
       yieldUnit: z.enum(["racion", "g", "ml", "ud"]),
       lines: z.array(z.object({ productId: id, qtyBase: positive })).max(60),
     })
+    .optional(),
+  recipeEdit: z
+    .object({
+      recipeId: id,
+      recipeName: z.string().min(1).max(120),
+      changes: z
+        .array(
+          z.discriminatedUnion("op", [
+            z.object({ op: z.literal("add"), productId: id.optional(), subRecipeId: id.optional(), qty: positive }).refine((c) => !!c.productId !== !!c.subRecipeId, "producto o elaboración"),
+            z.object({ op: z.literal("remove"), lineId: id }),
+            z.object({ op: z.literal("set"), lineId: id, qty: positive }),
+          ]),
+        )
+        .min(1)
+        .max(20),
+    })
+    .optional(),
+  salesLink: z
+    .object({ itemId: id, itemName: z.string().min(1).max(200), recipeId: id.optional(), productId: id.optional(), qty: positive.optional(), ignored: z.boolean().optional() })
+    .refine((l) => (l.ignored ? !l.recipeId && !l.productId : !!l.recipeId !== !!l.productId && !!l.qty), "escandallo o producto con cantidad, o ignorar")
     .optional(),
   sheet: z.object({ productIds: z.array(id).min(1).max(12), categoryId: id.optional(), addAllergens: z.array(z.string().max(20)).max(14), removeAllergens: z.array(z.string().max(20)).max(14) }).optional(),
   move: z.object({ productId: id, qtyBase: positive, fromAreaId: id, toAreaId: id, kind: z.enum(["salida", "devolucion"]), input: quantityInput }).optional(),

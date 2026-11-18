@@ -1,7 +1,7 @@
 // Datos de prueba (ficticios) de facturas, equipo, escandallos, zonas, inventarios y proveedores.
-import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
+import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
-import type { SalesDayRaw, SalesItemRaw } from "../tools/info-sales";
+import type { SalesDayRaw, SalesItemRaw, SalesItemRef } from "../tools/info-sales";
 import type { AreaMoveRaw } from "../tools/info-warehouse";
 import { AREAS, LOCATIONS, PRODUCTS } from "./fixture";
 
@@ -52,8 +52,18 @@ export class FixtureInfoSource implements InfoSource {
     return [
       { id: "e0000000-0000-4000-8000-000000000001", vatRate: "10", name: "Croquetas de jamón", kind: "plato", category: "Entrantes", active: true, salePrice: "9.00", target: "30", portionCost: "3.40", foodCostPct: "41.6", margin: "4.78", missingPrices: 0, allergens: ["gluten", "lacteos", "huevo"] },
       { id: "e0000000-0000-4000-8000-000000000002", vatRate: "10", name: "Ensalada de la huerta", kind: "plato", category: "Entrantes", active: true, salePrice: "8.00", target: "30", portionCost: "1.60", foodCostPct: "22.0", margin: "5.67", missingPrices: 1, allergens: [] },
-      { name: "Bechamel", kind: "elaboracion", category: "Bases", active: true, salePrice: null, target: "30", portionCost: "0.80", foodCostPct: null, margin: null, missingPrices: 0, allergens: ["gluten", "lacteos"] },
+      { id: "e0000000-0000-4000-8000-000000000003", name: "Bechamel", kind: "elaboracion", category: "Bases", active: true, salePrice: null, target: "30", portionCost: "0.80", foodCostPct: null, margin: null, missingPrices: 0, allergens: ["gluten", "lacteos"] },
     ];
+  }
+
+  async recipeLines(recipeId: string): Promise<RecipeLineRaw[]> {
+    const lines: Record<string, RecipeLineRaw[]> = {
+      "e0000000-0000-4000-8000-000000000001": [
+        { id: "e1000000-0000-4000-8000-000000000001", productId: null, subRecipeId: "e0000000-0000-4000-8000-000000000003", name: "Bechamel", qty: "80", unit: "g" },
+        { id: "e1000000-0000-4000-8000-000000000002", productId: PRODUCTS[7]!.id, subRecipeId: null, name: PRODUCTS[7]!.name, qty: "5", unit: "g" },
+      ],
+    };
+    return lines[recipeId] ?? [];
   }
 
   async areaStock(locationIds: string[]): Promise<AreaStockRaw[]> {
@@ -119,6 +129,14 @@ export class FixtureInfoSource implements InfoSource {
       { name: "Croquetas de jamón", link: "receta", linkName: "Croquetas de jamón", qty: "10", amount: "81.80", cost: "34.00", foodCost: "41.6" },
       { name: "AGUA", link: "producto", linkName: "Agua mineral 50 cl", qty: "11", amount: "50.05", cost: "2.31", foodCost: "4.6" },
       { name: "Servicio de pan", link: "sin_enlazar", linkName: null, qty: "48", amount: "109.12", cost: null, foodCost: null },
+    ];
+  }
+
+  async salesItems(): Promise<SalesItemRef[]> {
+    return [
+      { id: "e2000000-0000-4000-8000-000000000001", code: "41", name: "CROQ CASERA", link: "sin_enlazar" },
+      { id: "e2000000-0000-4000-8000-000000000002", code: "77", name: "Servicio de pan", link: "sin_enlazar" },
+      { id: "e2000000-0000-4000-8000-000000000003", code: "201", name: "COPA DE LA CASA", link: "sin_enlazar" },
     ];
   }
 
