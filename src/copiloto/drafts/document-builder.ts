@@ -18,6 +18,8 @@ import { productSheet } from "./sheet-builder";
 import { newZone } from "./zone-builder";
 import { newPack } from "./pack-builder";
 import { newRecipe } from "./recipe-builder";
+import { editRecipe } from "./recipe-edit-builder";
+import { salesLink } from "./sales-link-builder";
 import { supplierLink } from "./supplier-link-builder";
 
 export interface DocumentBuildInput {
@@ -48,6 +50,8 @@ const TITLE: Record<DocumentDraft["operation"], string> = {
   crear_zona: "Zona nueva",
   formato_producto: "Formato nuevo",
   crear_escandallo: "Escandallo nuevo",
+  editar_escandallo: "Cambiar escandallo",
+  enlazar_venta: "Enlazar artículo del TPV",
   asociar_proveedor: "Proveedor del producto",
 };
 
@@ -70,6 +74,8 @@ const FOR_JEV: Record<DocumentDraft["operation"], string> = {
   crear_zona: "create a storage or service area in a venue",
   formato_producto: "add a pack size to a product",
   crear_escandallo: "create a dish or kitchen preparation (recipe) with its ingredients",
+  editar_escandallo: "change the ingredients of an existing recipe",
+  enlazar_venta: "link a point-of-sale item to a recipe or product (or ignore it) so its sales get a cost",
   asociar_proveedor: "link a supplier to a product as its purchase source (format), without a price yet",
 };
 
@@ -101,6 +107,8 @@ export class DocumentDraftBuilder {
     if (plan.accion === "crear_zona") return newZone({ plan, message, ctx, overrides, now });
     if (plan.accion === "formato_producto") return newPack({ message, ctx, overrides, now, retriever });
     if (plan.accion === "crear_escandallo") return newRecipe({ message, ctx, info, retriever, now });
+    if (plan.accion === "editar_escandallo") return editRecipe({ message, ctx, info, retriever, now });
+    if (plan.accion === "enlazar_venta") return salesLink({ message, ctx, info, retriever, now });
     if (plan.accion === "asociar_proveedor") return supplierLink({ message, ctx, overrides, now, retriever });
     return plan.accion === "recibir_traspaso" || plan.accion === "cancelar_traspaso"
       ? this.transfer(plan, ctx, source, overrides, now)

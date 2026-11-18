@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExitKind } from "../../lib/exit-kinds";
+import type { DocumentDraft } from "../contract/index";
 
 const RPC_ERROR_CODES = [
   "unauthenticated",
@@ -19,6 +20,8 @@ const RPC_ERROR_CODES = [
   "cross_organization_link",
   "cross_location_link",
   "duplicate",
+  "line_changed",
+  "recipe_cycle",
 ] as const;
 export type RpcErrorCode = (typeof RPC_ERROR_CODES)[number] | "internal";
 
@@ -111,6 +114,10 @@ export interface InventoryWriter {
   /** Zona nueva en un local, la última del orden (como «Añadir zona» en Zonas). */
   createArea(args: { locationId: string; name: string; kind: "almacen" | "servicio" }): Promise<void>;
   /** Escandallo nuevo con sus ingredientes (como «Nuevo» en Escandallos; la base lo valida y lo calcula). */
+  /** Enlazar un artículo del TPV (link_sales_item, 0040), como en Ventas. */
+  linkSalesItem(link: NonNullable<DocumentDraft["salesLink"]>): Promise<void>;
+  /** Cambios en los ingredientes de un escandallo, de una vez (edit_recipe_lines, 0060). */
+  editRecipeLines(recipeId: string, changes: NonNullable<DocumentDraft["recipeEdit"]>["changes"]): Promise<void>;
   createRecipe(args: { orgId: string; name: string; kind: "plato" | "elaboracion"; salePrice: string | null; yieldQty: string; yieldUnit: "racion" | "g" | "ml" | "ud"; lines: Array<{ productId: string; qtyBase: string }> }): Promise<void>;
   /** Ficha de productos: categoría y alérgenos (como en la ficha de Productos). */
   updateProductSheet(args: { productIds: string[]; categoryId?: string; addAllergens: string[]; removeAllergens: string[] }): Promise<void>;
@@ -413,6 +420,25 @@ export class SupabaseInventoryWriter implements InventoryWriter {
       await this.db.from("recipes").delete().eq("id", data.id);
       raise("recipe_lines", lineError);
     }
+  }
+
+  async linkSalesItem(link: Parameters<InventoryWriter["linkSalesItem"]>[0]): Promise<void> {
+    const { error } = await this.db.rpc("link_sales_item", {
+      p_item: link.itemId,
+      p_recipe: link.recipeId ?? null,
+      p_product: link.productId ?? null,
+      p_qty: link.qty ?? null,
+      p_ignored: link.ignored === true,
+    });
+    if (error) raise("link_sales_item", error);
+  }
+
+  async editRecipeLines(recipeId: string, changes: Parameters<InventoryWriter["editRecipeLines"]>[1]): Promise<void> {
+    const p_changes = changes.map((c) =>
+      c.op === "add" ? { op: "add", product_id: c.productId ?? null, sub_recipe_id: c.subRecipeId ?? null, qty: c.qty } : c.op === "set" ? { op: "set", line_id: c.lineId, qty: c.qty } : { op: "remove", line_id: c.lineId },
+    );
+    const { error } = await this.db.rpc("edit_recipe_lines", { p_recipe: recipeId, p_changes });
+    if (error) raise("edit_recipe_lines", error);
   }
 
   async addPack(args: Parameters<InventoryWriter["addPack"]>[0]): Promise<void> {

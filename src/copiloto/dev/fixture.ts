@@ -92,6 +92,12 @@ export function fixtureContext(role: SessionContext["role"] = "manager"): Sessio
     categories: CATEGORIES,
     archivedProducts: [{ id: id("cccccccc", 99), name: "Ginebra Bombay Sapphire 70 cl" }],
     catalogHash: "fixture-v1",
+    // Los mismos escandallos que fixture-info.ts.
+    recipes: [
+      { id: "e0000000-0000-4000-8000-000000000001", name: "Croquetas de jamón", kind: "plato", yieldUnit: "racion" },
+      { id: "e0000000-0000-4000-8000-000000000002", name: "Ensalada de la huerta", kind: "plato", yieldUnit: "racion" },
+      { id: "e0000000-0000-4000-8000-000000000003", name: "Bechamel", kind: "elaboracion", yieldUnit: "g" },
+    ],
   };
 }
 

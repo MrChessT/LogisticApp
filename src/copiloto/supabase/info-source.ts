@@ -1,9 +1,9 @@
 // Lecturas de facturas, equipo, escandallos, zonas, inventarios y proveedores con el cliente del
 // usuario (RLS activo): lo que no puede ver vuelve vacío.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
+import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
-import type { SalesDayRaw, SalesItemRaw } from "../tools/info-sales";
+import type { SalesDayRaw, SalesItemRaw, SalesItemRef } from "../tools/info-sales";
 import type { AreaMoveRaw } from "../tools/info-warehouse";
 import { DataError, readAll } from "./client";
 
@@ -71,6 +71,31 @@ export class SupabaseInfoSource implements InfoSource {
       locationIds: (r.location_ids as string[] | null) ?? [],
       pending: r.pending === true,
     }));
+  }
+
+  /** Ingredientes de un escandallo, en su orden. Un producto de otra cuenta (0056) sale sin nombre. */
+  async recipeLines(recipeId: string): Promise<RecipeLineRaw[]> {
+    const data = rows(
+      "los ingredientes del escandallo",
+      await this.db
+        .from("recipe_lines")
+        .select("id, qty, product_id, sub_recipe_id, product:products(name, dimension), sub:recipes!recipe_lines_sub_recipe_id_fkey(name, yield_unit)")
+        .eq("recipe_id", recipeId)
+        .order("sort_order"),
+    );
+    return data.map((r) => {
+      const product = r.product as { name?: string; dimension?: string } | null;
+      const sub = r.sub as { name?: string; yield_unit?: string } | null;
+      const unit = sub ? sub.yield_unit : product?.dimension === "mass" ? "g" : product?.dimension === "volume" ? "ml" : "ud";
+      return {
+        id: String(r.id),
+        productId: textOrNull(r.product_id),
+        subRecipeId: textOrNull(r.sub_recipe_id),
+        name: String(sub?.name ?? product?.name ?? "Ingrediente de otra cuenta"),
+        qty: text(r.qty),
+        unit: (["g", "ml", "ud"].includes(String(unit)) ? unit : "racion") as RecipeLineRaw["unit"],
+      };
+    });
   }
 
   async recipes(orgId: string): Promise<RecipeRaw[]> {
@@ -197,6 +222,18 @@ export class SupabaseInfoSource implements InfoSource {
       amount: text(r.amount),
       cost: textOrNull(r.cost),
       foodCost: textOrNull(r.food_cost_pct),
+    }));
+  }
+
+  async salesItems(orgId: string): Promise<SalesItemRef[]> {
+    const data = await readAll<Row>("los artículos del TPV", (from, to) =>
+      this.db.from("sales_items").select("id, code, name, recipe_id, product_id, ignored").eq("org_id", orgId).order("name").order("id").range(from, to),
+    );
+    return data.map((r) => ({
+      id: String(r.id),
+      code: String(r.code ?? ""),
+      name: String(r.name ?? ""),
+      link: r.recipe_id ? "receta" : r.product_id ? "producto" : r.ignored ? "ignorado" : "sin_enlazar",
     }));
   }
 

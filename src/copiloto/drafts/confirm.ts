@@ -3,7 +3,7 @@
 import Decimal from "decimal.js";
 import { z } from "zod";
 import type { AuditSink } from "../audit/audit";
-import type { AppRoute, Draft, NavigateEvent } from "../contract/index";
+import type { AppRoute, DocumentDraft, Draft, NavigateEvent } from "../contract/index";
 import { hasRole, type SessionContext } from "../domain";
 import { LruCache } from "../cache/lru";
 import { formatMoney } from "../entities/units";
@@ -53,7 +53,17 @@ const RPC_MESSAGES: Record<RpcErrorCode, string> = {
   cross_organization_link: "Los datos pertenecen a otra organización.",
   cross_location_link: "La zona no pertenece al local seleccionado.",
   duplicate: "Ya existe un producto con ese nombre en el catálogo.",
+  line_changed: "Alguien ha cambiado ese escandallo mientras tanto: vuelve a pedírmelo y lo preparo sobre cómo está ahora.",
+  recipe_cycle: "Esa elaboración ya usa este escandallo: no puede ser ingrediente suyo.",
   internal: "No se ha podido completar la operación. Inténtalo de nuevo.",
+};
+
+/** Pantalla a la que lleva cada operación de documento al confirmarla. */
+const OPERATION_ROUTE: Record<DocumentDraft["operation"], AppRoute> = {
+  recibir_traspaso: "/traspasos", cancelar_traspaso: "/traspasos", enviar_pedido: "/pedidos", recibir_pedido: "/pedidos", cancelar_pedido: "/pedidos",
+  pagar_factura: "/facturas", validar_salidas: "/almacen", salida_almacen: "/almacen", precio_venta: "/escandallos", condiciones_proveedor: "/proveedores",
+  ficha_producto: "/productos", formato_producto: "/productos", crear_zona: "/zonas", crear_escandallo: "/escandallos", editar_escandallo: "/escandallos",
+  asociar_proveedor: "/productos", enlazar_venta: "/ventas",
 };
 
 /** Fecha de hoy en España (YYYY-MM-DD): pasada la medianoche UTC sigue siendo «hoy» en Madrid. */
@@ -270,7 +280,7 @@ export class ConfirmService {
         return { ok: true, kind: "conteo", documentId: draft.countId, movementIds: [], message: `Apuntado en el inventario de ${draft.locationName}.`, navigate: navigate({ locationId: draft.locationId }) };
       }
       case "documento": {
-        const route: AppRoute = draft.operation === "pagar_factura" ? "/facturas" : draft.operation === "validar_salidas" || draft.operation === "salida_almacen" ? "/almacen" : draft.operation === "precio_venta" ? "/escandallos" : draft.operation === "condiciones_proveedor" ? "/proveedores" : draft.operation === "ficha_producto" || draft.operation === "formato_producto" ? "/productos" : draft.operation === "crear_zona" ? "/zonas" : draft.operation === "crear_escandallo" ? "/escandallos" : draft.operation === "asociar_proveedor" ? "/productos" : draft.operation.endsWith("traspaso") ? "/traspasos" : "/pedidos";
+        const route = OPERATION_ROUTE[draft.operation];
         const done = (message: string, documentId: string = draft.documentId): ConfirmResponse => ({ ok: true, kind: "documento", documentId, movementIds: [], message, navigate: { route, filters: { locationId: draft.locationId }, auto: false } });
         switch (draft.operation) {
           case "recibir_traspaso":
@@ -314,6 +324,16 @@ export class ConfirmService {
               throw err;
             }
             return done(`${link.supplierName} asociado a ${link.productName}. El precio entra con su primera compra o factura.`);
+          }
+          case "enlazar_venta": {
+            const link = draft.salesLink!;
+            await writer.linkSalesItem(link);
+            return done(link.ignored ? `«${link.itemName}» queda ignorado en el food cost.` : `«${link.itemName}» enlazado: sus ventas ya tienen coste en Ventas.`);
+          }
+          case "editar_escandallo": {
+            const edit = draft.recipeEdit!;
+            await writer.editRecipeLines(edit.recipeId, edit.changes);
+            return done(`Escandallo «${edit.recipeName}» actualizado. El coste nuevo ya está en Escandallos.`);
           }
           case "crear_escandallo": {
             const recipe = draft.recipe!;

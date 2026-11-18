@@ -94,6 +94,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0057 | Roles, fase 4: `team_set_accounts` para asignar cuentas de análisis desde Equipo (solo las propias si quien reparte está limitado) |
 | 0058 | Roles, fase 5: alcance por cuenta en recetas (por sus ingredientes) y en las funciones que se saltan las políticas (costes de recetas, ventas, PVP del TPV, salidas y catálogo del almacén) |
 | 0059 | Roles, fase 5: `hidden_catalog_words` para que el asistente diga «eso es de Bebida» en vez de responder sin filtro |
+| 0060 | `edit_recipe_lines`: cambiar los ingredientes de un escandallo desde el asistente (añadir, quitar o cambiar la cantidad) sin pisar lo que se haya cambiado a la vez en la pantalla |
 
 La cabecera de cada migración explica qué añade y por qué.
 

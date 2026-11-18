@@ -137,6 +137,22 @@
     ]
   },
   {
+    "nombre": "Cambiar los ingredientes de un escandallo (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "añade 20 g de mantequilla a la croqueta de cecina de wagyu", "espera": "Revísalo y confírmalo|ya lleva", "no": "Escandallo nuevo", "especialista": "escandallos" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
+      { "usuario": "quita la harina de trigo de la croqueta de cecina de wagyu", "espera": "Revísalo y confírmalo|no lleva", "especialista": "escandallos" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
+    "nombre": "Enlazar un artículo del TPV (borrador sin confirmar)",
+    "turnos": [
+      { "usuario": "ignora el artículo PAN del TPV", "espera": "No encuentro ese artículo del TPV|Revísalo y confírmalo", "especialista": "ventas" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+    ]
+  },
+  {
     "nombre": "Petición genérica no es alta de producto (reporte de opinión 13/11)",
     "turnos": [
       { "usuario": "Preparar una operación", "espera": "qué operación|Qué quieres hacer|operación", "no": "producto nuevo|Cómo se llama|créalo|Manualmente" }
