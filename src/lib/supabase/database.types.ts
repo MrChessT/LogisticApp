@@ -927,6 +927,7 @@ export type Database = {
       team_set_costs: { Args: { p_user: string; p_value: boolean; p_org?: string | null }; Returns: undefined };
       hidden_catalog_words: { Args: Record<string, never>; Returns: Array<{ word: string; account: string }> };
       team_set_accounts: { Args: { p_user: string; p_accounts: string[]; p_org?: string | null }; Returns: undefined };
+      copilot_indicators: { Args: { p_org: string; p_days?: number; p_include_tests?: boolean }; Returns: Json };
       import_catalog: { Args: { p_org: string; p_payload: Json; p_apply?: boolean }; Returns: Json };
       export_catalog: { Args: { p_org: string }; Returns: Json };
       import_sales: {

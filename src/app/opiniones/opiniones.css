@@ -46,3 +46,21 @@
   .fb-meta { margin-left: 0; flex-basis: 100%; }
   .fb-msg { max-width: 100%; }
 }
+
+/* Indicadores del asistente en uso real (solo administración). */
+.fb-indicators { display: flex; flex-direction: column; gap: 12px; margin: 18px 0; }
+.fb-indicators-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.fb-indicators-head h2 { margin: 0; color: var(--ink); font-size: 16px; }
+.fb-indicators-head p { margin: 4px 0 0; color: var(--text-3); font-size: var(--fs-sm); }
+.fb-indicators-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fb-indicators-tests { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; color: var(--text-2); font-size: var(--fs-sm); }
+.fb-indicators-tests input { accent-color: var(--brand); }
+.fb-indicators-tables { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
+.fb-indicators-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); font-size: var(--fs-md); }
+.fb-indicators-table th { padding: 9px 12px; color: var(--text-3); font-size: var(--fs-sm); font-weight: 600; text-align: left; border-bottom: 1px solid var(--line-soft); }
+.fb-indicators-table td { padding: 8px 12px; color: var(--ink); border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.fb-indicators-table tr:last-child td { border-bottom: 0; }
+@media (max-width: 760px) {
+  .fb-indicators-tables { grid-template-columns: minmax(0, 1fr); }
+  .fb-indicators-table { display: block; overflow-x: auto; }
+}

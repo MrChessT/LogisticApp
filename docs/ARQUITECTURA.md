@@ -80,6 +80,11 @@ en [copiloto/JEV.md](copiloto/JEV.md)):
    (`tools/orderable.ts`). La comprueba la batería de decisiones (`__tests__/bateria-decisiones.test.ts`).
 7. **Respuesta** (`writer/`): plantillas con las cifras exactas. Un borrador no se guarda hasta que el
    usuario lo confirma (`drafts/confirm.ts`, con las mismas funciones de la base que las pantallas).
+8. **Rastro** (`agent/turn-trace.ts`): cada turno, por cualquier vía (archivo, varias órdenes, atajo, botón, Jev),
+   queda en `copilot_audit` con la respuesta, la vía, el plan, el tiempo por etapa y si fue una aclaración o un
+   borrador. Las baterías se marcan (`origen: "bateria"`). Con eso, `copilot_indicators` (0062) da los indicadores
+   de uso real en la pantalla Opiniones, y la prueba ciega se califica con `scripts/ops/juez-ciega.mjs`
+   ([EVALUACION_CIEGA.md](copiloto/EVALUACION_CIEGA.md)).
 
 Reglas que no se rompen:
 

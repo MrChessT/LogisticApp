@@ -96,6 +96,7 @@ Las migraciones se aplican en orden y se pueden repetir sin error.
 | 0059 | Roles, fase 5: `hidden_catalog_words` para que el asistente diga «eso es de Bebida» en vez de responder sin filtro |
 | 0060 | `edit_recipe_lines`: cambiar los ingredientes de un escandallo desde el asistente (añadir, quitar o cambiar la cantidad) sin pisar lo que se haya cambiado a la vez en la pantalla |
 | 0061 | `suppliers.is_price_source`: las fuentes de precio (escandallos importados, estimados) valoran el stock pero nunca reciben pedidos |
+| 0062 | `copilot_indicators`: indicadores del asistente en uso real (aclaraciones, bucles, sin resolver, latencia por vía, borradores confirmados), solo para la administración |
 
 La cabecera de cada migración explica qué añade y por qué.
 

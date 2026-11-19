@@ -80,6 +80,8 @@ export const ChatRequest = z.object({
   /** Botón de seguimiento de una respuesta anterior (se ejecuta sin volver a llamar a Jev). */
   followUpId: z.string().min(1).max(64).optional(),
   /** Miniformulario enviado: la operación y lo elegido en cada campo (el servidor lo valida todo). */
+  /** Quién manda el mensaje: las baterías se marcan para que no cuenten como uso real en los indicadores (0062). */
+  origen: z.enum(["panel", "bateria"]).optional(),
   form: z
     .object({
       accion: z.enum(["merma", "traspaso", "recepcion"]),

@@ -9,6 +9,7 @@ import "../productos/productos.css";
 import "../productos/product-editor.css";
 import "./opiniones.css";
 import { LoadingRows } from "@/components/ui/loading-rows";
+import { AssistantIndicators } from "./indicators";
 
 // Opiniones sobre el asistente (migración 0025). Quien prueba el asistente reporta desde el propio chat;
 // aquí la administración los revisa (aceptar, descartar, hecha) y exporta los aceptados en Markdown para
@@ -22,6 +23,7 @@ const fecha = (iso: string) => new Date(iso).toLocaleString("es-ES", { day: "num
 export default function OpinionesPage() {
   const [rows, setRows] = useState<FeedbackRow[] | null>(null);
   const [admin, setAdmin] = useState(false);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("nueva");
   const [query, setQuery] = useState("");
@@ -35,10 +37,11 @@ export default function OpinionesPage() {
     if (!supabase) return setError("Configura las variables de Supabase.");
     const userId = (await supabase.auth.getSession()).data.session?.user.id;
     const [{ data: me }, list] = await Promise.all([
-      supabase.from("memberships").select("role").eq("user_id", userId ?? "").limit(1).maybeSingle(),
+      supabase.from("memberships").select("role, org_id").eq("user_id", userId ?? "").limit(1).maybeSingle(),
       supabase.rpc("copilot_feedback_list", { p_status: null, p_limit: 500 }),
     ]);
     setAdmin(me?.role === "owner" || me?.role === "admin");
+    setOrgId(me?.org_id ?? null);
     if (list.error) return setError("No se pudieron cargar las opiniones.");
     setError("");
     setRows((list.data ?? []) as unknown as FeedbackRow[]);
@@ -148,6 +151,8 @@ export default function OpinionesPage() {
             {notice} <button onClick={() => setNotice("")} aria-label="Cerrar aviso"><X size={14} /></button>
           </p>
         )}
+
+        {admin && orgId && <AssistantIndicators orgId={orgId} />}
 
         <div className="catalog-tabs">
           {TABS.map((t) => (
