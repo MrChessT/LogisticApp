@@ -1,0 +1,132 @@
+[
+  {
+    "nombre": "R01 Apertura del día",
+    "turnos": [
+      { "usuario": "buenos dias, que tengo que hacer hoy" },
+      { "usuario": "y de pedidos?" },
+      { "usuario": "vale pues preparame el de la oliva" }
+    ]
+  },
+  {
+    "nombre": "R02 Merma con motivo y corrección",
+    "turnos": [
+      { "usuario": "se han caido 2 botellas de beefeater en el parador" },
+      { "usuario": "no, que eran 3" },
+      { "usuario": "y apuntalo como rotura" }
+    ]
+  },
+  {
+    "nombre": "R03 Traspaso en dos frases",
+    "turnos": [
+      { "usuario": "necesito mover hielo" },
+      { "usuario": "del vivero a pickles, 4 bolsas" }
+    ]
+  },
+  {
+    "nombre": "R04 Compras de un proveedor",
+    "turnos": [
+      { "usuario": "cuanto llevamos gastado este mes en bebidas del sur" },
+      { "usuario": "y el mes pasado?" }
+    ]
+  },
+  {
+    "nombre": "R05 Factura concreta",
+    "turnos": [
+      { "usuario": "la factura de makro de la semana pasada esta pagada?" },
+      { "usuario": "cuando vence la siguiente?" }
+    ]
+  },
+  {
+    "nombre": "R06 Albarán sin factura",
+    "turnos": [
+      { "usuario": "que albaranes de este mes no tienen factura todavia" }
+    ]
+  },
+  {
+    "nombre": "R07 Precio y comparación",
+    "turnos": [
+      { "usuario": "a cuanto nos sale la botella de tanqueray" },
+      { "usuario": "y en otro proveedor la tenemos mas barata?" }
+    ]
+  },
+  {
+    "nombre": "R08 Inventario",
+    "turnos": [
+      { "usuario": "quiero hacer inventario de la barra del parador" },
+      { "usuario": "cuando fue el ultimo?" }
+    ]
+  },
+  {
+    "nombre": "R09 Escandallo y margen",
+    "turnos": [
+      { "usuario": "cuanto cuesta hacer una racion de croquetas" },
+      { "usuario": "y a cuanto la vendemos?" },
+      { "usuario": "sube el pvp a 9,50" }
+    ]
+  },
+  {
+    "nombre": "R10 Ventas del fin de semana",
+    "turnos": [
+      { "usuario": "que es lo que mas se vendio el sabado en el vivero" },
+      { "usuario": "y lo que menos?" }
+    ]
+  },
+  {
+    "nombre": "R11 Personal",
+    "turnos": [
+      { "usuario": "quien tiene acceso al vivero" },
+      { "usuario": "y quien no ha entrado nunca?" }
+    ]
+  },
+  {
+    "nombre": "R12 Producto nuevo con datos",
+    "turnos": [
+      { "usuario": "da de alta un vermut rojo de litro que lo traen en cajas de 6" },
+      { "usuario": "el precio es 7,80 la botella" }
+    ]
+  },
+  {
+    "nombre": "R13 Cosas que no hace",
+    "turnos": [
+      { "usuario": "manda el pedido por email al proveedor" },
+      { "usuario": "dale permisos de encargado a maria" },
+      { "usuario": "como cambio la contraseña" }
+    ]
+  },
+  {
+    "nombre": "R14 Recepción con diferencias",
+    "turnos": [
+      { "usuario": "ha llegado el pedido de bebidas del sur pero faltan 2 cajas de cocacola" },
+      { "usuario": "lo demas todo bien" }
+    ]
+  },
+  {
+    "nombre": "R15 Dudas de cómo se hace",
+    "turnos": [
+      { "usuario": "como pongo el minimo de un producto" },
+      { "usuario": "y donde veo las mermas del mes" }
+    ]
+  },
+  {
+    "nombre": "R16 Consultas cortas con erratas",
+    "turnos": [
+      { "usuario": "stok larios oliva" },
+      { "usuario": "y d pickles" },
+      { "usuario": "cuantos dias me dura" }
+    ]
+  },
+  {
+    "nombre": "R17 Pregunta doble",
+    "turnos": [
+      { "usuario": "cuanta tonica queda en el parador y cuando la pedimos por ultima vez" }
+    ]
+  },
+  {
+    "nombre": "R18 Cambio de opinión",
+    "turnos": [
+      { "usuario": "prepara un pedido de 5 cajas de agua para el vivero" },
+      { "usuario": "mejor que sean 3" },
+      { "usuario": "dejalo, ya lo hago yo" }
+    ]
+  }
+]

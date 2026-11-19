@@ -41,6 +41,7 @@ import { smallTalk } from "./topics";
 import { runInfo, type InfoSource } from "../tools/info";
 import { preroute } from "./preroute";
 import { formFor, readForm } from "./action-form";
+import { auditEarlyTurn, auditTurn, traceEmit } from "./turn-trace";
 
 /** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
 type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
@@ -126,14 +127,21 @@ export class Agent {
     };
     const timer = new StageTimer();
     const messageId = randomUUID();
+    // Lo que sale hacia el panel queda en la auditoría del turno (respuesta, aclaración, borrador), por cualquier vía.
+    const traced = traceEmit(emit);
+    emit = traced.emit;
     const [session, habits] = await Promise.all([deps.sessions.get(req.sessionId, ctx.userId), deps.habits.get(ctx.orgId, ctx.userId)]);
     deps.metrics.messages += 1;
 
     try {
       // Preguntas sobre el archivo que se dio al chat, o cargar sus ventas (document-turn.ts).
-      if (req.document && !req.clarification && !req.form && !req.followUpId && (await documentTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, ...(deps.info ? { info: deps.info } : {}), ...(deps.retriever ? { retriever: deps.retriever } : {}), source: toolset.source, emit }))) return;
+      if (req.document && !req.clarification && !req.form && !req.followUpId && (await documentTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, ...(deps.info ? { info: deps.info } : {}), ...(deps.retriever ? { retriever: deps.retriever } : {}), source: toolset.source, emit }))) {
+        return await auditEarlyTurn(deps.audit, req, ctx, messageId, "documento", traced.seen, timer);
+      }
       // Varias órdenes de oficina en una frase: un borrador por orden, sin Jev (multi-task.ts).
-      if (!req.clarification && !req.form && !req.followUpId && (await multiTaskTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, builder: deps.builder, source: toolset.source, info: deps.info, retriever: deps.retriever, emit }))) return;
+      if (!req.clarification && !req.form && !req.followUpId && (await multiTaskTurn({ req, ctx, session, messageId, now: this.now(), elapsed: timer.total(), sessions: deps.sessions, drafts: deps.drafts, builder: deps.builder, source: toolset.source, info: deps.info, retriever: deps.retriever, emit }))) {
+        return await auditEarlyTurn(deps.audit, req, ctx, messageId, "varias_ordenes", traced.seen, timer);
+      }
 
       let message = req.message;
       let page = req.page;
@@ -289,27 +297,10 @@ export class Agent {
       await deps.sessions.save(req.sessionId, ctx.orgId, session).catch(() => undefined);
       await emit({ event: "done", data: { messageId, text: written.text, textSource: written.source, latencyMs: timer.total() } });
 
-      const at = new Date().toISOString();
-      const audit =
-        plan.type === "bloqueado"
-          ? deps.audit.record({ type: "bloqueo", at, userId: ctx.userId, orgId: ctx.orgId, messageId, reason: "inyeccion" })
-          : deps.audit.record({
-              type: "mensaje",
-              at,
-              userId: ctx.userId,
-              orgId: ctx.orgId,
-              sessionId: req.sessionId,
-              messageId,
-              message: understoodAs ? req.message : message,
-              ...(understoodAs ? { understoodAs } : {}),
-              intent,
-              decisions,
-              outcome: outcome.kind,
-              jevModel: report.jevModel,
-              catalogVersion: CATALOG_VERSION,
-              shortcut,
-            });
-      await audit.catch(() => undefined);
+      await auditTurn(deps.audit, {
+        ctx, req, messageId, message, understoodAs, intent, decisions, outcome: outcome.kind, jevModel: report.jevModel, shortcut, plan, seen: traced.seen, timer,
+        via: byButton ? "boton" : fromForm ? "formulario" : req.clarification ? "aclaracion" : understoodAs ? "comprension" : shortcut ? "atajo" : "jev",
+      });
     } catch (err) {
       // El usuario ve un mensaje; el fallo se registra para poder arreglarlo (ver lib/report-error).
       this.deps.onError?.(err);

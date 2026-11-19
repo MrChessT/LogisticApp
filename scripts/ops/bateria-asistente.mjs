@@ -14,7 +14,10 @@
 // análisis): comprueba que lo de otras cuentas se avisa en vez de responder sin filtro.
 // «documento» en una conversación: lo leído de un archivo (ChatRequest.document), que viaja con cada mensaje como
 // lo manda el panel tras soltar un archivo en el chat.
-import { readFileSync } from "node:fs";
+// BATERIA_SALIDA=fichero.json guarda cada turno (lo dicho, la respuesta entera, aclaración, borrador, tiempo) para
+// calificarlo después con scripts/ops/juez-ciega.mjs. Así se pasa también la prueba ciega (bateria-ciega.json), que
+// no lleva «espera»: se juzga, no se compara con expresiones.
+import { readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
 
@@ -42,11 +45,13 @@ const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
 async function ask(sessionId, message, pending, document) {
   const started = Date.now();
   const clarification = pending ? { clarifyId: pending.clarifyId, optionId: "otra", freeText: message, field: pending.field } : undefined;
-  const res = await fetch(`${BASE}/api/copiloto/chat`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ sessionId, message, page: "/", ...(clarification ? { clarification } : {}), ...(document ? { document } : {}) }) });
+  const res = await fetch(`${BASE}/api/copiloto/chat`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ sessionId, message, page: "/", origen: "bateria", ...(clarification ? { clarification } : {}), ...(document ? { document } : {}) }) });
   const raw = await res.text();
   let text = "";
   let clarify = null;
   let especialista = null;
+  let draft = null;
+  let table = null;
   let event = null;
   for (const line of raw.split("\n")) {
     if (line.startsWith("event:")) event = line.slice(6).trim();
@@ -60,15 +65,19 @@ async function ask(sessionId, message, pending, document) {
       if (event === "text") text = data.reset ? data.delta : text + data.delta;
       else if (event === "clarify") clarify = data;
       else if (event === "decision") especialista = data.especialista ?? null;
+      else if (event === "draft") draft = { kind: data.kind, title: data.title };
+      else if (event === "table") table = { columns: (data.columns ?? []).map((c) => c.label), rows: (data.rows ?? []).length };
       else if (event === "error") text = `ERROR: ${data.message}`;
     }
   }
-  return { status: res.status, ms: Date.now() - started, text: clarify?.question ?? text, clarified: clarify !== null, clarify, especialista };
+  return { status: res.status, ms: Date.now() - started, text: clarify?.question ?? text, clarified: clarify !== null, clarify, especialista, draft, table };
 }
 
 const cases = JSON.parse(readFileSync(process.argv[2] ?? new URL("./bateria-asistente.json", import.meta.url), "utf8"));
 let total = 0;
 const failures = [];
+/** Cada turno, para el juez (BATERIA_SALIDA). */
+const transcript = [];
 /** Enrutado por especialista esperado: aciertos y total. */
 const routing = new Map();
 for (const conversation of cases) {
@@ -79,6 +88,7 @@ for (const conversation of cases) {
     const r = await ask(sessionId, turn.usuario, pending, conversation.documento);
     pending = r.clarify ?? null;
     total += 1;
+    transcript.push({ conversacion: conversation.nombre, usuario: turn.usuario, respuesta: r.text, aclaracion: r.clarify ? { pregunta: r.clarify.question, opciones: r.clarify.options.map((o) => o.label) } : null, borrador: r.draft, tabla: r.table, especialista: r.especialista, ms: r.ms, http: r.status });
     const why = [];
     if (r.status !== 200) why.push(`HTTP ${r.status}`);
     if (turn.espera && !new RegExp(turn.espera, "is").test(r.text)) why.push(`falta /${turn.espera}/`);
@@ -97,6 +107,7 @@ for (const conversation of cases) {
     await new Promise((resolve) => setTimeout(resolve, 3200));
   }
 }
+if (process.env.BATERIA_SALIDA) writeFileSync(process.env.BATERIA_SALIDA, `${JSON.stringify(transcript, null, 1)}\n`);
 console.log(`\n${total - failures.length}/${total} respuestas correctas.`);
 if (routing.size) {
   const ok = [...routing.values()].reduce((s, t) => s + t.ok, 0);

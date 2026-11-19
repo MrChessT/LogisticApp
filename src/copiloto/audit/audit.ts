@@ -17,10 +17,35 @@ export type AuditEvent =
       shortcut: boolean;
       /** La comprensión reescribió el mensaje: lo que se entendió (message es lo que dijo el usuario). */
       understoodAs?: string;
+      /** Cómo fue el turno (fase 0 del plan de mejora): sin esto no se mide la calidad real, solo la intención. */
+      turn?: TurnTrace;
     }
   | { type: "borrador"; at: string; userId: string; orgId: string; messageId: string; draftId: string; kind: string; coherence: number }
   | { type: "confirmacion"; at: string; userId: string; orgId: string; draftId: string; kind: string; ok: boolean; code?: string }
   | { type: "bloqueo"; at: string; userId: string; orgId: string; messageId: string; reason: string };
+
+/** Por dónde se resolvió un mensaje: los indicadores separan lo que va por atajo de lo que pasa por Jev. */
+export type Via = "documento" | "varias_ordenes" | "boton" | "formulario" | "aclaracion" | "atajo" | "comprension" | "jev";
+
+export interface TurnTrace {
+  via: Via;
+  /** Lo que se respondió (recortado al guardarlo). */
+  reply: string;
+  /** Tipo de plan ejecutado (consulta, accion, tarea, aviso…) y quién lo atendió. */
+  plan: string | null;
+  especialista: string | null;
+  /** Milisegundos en total y por etapa (entidades, jev1, redacción…). */
+  ms: number;
+  stages: Record<string, number>;
+  /** Si fue una aclaración, sobre qué; si salió un miniformulario o un borrador. */
+  clarifyField: string | null;
+  form: boolean;
+  draft: boolean;
+  /** Plantilla o modelo de lenguaje. */
+  textSource: string | null;
+  /** «bateria» si lo mandó una batería de pruebas: no es uso real. */
+  origin: string | null;
+}
 
 export interface AuditSink {
   record(event: AuditEvent): Promise<void>;

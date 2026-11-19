@@ -1,0 +1,450 @@
+[
+ {
+  "conversacion": "01 Stock con seguimientos y traspaso",
+  "usuario": "cuantas cocas quedan en el vivero",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "01 Stock con seguimientos y traspaso",
+  "usuario": "y en la oliva?",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "01 Stock con seguimientos y traspaso",
+  "usuario": "y de zero?",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "01 Stock con seguimientos y traspaso",
+  "usuario": "pasa 2 cajas de coca cola del parador al vivero",
+  "nota": "a_medias",
+  "causa": "aclaracion_innecesaria",
+  "motivo": "aclaración innecesaria (nombre exacto)"
+ },
+ {
+  "conversacion": "02 Pedido en lenguaje natural",
+  "usuario": "hazme el pedido de makro para el vivero",
+  "nota": "a_medias",
+  "causa": "filtro_ignorado",
+  "motivo": "ignora el proveedor pedido"
+ },
+ {
+  "conversacion": "03 Pedido con productos",
+  "usuario": "quiero pedir 3 cajas de cocacola y 2 de fanta naranja a makro para el parador",
+  "nota": "mal",
+  "causa": "proveedor_equivocado",
+  "motivo": "proveedor equivocado"
+ },
+ {
+  "conversacion": "04 Recepción completa",
+  "usuario": "han llegado 6 botellas de beefeater y 2 cajas de tonica schweppes al parador",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "05 Mermas coloquiales",
+  "usuario": "se nos han caido 3 botellas de larios en la barra del vivero",
+  "nota": "a_medias",
+  "causa": "aclaracion_innecesaria",
+  "motivo": "aclaración (3 Larios)"
+ },
+ {
+  "conversacion": "05 Mermas coloquiales",
+  "usuario": "rompieron una botella de jack daniels en pickles",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "06 Inventario",
+  "usuario": "quiero hacer inventario del vivero",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "07 Gestión",
+  "usuario": "cuanto he gastado este mes en bebida",
+  "nota": "a_medias",
+  "causa": "filtro_ignorado",
+  "motivo": "filtro ignorado (bebida/mes natural)"
+ },
+ {
+  "conversacion": "07 Gestión",
+  "usuario": "que proveedor me vende mas barata la coca cola",
+  "nota": "mal",
+  "causa": "responde_otra_cosa",
+  "motivo": "no compara precios"
+ },
+ {
+  "conversacion": "07 Gestión",
+  "usuario": "que me falta para el finde en el parador",
+  "nota": "a_medias",
+  "causa": "cifra_imposible",
+  "motivo": "238 productos: ruido por datos"
+ },
+ {
+  "conversacion": "07 Gestión",
+  "usuario": "cuanto vale todo el stock de la oliva",
+  "nota": "mal",
+  "causa": "cifra_imposible",
+  "motivo": "valor negativo sin sentido"
+ },
+ {
+  "conversacion": "08 Escandallos y cocina",
+  "usuario": "como se hace el chuleton",
+  "nota": "a_medias",
+  "causa": "responde_otra_cosa",
+  "motivo": "respuesta genérica, no la ficha del plato"
+ },
+ {
+  "conversacion": "08 Escandallos y cocina",
+  "usuario": "que alergenos tiene la hamburguesa",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "08 Escandallos y cocina",
+  "usuario": "food cost de las croquetas",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "08 Escandallos y cocina",
+  "usuario": "que platos tienen peor margen",
+  "nota": "a_medias",
+  "causa": "responde_otra_cosa",
+  "motivo": "responde otra cosa (sobre objetivo)"
+ },
+ {
+  "conversacion": "09 Albaranes",
+  "usuario": "busca el albaran A-4356",
+  "nota": "mal",
+  "causa": "filtro_ignorado",
+  "motivo": "filtro ignorado (número)"
+ },
+ {
+  "conversacion": "09 Albaranes",
+  "usuario": "albaranes de carnes el carpio de este mes",
+  "nota": "a_medias",
+  "causa": "filtro_ignorado",
+  "motivo": "solo sin factura"
+ },
+ {
+  "conversacion": "09 Albaranes",
+  "usuario": "que albaranes de makro no tienen factura",
+  "nota": "mal",
+  "causa": "filtro_ignorado",
+  "motivo": "filtro ignorado (proveedor)"
+ },
+ {
+  "conversacion": "10 Facturas",
+  "usuario": "que facturas vencen esta semana",
+  "nota": "a_medias",
+  "causa": "filtro_ignorado",
+  "motivo": "filtro ignorado (semana)"
+ },
+ {
+  "conversacion": "10 Facturas",
+  "usuario": "cuanto le debo a makro",
+  "nota": "mal",
+  "causa": "filtro_ignorado",
+  "motivo": "filtro ignorado (proveedor)"
+ },
+ {
+  "conversacion": "11 Ventas",
+  "usuario": "cuanto vendimos ayer",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "11 Ventas",
+  "usuario": "que es lo que mas se vende en el vivero",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "12 Equipo",
+  "usuario": "quien tiene acceso al parador",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "12 Equipo",
+  "usuario": "que permisos tiene luis",
+  "nota": "mal",
+  "causa": "filtro_ignorado",
+  "motivo": "filtro ignorado (persona)"
+ },
+ {
+  "conversacion": "13 Catálogo",
+  "usuario": "crea el producto aceite de girasol garrafa 5 litros",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "13 Catálogo",
+  "usuario": "archiva la fanta limon",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "13 Catálogo",
+  "usuario": "desarchiva la coca cola zero",
+  "nota": "mal",
+  "causa": "falta_funcion",
+  "motivo": "no soportado; aclaración genérica"
+ },
+ {
+  "conversacion": "13 Catálogo",
+  "usuario": "que productos no tienen precio",
+  "nota": "mal",
+  "causa": "aclaracion_generica",
+  "motivo": "aclaración genérica (existe el dato)"
+ },
+ {
+  "conversacion": "13 Catálogo",
+  "usuario": "quien creo el producto naranja",
+  "nota": "mal",
+  "causa": "falta_funcion",
+  "motivo": "no soportado; responde 'fuera de ámbito'"
+ },
+ {
+  "conversacion": "14 Proveedores",
+  "usuario": "crea el proveedor frutas garcia",
+  "nota": "mal",
+  "causa": "falta_funcion",
+  "motivo": "no soportado; aclaración genérica"
+ },
+ {
+  "conversacion": "14 Proveedores",
+  "usuario": "jose diaz reparte de lunes a sabado",
+  "nota": "mal",
+  "causa": "aclaracion_generica",
+  "motivo": "existe la función; no la reconoce"
+ },
+ {
+  "conversacion": "14 Proveedores",
+  "usuario": "telefono de makro",
+  "nota": "mal",
+  "causa": "responde_otra_cosa",
+  "motivo": "vuelca la lista de capacidades"
+ },
+ {
+  "conversacion": "15 Cómo se hace",
+  "usuario": "como registro un albaran",
+  "nota": "mal",
+  "causa": "datos_en_vez_de_explicacion",
+  "motivo": "da datos en vez de explicar"
+ },
+ {
+  "conversacion": "15 Cómo se hace",
+  "usuario": "que puedes hacer",
+  "nota": "a_medias",
+  "causa": "otra",
+  "motivo": "muro de texto"
+ },
+ {
+  "conversacion": "15 Cómo se hace",
+  "usuario": "como añado un producto a una zona",
+  "nota": "mal",
+  "causa": "datos_en_vez_de_explicacion",
+  "motivo": "da datos en vez de explicar"
+ },
+ {
+  "conversacion": "16 Charla y fuera de ámbito",
+  "usuario": "hola",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "16 Charla y fuera de ámbito",
+  "usuario": "gracias",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "16 Charla y fuera de ámbito",
+  "usuario": "que tiempo hace en madrid",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "17 Mínimos",
+  "usuario": "inventario",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "17 Mínimos",
+  "usuario": "albaran",
+  "nota": "a_medias",
+  "causa": "responde_otra_cosa",
+  "motivo": "lista enorme, sin ofrecer registrar"
+ },
+ {
+  "conversacion": "17 Mínimos",
+  "usuario": "pedido",
+  "nota": "a_medias",
+  "causa": "otra",
+  "motivo": "texto interno 'Entiendo: ¿qué pedido…'"
+ },
+ {
+  "conversacion": "17 Mínimos",
+  "usuario": "merma",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "18 Erratas",
+  "usuario": "kuantas cervezas ai en el parador",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "18 Erratas",
+  "usuario": "stok de redbul",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "18 Erratas",
+  "usuario": "q tal vamos este mes",
+  "nota": "a_medias",
+  "causa": "cifra_imposible",
+  "motivo": "cifras sin sentido (stock negativo, food cost absurdo)"
+ },
+ {
+  "conversacion": "19 Dos cosas a la vez",
+  "usuario": "dime el stock de beefeater y a cuanto lo compramos",
+  "nota": "a_medias",
+  "causa": "segunda_parte_ignorada",
+  "motivo": "ignora la segunda pregunta"
+ },
+ {
+  "conversacion": "20 Contexto y PVP",
+  "usuario": "cuanto cuesta la tonica",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "20 Contexto y PVP",
+  "usuario": "y la royal bliss?",
+  "nota": "mal",
+  "causa": "bucle",
+  "motivo": "bucle de aclaración"
+ },
+ {
+  "conversacion": "20 Contexto y PVP",
+  "usuario": "pon el pvp del gin tonic a 9 euros",
+  "nota": "mal",
+  "causa": "responde_otra_cosa",
+  "motivo": "toma el plato por producto"
+ },
+ {
+  "conversacion": "21 Corregir un borrador",
+  "usuario": "pasa 3 cajas de cocacola del parador al vivero",
+  "nota": "a_medias",
+  "causa": "otra",
+  "motivo": "aviso 'revisa el producto' de más"
+ },
+ {
+  "conversacion": "21 Corregir un borrador",
+  "usuario": "mejor que sean 4",
+  "nota": "mal",
+  "causa": "falta_funcion",
+  "motivo": "no corrige el borrador"
+ },
+ {
+  "conversacion": "22 Merma por pasos",
+  "usuario": "registra una merma",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "22 Merma por pasos",
+  "usuario": "larios",
+  "nota": "mal",
+  "causa": "ignora_lo_escrito",
+  "motivo": "ignora lo escrito; formulario otra vez"
+ },
+ {
+  "conversacion": "22 Merma por pasos",
+  "usuario": "2 botellas",
+  "nota": "mal",
+  "causa": "ignora_lo_escrito",
+  "motivo": "ignora lo escrito; formulario otra vez"
+ },
+ {
+  "conversacion": "22 Merma por pasos",
+  "usuario": "en el vivero",
+  "nota": "a_medias",
+  "causa": "aclaracion_innecesaria",
+  "motivo": "al final lo junta, pero pregunta otra vez"
+ },
+ {
+  "conversacion": "23 Traspaso por pasos",
+  "usuario": "quiero hacer un traspaso",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "23 Traspaso por pasos",
+  "usuario": "del parador al vivero",
+  "nota": "mal",
+  "causa": "ignora_lo_escrito",
+  "motivo": "ignora lo escrito; formulario otra vez"
+ },
+ {
+  "conversacion": "23 Traspaso por pasos",
+  "usuario": "4 cajas de cocacola",
+  "nota": "mal",
+  "causa": "ignora_lo_escrito",
+  "motivo": "ignora lo escrito; no hay borrador"
+ },
+ {
+  "conversacion": "24 Preguntas de dueño",
+  "usuario": "en que local se pierde mas dinero en mermas",
+  "nota": "mal",
+  "causa": "responde_otra_cosa",
+  "motivo": "no compara locales"
+ },
+ {
+  "conversacion": "24 Preguntas de dueño",
+  "usuario": "que producto ha subido mas de precio este mes",
+  "nota": "bien",
+  "causa": "ninguna",
+  "motivo": ""
+ },
+ {
+  "conversacion": "24 Preguntas de dueño",
+  "usuario": "cuanto stock tengo parado sin moverse",
+  "nota": "mal",
+  "causa": "aclaracion_generica",
+  "motivo": "aclaración genérica"
+ }
+]

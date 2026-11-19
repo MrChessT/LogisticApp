@@ -19,8 +19,8 @@ puertas deciden si se actúa o se pregunta, y nada se guarda sin confirmación.
 
 | Fase | Estado |
 |---|---|
-| 0 | En curso. Hecha: la batería de decisiones (`src/copiloto/__tests__/bateria-decisiones.test.ts`, 11 casos, en `npm test`). Falta: auditoría completa, indicadores, juez de la prueba ciega y línea base |
-| 4 | En curso. Hechos los pasos 0 a 5: fuentes de precio (0061), cobertura con lo que está en camino, traspasar antes que comprar, ficha del proveedor para decidir (`orderCycle`), excepciones primero y borrador que solo lleva lo de hoy. Faltan el paso 6 (peso por día de la semana, consumo teórico desde ventas, perecederos) y la tarjeta compacta, que pasa a la fase 7 |
+| 0 | Hecha. Batería de decisiones (13 casos, en `npm test`); rastro de cada turno en `copilot_audit` (`agent/turn-trace.ts`, baterías marcadas); indicadores de uso real (0062, pantalla Opiniones); juez y rúbrica de la prueba ciega (`scripts/ops/juez-ciega.mjs`, [EVALUACION_CIEGA.md](EVALUACION_CIEGA.md)); conjunto de reserva de 40 turnos; línea base. Pendiente: calibrar el juez con modelo cuando haya credencial del AI Gateway fuera de Vercel |
+| 4 | En producción los pasos 0 a 5: fuentes de precio (0061), cobertura con lo que está en camino, traspasar antes que comprar, ficha del proveedor para decidir (`orderCycle`), excepciones primero y borrador que solo lleva lo de hoy. Faltan el paso 6 (peso por día de la semana, consumo teórico desde ventas, perecederos) y la tarjeta compacta, que pasa a la fase 7 |
 | 1–3, 5–7 | Sin empezar |
 
 ---

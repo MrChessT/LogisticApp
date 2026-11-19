@@ -10,7 +10,8 @@ código y el recorrido de un mensaje del asistente.
 - `npm run check` (lint, tipos, knip, tamaño de ficheros, tests y build) tiene que pasar.
 - Si tocas el asistente (`src/copiloto/jev/`, `agent/preroute.ts`, comprensión, respuestas): lee
   [docs/copiloto/JEV.md](docs/copiloto/JEV.md) y pasa
-  `scripts/ops/bateria-asistente.mjs` antes y después, y añade un caso por cada fallo que arregles.
+  `scripts/ops/bateria-asistente.mjs` antes y después, y añade un caso por cada fallo que arregles. Al cerrar una
+  fase del plan de mejora, pasa también la prueba ciega con el juez ([EVALUACION_CIEGA.md](docs/copiloto/EVALUACION_CIEGA.md)).
 - Si cambias la base de datos: migración nueva numerada + test pgTAP + tipos en `database.types.ts`.
 - Al empezar una sesión de trabajo, mira `bash scripts/ops/errores.sh` por si hay errores nuevos en producción.
 

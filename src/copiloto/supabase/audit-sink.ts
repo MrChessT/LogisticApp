@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuditEvent, AuditSink } from "../audit/audit";
 
 const MAX_MESSAGE = 500;
+/** La respuesta, recortada: basta para juzgar si respondió lo pedido sin guardar tablas enteras. */
+const MAX_REPLY = 600;
 
 export function auditRow(event: AuditEvent): Record<string, unknown> {
   const base = { org_id: event.orgId, user_id: event.userId, kind: event.type };
@@ -22,6 +24,21 @@ export function auditRow(event: AuditEvent): Record<string, unknown> {
           catalog_version: event.catalogVersion,
           shortcut: event.shortcut,
           ...(event.understoodAs ? { understood_as: event.understoodAs.slice(0, MAX_MESSAGE) } : {}),
+          ...(event.turn
+            ? {
+                via: event.turn.via,
+                reply: event.turn.reply.slice(0, MAX_REPLY),
+                plan: event.turn.plan,
+                especialista: event.turn.especialista,
+                ms: event.turn.ms,
+                stages: event.turn.stages,
+                clarify_field: event.turn.clarifyField,
+                form: event.turn.form,
+                draft: event.turn.draft,
+                text_source: event.turn.textSource,
+                ...(event.turn.origin ? { origen: event.turn.origin } : {}),
+              }
+            : {}),
         },
       };
     case "borrador":
