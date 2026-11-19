@@ -56,7 +56,17 @@ Causas (una por turno): `filtro_ignorado`, `segunda_parte_ignorada`, `aclaracion
 | Fecha | Versión | Bien | A medias | Mal | Juez |
 |---|---|---|---|---|---|
 | 18/11/2026 | Antes del plan de mejora | 24 (38 %) | 16 (25 %) | 24 (38 %) | A mano |
+| 19/11/2026 | Fase 4 (reposición) y limpieza de datos | 25 (39 %) | 16 (25 %) | 23 (36 %) | A mano: solo se recalifican las respuestas que cambian |
 
 Causas en la línea base, de más a menos: filtro ignorado (8), responde otra cosa (7), falta la función (4), ignora lo
 escrito (4), aclaración innecesaria (3), cifra imposible (3), aclaración genérica (3), otras (3), datos en vez de
 explicación (2), proveedor equivocado (1), segunda parte ignorada (1), bucle (1).
+
+El 19/11 solo cambian dos respuestas. El valor del stock de La Oliva deja de salir negativo tras limpiar los datos y
+pasa de «mal» a «bien». El pedido «de makro» aplica la decisión de reposición, pero sigue sin decir que Makro no es un
+proveedor dado de alta, así que sigue «a medias». La fase 4 apenas toca este conjunto: lo que más falla es el diálogo
+(fase 1) y los filtros (fase 2), y es ahí donde se espera el salto.
+
+El juez con modelo no se ha podido pasar fuera de Vercel: la clave del AI Gateway de la sesión de desarrollo no
+autoriza llamadas a modelos. La primera vez que se pase con credencial, se calibra contra
+`bateria-ciega-calificada.json` antes de usar sus notas.
