@@ -153,5 +153,18 @@ export async function draftCorrection(text: string, focus: Focus | undefined, dr
     motivo: draft.kind === "merma" ? ((f.motivo as MotivoMerma | undefined) ?? motivoOf(draft)) : "no_indicado",
     ambiguous: 0,
   };
-  return { plan, request: stored.request, answers: [`corrección: ${text.trim()}`], overrides, replaces: focus.draftId };
+  // Jev compara el borrador con la petición entera: la original y la corrección, dicha como tal. Con «(después
+  // respondió: corrección: …)» veía el local nuevo como una contradicción y pedía repetir la operación.
+  // Se dice qué dato cambia: «cámbialo a la oliva» solo no deja claro que La Oliva es un local.
+  const nameOf = (id: string | null) => ctx.locations.find((l) => l.id === id)?.name ?? "";
+  const changed = [
+    draft.kind === "merma" && locationId !== draft.locationId ? `el local a ${nameOf(locationId)}` : "",
+    draft.kind === "traspaso" && locationId !== draft.fromLocationId ? `el origen a ${nameOf(locationId)}` : "",
+    draft.kind === "traspaso" && toLocationId !== draft.toLocationId ? `el destino a ${nameOf(toLocationId)}` : "",
+    f.amount ? `la cantidad a ${f.cantidad}` : "",
+    replacement ? `el producto a ${replacement.name}` : "",
+    f.motivo ? `el motivo a ${label(f.motivo).toLowerCase()}` : "",
+  ].filter(Boolean);
+  const request = `«${stored.request}», y después lo corrigió: «${text.trim()}» (cambia ${changed.join(" y ")}; lo demás sigue igual)`;
+  return { plan, request, answers: [], overrides, replaces: focus.draftId };
 }

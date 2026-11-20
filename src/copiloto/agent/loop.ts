@@ -25,7 +25,7 @@ import { activeFocus, type PendingClarify, type Session, type SessionStore } fro
 import { HabitsStore } from "./habits";
 import { CANCEL_OPTION, operationOnly } from "./free-text";
 import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
-import { describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
+import { asksUser, describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
 import { multiTaskTurn } from "./multi-task";
 import { runQuery } from "./run-query";
@@ -254,7 +254,7 @@ export class Agent {
           plan = { type: "aviso", text: `${understanding.respuesta}\n\n${GENERAL_NOTE}` };
           intent = "conversar";
           decisions = [];
-        } else if (understanding?.tipo === "datos" && tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") && groundedLocations(understanding.consulta, message, session, focusNow, ctx)) {
+        } else if (understanding?.tipo === "datos" && tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") && !asksUser(understanding.consulta) && groundedLocations(understanding.consulta, message, session, focusNow, ctx)) {
           const again = await this.replan(understanding.consulta, page, pageContext, session, ctx, deps, timer, habits, toolset);
           if (resolves(again.plan)) {
             ({ plan, intent, decisions, routing, shortcut } = again);

@@ -101,6 +101,8 @@ function isYes(text: string): boolean {
 const FILLERS = new Set([
   "el", "la", "los", "las", "un", "una", "unos", "unas", "es", "de", "del", "al", "a", "en", "para", "desde", "eso", "esa", "ese", "pues",
   "mejor", "vale", "no", "perdona", "perdon", "espera", "digo", "osea", "o", "sea", "porfa",
+  // «¿y la royal bliss?» a «¿cuál de estas tónicas?»: el «y» de seguir hablando no es parte del nombre.
+  "y", "entonces",
 ]);
 
 /**

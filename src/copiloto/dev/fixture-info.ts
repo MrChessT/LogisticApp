@@ -1,5 +1,6 @@
 // Datos de prueba (ficticios) de facturas, equipo, escandallos, zonas, inventarios y proveedores.
-import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
+import type { AreaStockRaw, CountRaw, InfoSource, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw } from "../tools/info";
+import type { InvoiceRaw, ReceiptRaw } from "../tools/info-invoices";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
 import type { SalesDayRaw, SalesImportLine, SalesItemRaw, SalesItemRef, SalesPreview } from "../tools/info-sales";
 import type { AreaMoveRaw } from "../tools/info-warehouse";
@@ -33,10 +34,12 @@ export class FixtureInfoSource implements InfoSource {
     return moves.filter((m) => locationIds.includes(m.locationId));
   }
 
-  async unbilled(): Promise<UnbilledRaw[]> {
+  /** Dos albaranes de Makro sin factura y uno de Distribuciones Canarias ya facturado. */
+  async receipts(): Promise<ReceiptRaw[]> {
     return [
-      { supplierName: "Makro", date: this.day(-2), total: "150.00", locationName: "Parador" },
-      { supplierName: "Makro", date: this.day(-1), total: "90.50", locationName: "Vivero" },
+      { number: "A-4356", code: "REC-2026-0012", supplierName: "Makro", date: this.day(-2), total: "150.00", locationName: "Parador", invoiceNumber: null },
+      { number: "A-4361", code: "REC-2026-0013", supplierName: "Makro", date: this.day(-1), total: "90.50", locationName: "Vivero", invoiceNumber: null },
+      { number: "DC-A-31", code: "REC-2026-0009", supplierName: "Distribuciones Canarias", date: this.day(-12), total: "466.00", locationName: "Parador", invoiceNumber: "DC-77" },
     ];
   }
 

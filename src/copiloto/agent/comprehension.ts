@@ -40,9 +40,18 @@ export async function rewriteFollowUp(assistant: Assistant, message: string, ses
     tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") &&
     // Una lista («A, B y 12 más») o un recuento («los 15 productos») no es una petición que alguien escribiría.
     !/\by \d+ mas\b|\b(los|las|de) \d+ productos\b/.test(tokenize(understanding.consulta).join(" ")) &&
+    !asksUser(understanding.consulta) &&
     groundedLocations(understanding.consulta, message, session, focus, ctx) &&
     groundedProducts(understanding.consulta, [message, ...session.turns.map((t) => t.text), focusText].join(" "), ctx);
   return grounded ? understanding.consulta : null;
+}
+
+/**
+ * La reescritura es una pregunta al usuario («¿qué pedido quieres consultar?»), no una petición suya: se descarta.
+ * Salía delante de la respuesta como «Entiendo: «¿qué pedido quieres consultar?»», un texto interno sin sentido.
+ */
+export function asksUser(rewrite: string): boolean {
+  return /\b(quieres|deseas|necesitas|prefieres|te refieres|podrias|puedes|indicame|especifica|especificame|aclarame)\b/.test(tokenize(rewrite).join(" "));
 }
 
 const HELP_RE = /\b(que (sabes|puedes) hacer|que haces|como funcionas|para que sirves|ayuda|ayudame|que te puedo preguntar)\b/;

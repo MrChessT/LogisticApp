@@ -1,7 +1,9 @@
+import Decimal from "decimal.js";
 // Lecturas de facturas, equipo, escandallos, zonas, inventarios y proveedores con el cliente del
 // usuario (RLS activo): lo que no puede ver vuelve vacío.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AreaStockRaw, CountRaw, InfoSource, InvoiceRaw, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw, UnbilledRaw } from "../tools/info";
+import type { AreaStockRaw, CountRaw, InfoSource, RecipeLineRaw, RecipeRaw, SupplierRaw, TeamRaw } from "../tools/info";
+import type { InvoiceRaw, ReceiptRaw } from "../tools/info-invoices";
 import type { FigureMovementRaw, LatestPriceRaw, StockTotalsRaw } from "../tools/info-figures";
 import type { SalesDayRaw, SalesImportLine, SalesItemRaw, SalesItemRef, SalesPreview } from "../tools/info-sales";
 import type { AreaMoveRaw } from "../tools/info-warehouse";
@@ -57,9 +59,33 @@ export class SupabaseInfoSource implements InfoSource {
     );
   }
 
-  async unbilled(orgId: string): Promise<UnbilledRaw[]> {
-    const data = rows("los albaranes sin factura", await this.db.from("v_unbilled_receipts").select("supplier_name, doc_date, total, location_name").eq("org_id", orgId).limit(1000));
-    return data.map((r) => ({ supplierName: String(r.supplier_name ?? ""), date: String(r.doc_date), total: text(r.total), locationName: String(r.location_name ?? "") }));
+  /** Albaranes cerrados del último año con la factura en la que están (RLS: solo quien gestiona facturas ve el enlace). */
+  async receipts(orgId: string): Promise<ReceiptRaw[]> {
+    const since = new Date(Date.now() - 366 * 86_400_000).toISOString().slice(0, 10);
+    const data = rows(
+      "los albaranes",
+      await this.db
+        .from("goods_receipts")
+        .select("code, doc_number, doc_date, supplier:suppliers(name), location:locations(name), lines:receipt_lines(packs_qty:packs_qty::text, pack_price:pack_price::text), billed:invoice_receipts(invoice:invoices(number))")
+        .eq("org_id", orgId)
+        .eq("status", "closed")
+        .gte("doc_date", since)
+        .order("doc_date", { ascending: false })
+        .limit(1000),
+    );
+    return data.map((r) => {
+      const lines = (r.lines as Array<{ packs_qty: string; pack_price: string }> | null) ?? [];
+      const billed = (r.billed as Array<{ invoice: { number?: string } | null }> | null) ?? [];
+      return {
+        number: textOrNull(r.doc_number),
+        code: textOrNull(r.code),
+        supplierName: String((r.supplier as { name?: string } | null)?.name ?? "Sin proveedor"),
+        date: String(r.doc_date),
+        total: lines.reduce((acc, l) => acc.plus(new Decimal(l.packs_qty).mul(l.pack_price)), new Decimal(0)).toDecimalPlaces(2).toString(),
+        locationName: String((r.location as { name?: string } | null)?.name ?? ""),
+        invoiceNumber: billed[0]?.invoice?.number ?? null,
+      };
+    });
   }
 
   async team(): Promise<TeamRaw[]> {

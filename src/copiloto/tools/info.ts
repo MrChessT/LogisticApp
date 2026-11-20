@@ -14,24 +14,10 @@ import { overview, priceRanking, type FiguresSource } from "./info-figures";
 import { supplierDataAnswer } from "./info-suppliers";
 import { sales, type SalesSource } from "./info-sales";
 import { warehouseQueue, type WarehouseSource } from "./info-warehouse";
+import { invoices, type InvoicesSource } from "./info-invoices";
 
 // Datos crudos (cifras como texto) ---------------------------------------------------------
 
-export interface InvoiceRaw {
-  id: string;
-  supplierName: string;
-  number: string;
-  code: string;
-  date: string;
-  due: string | null;
-  total: string;
-  status: "pendiente" | "pagada";
-  paidAt: string | null;
-  receipts: number;
-  difference: string;
-  overdue: boolean;
-}
-export interface UnbilledRaw { supplierName: string; date: string; total: string; locationName: string }
 export interface TeamRaw { name: string; role: string; allLocations: boolean; locationIds: string[]; pending: boolean }
 /** Un ingrediente de un escandallo: producto o elaboración, con su cantidad en unidad base o de rendimiento. */
 export interface RecipeLineRaw { id: string; productId: string | null; subRecipeId: string | null; name: string; qty: string; unit: "g" | "ml" | "ud" | "racion" }
@@ -71,9 +57,7 @@ export interface SupplierRaw {
 }
 
 /** Lecturas que necesita cada consulta (Supabase en producción, datos de prueba en los tests). */
-export interface InfoSource extends FiguresSource, SalesSource, WarehouseSource {
-  invoices(orgId: string): Promise<InvoiceRaw[]>;
-  unbilled(orgId: string): Promise<UnbilledRaw[]>;
+export interface InfoSource extends FiguresSource, SalesSource, WarehouseSource, InvoicesSource {
   team(): Promise<TeamRaw[]>;
   recipes(orgId: string): Promise<RecipeRaw[]>;
   recipeLines(recipeId: string): Promise<RecipeLineRaw[]>;
@@ -150,109 +134,6 @@ function locationName(ctx: SessionContext, id: string): string {
 function scopeLabel(ctx: SessionContext, p: InfoParams): string {
   if (!p.locationsChosen || p.locationIds.length === ctx.locations.length) return ctx.locations.length > 1 ? "en tus locales" : "";
   return `en ${p.locationIds.map((id) => locationName(ctx, id)).join(", ")}`;
-}
-
-// Facturas -----------------------------------------------------------------------------------
-
-async function invoices(source: InfoSource, ctx: SessionContext, p: InfoParams): Promise<InfoResult> {
-  const route: AppRoute = "/facturas";
-  if (!ctx.seesCosts || ctx.role === "staff") {
-    return { text: "Las facturas las ve la dirección (propiedad, administración y encargados) con el permiso «ve costes».", route, rows: 0 };
-  }
-  const text = normalize(p.message);
-  const [all, unbilled] = await Promise.all([source.invoices(ctx.orgId), source.unbilled(ctx.orgId)]);
-  const supplier = [...new Set(all.map((i) => i.supplierName))].find((s) => names(p.message, s));
-  const scoped = supplier ? all.filter((i) => i.supplierName === supplier) : all;
-  const pending = scoped.filter((i) => i.status === "pendiente");
-  const overdue = pending.filter((i) => i.overdue);
-  const sum = (rows: InvoiceRaw[]) => rows.reduce((s, i) => s.plus(i.total), new Decimal(0));
-  const mismatched = scoped.filter((i) => i.receipts > 0 && new Decimal(i.difference).abs().gt(0.5));
-  const who = supplier ? ` de ${supplier}` : "";
-
-  // Albaranes sin factura.
-  if (/sin factura|sin facturar|no facturad|albaran/.test(text)) {
-    const rows = (supplier ? unbilled.filter((u) => u.supplierName === supplier) : unbilled).sort((a, b) => a.date.localeCompare(b.date));
-    if (rows.length === 0) return { text: `No hay albaranes sin factura${who}: todo lo recibido está facturado.`, route, rows: 0 };
-    const bySupplier = new Map<string, { n: number; total: Decimal; since: string }>();
-    for (const r of rows) {
-      const g = bySupplier.get(r.supplierName) ?? { n: 0, total: new Decimal(0), since: r.date };
-      bySupplier.set(r.supplierName, { n: g.n + 1, total: g.total.plus(r.total), since: g.since < r.date ? g.since : r.date });
-    }
-    const groups = [...bySupplier.entries()].sort((a, b) => b[1].total.cmp(a[1].total));
-    const total = rows.reduce((s, r) => s.plus(r.total), new Decimal(0));
-    return {
-      text: `Hay ${plural(rows.length, "albarán", "albaranes")} sin factura${who} por ${money(total)}. Cuando llegue la factura, regístrala en Facturas desde «Albaranes sin factura».`,
-      table: table(
-        [{ key: "proveedor", label: "Proveedor" }, { key: "albaranes", label: "Albaranes", align: "right" }, { key: "desde", label: "Desde" }, { key: "importe", label: "Importe", align: "right" }],
-        groups.map(([name, g]) => ({ proveedor: name, albaranes: String(g.n), desde: day(g.since), importe: money(g.total) })),
-      ),
-      route,
-      rows: rows.length,
-    };
-  }
-
-  // Las que no cuadran con sus albaranes.
-  if (/cuadr|diferencia|de mas|cobrad|discrepan/.test(text)) {
-    if (mismatched.length === 0) return { text: `Todas las facturas${who} cuadran con sus albaranes.`, route, rows: 0 };
-    const over = mismatched.filter((i) => new Decimal(i.difference).gt(0)).reduce((s, i) => s.plus(i.difference), new Decimal(0));
-    return {
-      text: `${plural(mismatched.length, "factura no cuadra", "facturas no cuadran")} con sus albaranes${who}${over.gt(0) ? `: cobran ${money(over)} más de lo recibido` : ""}.`,
-      table: table(
-        [{ key: "proveedor", label: "Proveedor" }, { key: "numero", label: "Número" }, { key: "fecha", label: "Fecha" }, { key: "diferencia", label: "Diferencia", align: "right" }],
-        mismatched.map((i) => ({ proveedor: i.supplierName, numero: i.number, fecha: day(i.date), diferencia: `${new Decimal(i.difference).gt(0) ? "+" : ""}${money(i.difference)}` })),
-      ),
-      route,
-      rows: mismatched.length,
-    };
-  }
-
-  // Pagadas.
-  if (/pagad|pague|pagamos/.test(text) && !/pendiente|por pagar|sin pagar|que pagar|hay que pagar/.test(text)) {
-    const paid = scoped.filter((i) => i.status === "pagada").sort((a, b) => (b.paidAt ?? "").localeCompare(a.paidAt ?? ""));
-    if (paid.length === 0) return { text: `No hay facturas pagadas${who}.`, route, rows: 0 };
-    return {
-      text: `${plural(paid.length, "factura pagada", "facturas pagadas")}${who} por ${money(sum(paid))}. La última, el ${day(paid[0]!.paidAt ?? paid[0]!.date)}.`,
-      table: table(
-        [{ key: "proveedor", label: "Proveedor" }, { key: "numero", label: "Número" }, { key: "pagada", label: "Pagada" }, { key: "total", label: "Total", align: "right" }],
-        paid.map((i) => ({ proveedor: i.supplierName, numero: i.number, pagada: i.paidAt ? day(i.paidAt) : "—", total: money(i.total) })),
-      ),
-      route,
-      rows: paid.length,
-    };
-  }
-
-  // Pendientes (por defecto) o solo las vencidas.
-  const onlyOverdue = /vencid|atrasad|retrasad|sin pagar desde|deb[oe]mos/.test(text) && overdue.length > 0;
-  const list = (onlyOverdue ? overdue : pending).sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999"));
-  if (pending.length === 0) {
-    return { text: `No hay facturas pendientes de pago${who}.${unbilled.length > 0 && !supplier ? ` Eso sí, hay ${plural(unbilled.length, "albarán", "albaranes")} que aún no tienen factura.` : ""}`, route, rows: 0 };
-  }
-  const dueSoon = pending.filter((i) => !i.overdue && i.due && daysFrom(i.due, p.now) <= 7);
-  const parts = [`Pendiente de pago${who}: ${money(sum(pending))} en ${plural(pending.length, "factura", "facturas")}.`];
-  if (overdue.length > 0) parts.push(`${plural(overdue.length, "está vencida", "están vencidas")} (${money(sum(overdue))}).`);
-  if (dueSoon.length > 0) parts.push(`${plural(dueSoon.length, "vence", "vencen")} en los próximos 7 días (${money(sum(dueSoon))}).`);
-  if (mismatched.some((i) => i.status === "pendiente")) parts.push(`Ojo: ${plural(mismatched.filter((i) => i.status === "pendiente").length, "no cuadra", "no cuadran")} con sus albaranes.`);
-  const dueText = (i: InvoiceRaw) => {
-    if (!i.due) return "sin vencimiento";
-    const d = daysFrom(i.due, p.now);
-    return d < 0 ? `vencida hace ${plural(-d, "día", "días")}` : d === 0 ? "hoy" : d <= 31 ? `en ${plural(d, "día", "días")}` : day(i.due);
-  };
-  return {
-    text: parts.join(" "),
-    table: table(
-      [{ key: "proveedor", label: "Proveedor" }, { key: "numero", label: "Número" }, { key: "vence", label: "Vence" }, { key: "total", label: "Total", align: "right" }, { key: "cuadre", label: "Cuadre" }],
-      list.map((i) => ({
-        proveedor: i.supplierName,
-        numero: i.number,
-        vence: dueText(i),
-        total: money(i.total),
-        cuadre: i.receipts === 0 ? "sin albaranes" : new Decimal(i.difference).abs().lte(0.5) ? "cuadra" : `${new Decimal(i.difference).gt(0) ? "+" : ""}${money(i.difference)}`,
-      })),
-      list.flatMap((i, n) => (i.overdue ? [n] : [])),
-    ),
-    route,
-    rows: list.length,
-  };
 }
 
 // Equipo -------------------------------------------------------------------------------------
@@ -548,7 +429,7 @@ const TOPICS: Array<[InfoTool, RegExp]> = [
   // Ventas del TPV. «Facturación» y «facturamos» son ventas, no facturas de proveedor.
   ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost\b.*\b(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b|\bvende (mas|menos)\b|\b(pasta|dinero|pelas)\b.*\b(hicimos|hemos hecho|sacamos|hemos sacado|se hizo)\b|\bcaja (de |del )?(ayer|hoy|anoche|anteayer|\d{1,2}|lunes|martes|miercoles|jueves|viernes|sabado|domingo|esta semana|la semana)\b/],
   // «¿Qué albaranes hay?»: los albaranes se miran contra sus facturas (los que faltan por facturar).
-  ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b|\balbaran(es)?\b/],
+  ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b|\b(le )?(debo|debemos)\b|\balbaran(es)?\b/],
   ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
   ["query_areas", /\b(zonas?|secciones|seccion|almacenes)\b/],

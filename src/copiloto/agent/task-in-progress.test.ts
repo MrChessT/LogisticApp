@@ -30,7 +30,7 @@ describe("operación a medias tras el miniformulario", () => {
     const a = step(traspaso, "del parador al vivero");
     expect(a.overrides).toMatchObject({ local: "Parador", local_destino: "Vivero" });
     const b = step(a.task, "4 cajas de cocacola");
-    expect(b.message).toBe("traspaso de 4 cajas de cocacola de Parador a Vivero");
+    expect(b.message).toBe("traspaso de 4 cajas de cocacola desde Parador a Vivero");
     expect(b.missing).toEqual([]);
   });
 
@@ -75,7 +75,7 @@ describe("texto del formulario", () => {
   it("dice lo apuntado y lo que falta; sin nada apuntado, el de siempre", async () => {
     const { taskPrompt } = await import("./task-in-progress");
     expect(taskPrompt({ accion: "merma", producto: "larios", at: NOW })).toBe("Llevo apuntado: merma de larios. Me falta saber en qué local y cuánto: rellénalo aquí o escríbemelo.");
-    expect(taskPrompt({ accion: "traspaso", local: "Parador", destino: "Vivero", at: NOW })).toBe("Llevo apuntado: traspaso de Parador a Vivero. Me falta saber qué producto y cuánto: rellénalo aquí o escríbemelo.");
+    expect(taskPrompt({ accion: "traspaso", local: "Parador", destino: "Vivero", at: NOW })).toBe("Llevo apuntado: traspaso desde Parador a Vivero. Me falta saber qué producto y cuánto: rellénalo aquí o escríbemelo.");
     expect(taskPrompt({ accion: "merma", at: NOW })).toBe("Me faltan unos datos: rellénalos aquí y te preparo el borrador.");
   });
 });

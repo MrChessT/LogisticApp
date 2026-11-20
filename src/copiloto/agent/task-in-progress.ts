@@ -11,7 +11,7 @@ import { canonicalUnit, parseNumber, parseQuantities } from "../entities/quantit
 import { tokenSimilarity } from "../entities/retriever";
 import { isCancel, isNewQuestion, operationOf } from "./free-text";
 
-export type TaskAction = FormEvent["accion"];
+type TaskAction = FormEvent["accion"];
 
 export interface PendingTask {
   accion: TaskAction;
@@ -49,7 +49,7 @@ const REQUIRED: Record<TaskAction, Array<"local" | "destino" | "producto" | "can
 };
 
 /** Lo que el formulario ya traía relleno: el punto de partida de la operación a medias. */
-export function taskFromForm(form: FormEvent, now: number): PendingTask {
+function taskFromForm(form: FormEvent, now: number): PendingTask {
   const value = (key: string) => form.fields.find((f) => f.key === key)?.value;
   const task: PendingTask = { accion: form.accion, at: now };
   for (const key of ["local", "destino", "producto", "cantidad", "motivo"] as const) {
@@ -75,7 +75,7 @@ export function taskFromPending(accion: string | null, overrides: Record<string,
   return task;
 }
 
-export function activeTask(task: PendingTask | undefined, now: number): PendingTask | undefined {
+function activeTask(task: PendingTask | undefined, now: number): PendingTask | undefined {
   return task && now - task.at <= TASK_TTL_MS ? task : undefined;
 }
 
@@ -166,7 +166,8 @@ function cleanProduct(text: string): string | undefined {
 function sentence(t: PendingTask): string {
   const what = [t.cantidad ? `de ${t.cantidad}` : "", t.producto ? `de ${t.producto}` : ""].filter(Boolean).join(" ");
   if (t.accion === "merma") return ["merma", what, t.local ? `en ${t.local}` : "", t.motivo ? `por ${t.motivo.replace("_", " ")}` : ""].filter(Boolean).join(" ");
-  if (t.accion === "traspaso") return ["traspaso", what, t.local ? `de ${t.local}` : "", t.destino ? `a ${t.destino}` : ""].filter(Boolean).join(" ");
+  // «desde X a Y»: con «de X» el lector de cantidades pegaba el local al producto («cocacola de Parador»).
+  if (t.accion === "traspaso") return ["traspaso", what, t.local ? `desde ${t.local}` : "", t.destino ? `a ${t.destino}` : ""].filter(Boolean).join(" ");
   return ["han llegado", what || "mercancía", t.local ? `a ${t.local}` : ""].filter(Boolean).join(" ");
 }
 

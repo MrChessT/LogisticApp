@@ -63,7 +63,7 @@ describe("corregir el borrador pendiente hablando", () => {
     // La tarjeta antigua ya no se puede confirmar.
     expect(await drafts.claim(first.draftId)).toBe(false);
     // Jev comprueba el borrador nuevo contra la petición y la corrección.
-    expect(JSON.stringify(jev.calls.at(-1)!.state)).toContain("corrección: mejor que sean 4");
+    expect(JSON.stringify(jev.calls.at(-1)!.state)).toContain("y después lo corrigió: «mejor que sean 4»");
   });
 
   it("«cámbialo a Vivero» y «era por caducidad» cambian solo eso", async () => {
