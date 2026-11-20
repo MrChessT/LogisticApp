@@ -364,13 +364,20 @@ export class InventoryTools implements Tools {
     const today = dayOf(params.now);
     const from = params.period?.from ?? addDays(today, -29);
     const to = params.period?.to ?? today;
-    const raw = (await this.source.purchases({ locationIds: params.locationIds, since: from })).filter((p) => p.docDate <= to);
-    const bySupplier = new Map<string, { total: Decimal; receipts: number }>();
+    // «¿Cuánto he gastado en bebida?»: solo las líneas de esa familia; si no, el albarán entero.
+    const family = params.family ? new Set(params.family.productIds) : null;
+    const raw = family
+      ? (await this.source.purchaseLines({ locationIds: params.locationIds, since: from }))
+          .filter((l) => l.docDate <= to && family.has(l.productId))
+          .map((l) => ({ receiptId: l.receiptId, supplierName: l.supplierName, total: l.amount }))
+      : (await this.source.purchases({ locationIds: params.locationIds, since: from })).filter((p) => p.docDate <= to);
+    const receipts = new Set(raw.map((p) => p.receiptId));
+    const bySupplier = new Map<string, { total: Decimal; receipts: Set<string> }>();
     for (const p of raw) {
       const key = p.supplierName ?? "Sin proveedor";
-      const entry = bySupplier.get(key) ?? { total: new Decimal(0), receipts: 0 };
+      const entry = bySupplier.get(key) ?? { total: new Decimal(0), receipts: new Set<string>() };
       entry.total = entry.total.plus(p.total);
-      entry.receipts += 1;
+      entry.receipts.add(p.receiptId);
       bySupplier.set(key, entry);
     }
     const total = [...bySupplier.values()].reduce((acc, e) => acc.plus(e.total), new Decimal(0));
@@ -378,11 +385,11 @@ export class InventoryTools implements Tools {
       .sort((a, b) => b[1].total.cmp(a[1].total))
       .map(([name, e]) => ({
         proveedor: name,
-        albaranes: String(e.receipts),
+        albaranes: String(e.receipts.size),
         importe: formatMoney(e.total),
         porcentaje: `${formatDecimal(pct(e.total, total) ?? new Decimal(0), 1)} %`,
       }));
-    return finish("query_spend", rows, { total: formatMoney(total), albaranes: String(raw.length), desde: formatDay(from), hasta: formatDay(to) });
+    return finish("query_spend", rows, { total: formatMoney(total), albaranes: String(receipts.size), desde: formatDay(from), hasta: formatDay(to), ...(params.family ? { familia: params.family.label } : {}) });
   }
 
   /** Último precio de compra: por unidad de barra y el del formato («Caja 24 a 28,80 € (Makro)»). */
@@ -539,7 +546,7 @@ export class InventoryTools implements Tools {
       since: sinceIso(period.from),
     });
     const tz = new Map(ctx.locations.map((l) => [l.id, l]));
-    const groups = new Map<string, { label: string; product: Product; qty: Decimal; value: Decimal; count: number }>();
+    const groups = new Map<string, { label: string; product: Product; locationId: string; qty: Decimal; value: Decimal; count: number }>();
     const byType = new Map<string, Decimal>();
     // Sin tipos pedidos, las aperturas (el stock inicial al empezar) y los cambios de zona no cuentan:
     // tapaban lo que se pregunta (32.000 € de «apertura» delante de 13 € de mermas).
@@ -554,10 +561,10 @@ export class InventoryTools implements Tools {
       if (!product) continue;
       // Las mermas se separan por tipo de salida: una invitación no es una pérdida.
       const label = movementLabel(m);
-      const key = `${label}:${m.productId}`;
+      const key = params.byLocation ? `${label}:${m.locationId}` : `${label}:${m.productId}`;
       const qty = new Decimal(m.qty);
       const value = qty.mul(m.unitCost ?? 0);
-      const g = groups.get(key) ?? { label, product, qty: new Decimal(0), value: new Decimal(0), count: 0 };
+      const g = groups.get(key) ?? { label, product, locationId: m.locationId, qty: new Decimal(0), value: new Decimal(0), count: 0 };
       g.qty = g.qty.plus(qty);
       g.value = g.value.plus(value);
       g.count += 1;
@@ -565,6 +572,14 @@ export class InventoryTools implements Tools {
       byType.set(label, (byType.get(label) ?? new Decimal(0)).plus(value));
     }
     const sorted = [...groups.values()].sort((a, b) => b.value.abs().cmp(a.value.abs()));
+    // Por local: el importe de cada uno (las cantidades de productos distintos no se suman).
+    if (params.byLocation) {
+      const rows: ToolRow[] = sorted.map((g) => ({ tipo: g.label, local: tz.get(g.locationId)?.name ?? "Local", valor: formatMoney(g.value.abs()), movimientos: String(g.count) }));
+      const totals: Record<string, string> = { periodo: period.label, movimientos: String(raw.length), por_local: "1" };
+      if (wanted) totals.tipos = [...new Set([...wanted].map((t) => MOVEMENT_PLURAL_LABELS[t]))].join(" y ");
+      for (const [label, value] of byType) totals[`valor_${label.replace(/ /g, "_")}`] = formatMoney(value.abs());
+      return finish("query_movements", rows, totals);
+    }
     const rows: ToolRow[] = sorted.map((g) => ({
       tipo: g.label,
       producto: g.product.name,

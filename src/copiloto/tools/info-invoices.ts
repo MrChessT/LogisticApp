@@ -8,7 +8,8 @@ import { normalize, tokenize } from "../entities/normalize";
 import { formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import type { InfoParams, InfoResult } from "./info";
-import { calendarPeriod, documentNumber, dueWindow, sameDocument, unknownSupplier } from "./text-filters";
+import { calendarPeriod } from "./periods";
+import { documentNumber, dueWindow, sameDocument, unknownSupplier } from "./text-filters";
 import type { Period } from "./types";
 
 export interface InvoiceRaw {
@@ -52,6 +53,8 @@ const day = (iso: string) => {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const money = (v: Decimal.Value) => formatMoney(v);
 const sum = (rows: Array<{ total: string }>) => rows.reduce((s, i) => s.plus(i.total), new Decimal(0));
+/** «el mes pasado» → «del mes pasado», «en octubre» → «de octubre»: el periodo detrás de «albaranes» o «facturas». */
+const ofPeriod = (label: string) => (label.startsWith("el ") ? `del ${label.slice(3)}` : label.startsWith("en ") ? `de ${label.slice(3)}` : `de ${label}`);
 const within = (date: string | null, period: Period) => date !== null && date.slice(0, 10) >= period.from && date.slice(0, 10) <= period.to;
 
 /** Hoy (día local), en el formato de las fechas de los documentos. */
@@ -113,7 +116,7 @@ function byNumber(number: string, invoices: InvoiceRaw[], receipts: ReceiptRaw[]
 /** Albaranes con sus filtros: todos los del periodo o solo los que aún no tienen factura. */
 function receiptsAnswer(rows: ReceiptRaw[], onlyUnbilled: boolean, who: string, period: Period | null): InfoResult {
   const list = (onlyUnbilled ? rows.filter((r) => !r.invoiceNumber) : rows).sort((a, b) => b.date.localeCompare(a.date));
-  const when = period ? ` ${period.label}` : "";
+  const when = period ? ` ${ofPeriod(period.label)}` : "";
   if (list.length === 0) {
     return { text: onlyUnbilled ? `No hay albaranes sin factura${who}${when}: todo lo recibido está facturado.` : `No hay albaranes${who}${when}.`, route: ROUTE, rows: 0 };
   }
@@ -151,7 +154,7 @@ export async function invoices(source: InvoicesSource, ctx: SessionContext, p: I
     if (unknown) {
       const withDocs = [...new Set([...all.map((i) => i.supplierName), ...receipts.map((r) => r.supplierName)])].sort((a, b) => a.localeCompare(b, "es"));
       return {
-        text: `No tengo ningún proveedor llamado «${unknown}».${withDocs.length ? ` Los que tienen facturas o albaranes son: ${withDocs.slice(0, 8).join(", ")}${withDocs.length > 8 ? "…" : ""}.` : ""}`,
+        text: `No tengo ningún proveedor llamado «${unknown}».${withDocs.length ? ` Los que tienen facturas o albaranes son: ${withDocs.slice(0, 8).join(", ")}${withDocs.length > 8 ? "…" : "."}` : ""}`,
         route: ROUTE,
         rows: 0,
       };
@@ -215,10 +218,10 @@ export async function invoices(source: InvoicesSource, ctx: SessionContext, p: I
   // «Facturas de octubre», «facturas de este mes»: las de ese periodo (por fecha de factura), pagadas o no.
   if (period) {
     const inPeriod = scoped.filter((i) => within(i.date, period)).sort((a, b) => b.date.localeCompare(a.date));
-    if (inPeriod.length === 0) return { text: `No hay facturas${who} ${period.label}.`, route: ROUTE, rows: 0 };
+    if (inPeriod.length === 0) return { text: `No hay facturas${who} ${ofPeriod(period.label)}.`, route: ROUTE, rows: 0 };
     const open = inPeriod.filter((i) => i.status === "pendiente");
     return {
-      text: `${plural(inPeriod.length, "factura", "facturas")}${who} ${period.label} por ${money(sum(inPeriod))}${open.length ? `; pendiente de pago: ${money(sum(open))}` : "; todas pagadas"}.`,
+      text: `${plural(inPeriod.length, "factura", "facturas")}${who} ${ofPeriod(period.label)} por ${money(sum(inPeriod))}${open.length ? `; pendiente de pago: ${money(sum(open))}` : "; todas pagadas"}.`,
       table: invoiceTable(inPeriod, p.now),
       route: ROUTE,
       rows: inPeriod.length,

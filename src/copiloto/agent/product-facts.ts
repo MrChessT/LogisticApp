@@ -4,8 +4,11 @@
 // · «¿qué categoría tiene el pacharán?»;
 // · «¿quién nos trae los vermuts?», «proveedores de la ginebra» (con varios productos; con uno solo
 //   sigue la ficha de siempre, que da además el precio y el stock);
-// · «¿qué nos trae Makro?»: lo que se le compra a un proveedor.
+// · «¿qué nos trae Makro?»: lo que se le compra a un proveedor;
+// · «¿qué proveedor me vende más barata la coca cola?»: el último precio de cada uno, por unidad.
+import Decimal from "decimal.js";
 import type { Product, SessionContext } from "../domain";
+import { formatMoney } from "../entities/units";
 import { mentionedSupplier } from "../entities/catalog-parser";
 import { familyOf } from "../entities/family";
 import { normalize, tokenize } from "../entities/normalize";
@@ -20,6 +23,9 @@ const ASK_SUPPLIER_CATALOG = /\b(que|cuales?|lo que)\b.*\b(nos |me )?(trae|traen
 /** Ordenes, no preguntas: «cambia el proveedor de…», «pon a Makro como proveedor». */
 const ACTION = /\b(cambia|cambiar|pon|poner|asigna|asignar|anade|anadir|quita|quitar|crea|crear|da de alta)\b/;
 const NOT_PRODUCT = new Set("que quien quienes cual cuales es son el la los las lo de del al a nos me le trae traen sirve sirven vende venden suministra suministran compramos pedimos compro pido donde proveedor proveedores dime sabes".split(" "));
+
+const ASK_CHEAPEST = /\b(mas barat[oa]s?|menos car[oa]s?|mejor precio|mas economic[oa]s?|precio mas bajo)\b/;
+const CHEAP_WORDS = new Set(["mas", "menos", "barato", "barata", "baratos", "baratas", "caro", "cara", "mejor", "precio", "economico", "economica", "bajo"]);
 
 /** Como mucho se nombran estos productos; si hay más, se resume. */
 const MAX_LISTED = 8;
@@ -47,8 +53,10 @@ export async function productFact(message: string, ctx: SessionContext, retrieve
   const supplier = mentionedSupplier(message, ctx.suppliers);
   if (supplier && ASK_SUPPLIER_CATALOG.test(text) && !ASK_SUPPLIER.test(text)) return supplierCatalog(supplier.name, ctx, source);
   if (ASK_SUPPLIER.test(text) && !supplier) {
-    const words = tokenize(message).filter((w) => !NOT_PRODUCT.has(w));
+    const words = tokenize(message).filter((w) => !NOT_PRODUCT.has(w) && !CHEAP_WORDS.has(w));
     const products = await productsNamed(words.join(" "), ctx, retriever);
+    // «¿Qué proveedor me vende más barata la coca cola?»: comparar precios, no solo decir quién la trae.
+    if (ASK_CHEAPEST.test(text) && products.length > 0) return cheapestSupplier(exactOnly(products, words), source);
     // Uno solo: la ficha de siempre (Jev), que además da precio y stock.
     if (products.length > 1) return suppliersOf(products, source);
   }
@@ -92,6 +100,44 @@ async function suppliersOf(products: Product[], source: InventoryDataSource): Pr
   if (without.length > 0) lines.push(`• Sin proveedor apuntado: ${listed(without)}`);
   return { text: `${bySupplier.size === 1 ? "Solo uno tiene proveedor" : `Los traen ${bySupplier.size} proveedores`}:\n${lines.join("\n")}`, route };
 }
+
+/** Si lo dicho es exactamente el nombre de uno («coca cola» = Coca-Cola, no Coca-Cola Zero), solo ese. */
+function exactOnly(products: Product[], words: string[]): Product[] {
+  const core = (t: string) => tokenize(t).filter((w) => !/^\d/.test(w) && !["cl", "ml", "l", "kg", "g", "ud", "lt"].includes(w)).join("");
+  const said = core(words.join(" "));
+  const exact = products.filter((p) => core(p.name) === said);
+  return exact.length > 0 ? exact : products;
+}
+
+/** Último precio de cada proveedor por unidad de medida (€/ud, €/l o €/kg), del más barato al más caro. */
+async function cheapestSupplier(products: Product[], source: InventoryDataSource): Promise<TopicReply> {
+  const route = "/proveedores" as const;
+  const packOf = new Map(products.flatMap((p) => p.packs.map((k) => [k.id, { product: p, pack: k }] as const)));
+  const prices = forOrdering(await source.supplierPrices([...packOf.keys()]));
+  const lines: string[] = [];
+  for (const product of products.slice(0, 3)) {
+    const [factor, unit] = product.dimension === "volume" ? [1000, "l"] : product.dimension === "mass" ? [1000, "kg"] : [1, "ud"];
+    // supplierPrices viene del más reciente al más antiguo: el primero de cada proveedor es su último precio.
+    const best = new Map<string, { perUnit: Decimal; text: string }>();
+    for (const sp of prices) {
+      const found = packOf.get(sp.packId);
+      if (!found || found.product.id !== product.id || best.has(sp.supplierName) || new Decimal(found.pack.qtyBase).lte(0)) continue;
+      const perUnit = new Decimal(sp.lastPrice).div(found.pack.qtyBase).mul(factor);
+      best.set(sp.supplierName, { perUnit, text: `${formatMoney(perUnit)}/${unit} (${found.pack.name} a ${formatMoney(sp.lastPrice)}${sp.lastPriceAt ? `, ${shortDay(sp.lastPriceAt)}` : ""})` });
+    }
+    const ranked = [...best].sort((a, b) => a[1].perUnit.cmp(b[1].perUnit));
+    if (ranked.length === 0) lines.push(`${product.name}: ningún proveedor con precio apuntado.`);
+    else if (ranked.length === 1) lines.push(`${product.name}: solo la trae ${ranked[0]![0]}, a ${ranked[0]![1].text}. No hay otro proveedor con que comparar.`);
+    else lines.push(`${product.name}: el más barato es ${ranked[0]![0]}, a ${ranked[0]![1].text}. ${ranked.slice(1).map(([name, r]) => `${name}: ${r.text}`).join("; ")}.`);
+  }
+  if (products.length > 3) lines.push(`Y ${products.length - 3} productos más: pregúntame por uno concreto.`);
+  return { text: lines.join("\n"), route };
+}
+
+const shortDay = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${Number(d)}/${Number(m)}/${y}`;
+};
 
 async function supplierCatalog(supplierName: string, ctx: SessionContext, source: InventoryDataSource): Promise<TopicReply> {
   const packOf = new Map(ctx.products.flatMap((p) => p.packs.map((k) => [k.id, p] as const)));

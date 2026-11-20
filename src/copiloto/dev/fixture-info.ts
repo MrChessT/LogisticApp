@@ -47,7 +47,7 @@ export class FixtureInfoSource implements InfoSource {
     return [
       { name: "Ana Propietaria", role: "owner", allLocations: true, locationIds: [], pending: false },
       { name: "Luis Encargado", role: "manager", allLocations: false, locationIds: [PARADOR, PICKELS], pending: false },
-      { name: "Marta Camarera", role: "staff", allLocations: false, locationIds: [VIVERO], pending: true },
+      { name: "Marta Camarera", role: "staff", allLocations: false, locationIds: [VIVERO], pending: true, canValidate: true, seesCosts: false },
     ];
   }
 

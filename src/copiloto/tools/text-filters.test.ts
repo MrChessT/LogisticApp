@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { calendarPeriod, documentNumber, dueWindow, sameDocument, unknownSupplier } from "./text-filters";
+import { calendarPeriod } from "./periods";
+import { documentNumber, dueWindow, sameDocument, unknownSupplier } from "./text-filters";
 
 const TODAY = "2026-11-20"; // viernes
 

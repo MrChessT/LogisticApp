@@ -158,6 +158,11 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
             ? `${byType.map((t) => `${MOVEMENT_PLURAL[t.tipo] ?? t.tipo} ${t.valor}`).join(" · ")}.`
             : `${result.totals.movimientos} registros.`;
       const title = result.totals.tipos ? `${result.totals.tipos[0]!.toUpperCase()}${result.totals.tipos.slice(1)}` : "Movimientos";
+      if (result.totals.por_local) {
+        if (result.rows.length === 0) return `${title} ${where}: ninguna.`;
+        const top = result.rows[0]!;
+        return `${title} ${where}: ${head}\nDonde más: ${top.local} (${top.valor}${top.tipo !== "merma" ? `, ${top.tipo}` : ""}).\n${list(result.rows, (r) => `${r.local}: ${r.valor} (${plural(String(r.movimientos ?? "0"), "registro", "registros")}${r.tipo !== "merma" ? `, ${r.tipo}` : ""})`)}${more}`;
+      }
       return `${title} ${where}: ${head[0]!.toUpperCase()}${head.slice(1)}\n${list(result.rows, (r) => `${r.tipo} · ${r.producto}: ${r.cantidad} (${r.valor})`)}${more}`;
     }
     case "query_prices": {
@@ -209,7 +214,7 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
       return `${head}\n${list(result.rows, (r) => `${r.posicion}. ${r.producto}: ${r.cantidad} (${r.valor}, ${r.porcentaje}) — ${r.al_dia} al día`)}${more}`;
     }
     case "query_spend":
-      return `Compras del ${result.totals.desde} al ${result.totals.hasta}: ${result.totals.total} en ${plural(result.totals.albaranes ?? "0", "albarán", "albaranes")}.\n${list(result.rows, (r) => `${r.proveedor}: ${r.importe} (${r.porcentaje})`)}${more}`;
+      return `Compras${result.totals.familia ? ` de ${result.totals.familia}` : ""} del ${result.totals.desde} al ${result.totals.hasta}: ${result.totals.total} en ${plural(result.totals.albaranes ?? "0", "albarán", "albaranes")}.\n${list(result.rows, (r) => `${r.proveedor}: ${r.importe} (${r.porcentaje})`)}${more}`;
     case "query_reorder": {
       // Con tabla (ordenada por urgencia): solo el titular.
       if (o.tabulated) {

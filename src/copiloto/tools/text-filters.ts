@@ -2,68 +2,8 @@
 // de vencimiento («vencen esta semana»), número de documento («el albarán A-4356») y el proveedor nombrado aunque
 // no exista («de makro»). Antes se ignoraban y la respuesta era la lista entera, que parecía contestar otra cosa.
 import { normalize, tokenize } from "../entities/normalize";
-import { addDays, formatDay } from "./periods";
+import { addDays, formatDay, lastDayOfMonth, mondayOf, MONTHS } from "./periods";
 import type { Period } from "./types";
-
-const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-
-function weekday(day: string): number {
-  return new Date(`${day}T00:00:00Z`).getUTCDay();
-}
-
-function mondayOf(day: string): string {
-  let d = day;
-  while (weekday(d) !== 1) d = addDays(d, -1);
-  return d;
-}
-
-function lastDayOfMonth(firstDay: string): string {
-  const [y, m] = firstDay.split("-").map(Number);
-  const next = m === 12 ? `${y! + 1}-01-01` : `${y}-${String(m! + 1).padStart(2, "0")}-01`;
-  return addDays(next, -1);
-}
-
-/**
- * Periodo natural dicho en el mensaje (hacia atrás): «hoy», «ayer», «esta semana» (desde el lunes), «la semana
- * pasada», «este mes» (desde el día 1), «el mes pasado», «este año», «en octubre», «los últimos 15 días».
- * null si no dice ninguno.
- */
-export function calendarPeriod(message: string, today: string): Period | null {
-  const t = normalize(message);
-  if (/\bhoy\b/.test(t)) return { from: today, to: today, label: "hoy" };
-  if (/\bayer\b/.test(t)) {
-    const y = addDays(today, -1);
-    return { from: y, to: y, label: "ayer" };
-  }
-  const last = /\bultim[oa]s?\s+(\d{1,3})\s+dias\b/.exec(t);
-  if (last) {
-    const n = Math.max(1, Math.min(366, Number(last[1])));
-    return { from: addDays(today, -(n - 1)), to: today, label: `los últimos ${n} días` };
-  }
-  if (/\bsemana\s+(pasada|anterior)\b/.test(t)) {
-    const monday = addDays(mondayOf(today), -7);
-    const sunday = addDays(monday, 6);
-    return { from: monday, to: sunday, label: `la semana pasada (del ${formatDay(monday)} al ${formatDay(sunday)})` };
-  }
-  if (/\b(esta|la)\s+semana\b/.test(t)) return { from: mondayOf(today), to: today, label: "esta semana" };
-  const first = `${today.slice(0, 8)}01`;
-  if (/\bmes\s+(pasado|anterior)\b/.test(t)) {
-    const to = addDays(first, -1);
-    const from = `${to.slice(0, 8)}01`;
-    return { from, to, label: `el mes pasado (${MONTHS[Number(from.slice(5, 7)) - 1]})` };
-  }
-  if (/\b(este|el)\s+mes\b|\bmes\s+actual\b|\ben\s+lo\s+que\s+va\s+de\s+mes\b/.test(t)) return { from: first, to: today, label: `este mes (desde el ${formatDay(first)})` };
-  if (/\b(este|el)\s+ano\b|\ben\s+lo\s+que\s+va\s+de\s+ano\b/.test(t)) return { from: `${today.slice(0, 4)}-01-01`, to: today, label: `este año` };
-  const month = MONTHS.findIndex((m) => new RegExp(`\\b(en|de|del mes de|durante)\\s+${m}\\b`).test(t));
-  if (month >= 0) {
-    // Un mes que aún no ha llegado este año es el del año pasado («en diciembre» dicho en marzo).
-    const year = month + 1 > Number(today.slice(5, 7)) ? Number(today.slice(0, 4)) - 1 : Number(today.slice(0, 4));
-    const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-    const end = lastDayOfMonth(from);
-    return { from, to: end < today ? end : today, label: `en ${MONTHS[month]}${year === Number(today.slice(0, 4)) ? "" : ` de ${year}`}` };
-  }
-  return null;
-}
 
 /**
  * Ventana de vencimiento hacia delante: «vencen esta semana» (hasta el domingo), «este mes», «hoy», «mañana»,

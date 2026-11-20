@@ -12,10 +12,17 @@ export const TAREAS = {
 } as const;
 export type TareaId = keyof typeof TAREAS;
 
+/**
+ * Lo que se pregunta dentro de una tarea: un problema concreto del catálogo («¿qué productos no tienen precio?»)
+ * o el stock parado. Sin foco, la tarea entera.
+ */
+export type TareaFoco = "sin_precio" | "sin_categoria" | "sin_minimo" | "sin_formatos" | "stock_negativo" | "parado";
+
 export interface TareaPlan {
   type: "tarea";
   tarea: TareaId;
   locationIds: string[];
+  foco?: TareaFoco;
 }
 
 /** Lo que una tarea deja preparado para un toque: borradores o consultas ya resueltas. */
@@ -38,6 +45,7 @@ export interface TareaInput {
   source: InventoryDataSource;
   locationIds: string[];
   now: Date;
+  foco?: TareaFoco;
 }
 
 export const MAX_ROWS = 15;

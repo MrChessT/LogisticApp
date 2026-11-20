@@ -22,7 +22,7 @@ import { fixedReply } from "./fixed-replies";
 import { officeAction } from "./office-actions";
 import type { Plan } from "./plans";
 import type { Session } from "./session";
-import { isShortcut, resolveShortcut, tareaTopicOf } from "./shortcuts";
+import { isShortcut, resolveShortcut, tareaFocoOf, tareaTopicOf } from "./shortcuts";
 
 export interface PrerouteInput {
   ctx: SessionContext;
@@ -68,7 +68,8 @@ export async function preroute(message: string, input: PrerouteInput): Promise<P
   const named = namedLocations(ctx.locations, message);
   const scope = named.length > 0 ? named.map((l) => l.id) : pageLocationId ? [pageLocationId] : ctx.locations.map((l) => l.id);
   const tarea = tareaTopicOf(message);
-  if (tarea) return { type: "tarea", tarea, locationIds: scope };
+  const foco = tarea ? tareaFocoOf(message) : null;
+  if (tarea) return { type: "tarea", tarea, locationIds: scope, ...(foco ? { foco } : {}) };
   const infoTool = infoTopicOf(message) ?? infoFollowUp(message, session.focus?.tool);
   if (infoTool) return { type: "info", tool: infoTool, locationIds: scope, locationsDefaulted: named.length === 0 && !pageLocationId, products: [], periodo: "no_indicado" };
 

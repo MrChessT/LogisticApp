@@ -43,6 +43,7 @@ function columnsFor(result: ToolResult, dato?: Dato): { columns: Column[]; flag?
         flag: (r) => r.bajo_minimo === true,
       };
     case "query_movements":
+      if (result.totals.por_local) return { columns: [{ key: "local", label: "Local" }, { key: "tipo", label: "Tipo" }, { key: "valor", label: "Valor", align: "right" }, { key: "movimientos", label: "Registros", align: "right" }] };
       return { columns: [{ key: "tipo", label: "Tipo" }, { key: "producto", label: "Producto" }, { key: "cantidad", label: "Cantidad", align: "right" }, { key: "valor", label: "Valor", align: "right" }] };
     case "query_prices":
       return { columns: [{ key: "producto", label: "Producto" }, { key: "formato", label: "Formato" }, { key: "proveedor", label: "Proveedor" }, { key: "precio_actual", label: "Precio", align: "right" }] };

@@ -6,6 +6,7 @@
 //   · Sin nada más («prepárame el pedido»): la decisión de reposición (tools/reorder-plan.ts). Lo que se cubre con
 //     un traspaso no se compra, lo del proveedor que hoy no admite pedidos espera a su día, y cada proveedor cubre
 //     hasta que llegue su pedido siguiente.
+import { unknownSupplier } from "../tools/text-filters";
 import Decimal from "decimal.js";
 import type { DraftCheck, OrderDraft } from "../contract/index";
 import type { Pack, Product } from "../domain";
@@ -55,6 +56,11 @@ export async function buildOrder({ plan, message, ctx, source, overrides, now }:
   const today = businessDay(now, location.timezone, location.dayCutoff);
   const periodo = plan.periodo ?? "no_indicado";
   const chosenSupplier = ctx.suppliers.find((s) => s.id === overrides.proveedor) ?? mentionedSupplier(message, ctx.suppliers);
+  // «Hazme el pedido de makro» sin Makro en los proveedores: se dice, en vez de preparar el de todos.
+  const unknown = chosenSupplier ? null : unknownSupplier(message, [...ctx.suppliers.map((s) => s.name), ...ctx.products.map((p) => p.name)], ctx.locations.map((l) => l.name));
+  if (unknown) {
+    return { kind: "error", message: `No tengo ningún proveedor llamado «${unknown}». Dime a cuál de los tuyos se lo pido o dalo de alta en Proveedores.`, navigate: { route: "/proveedores", filters: {}, auto: false } };
+  }
   const fmt = (v: Decimal.Value, p: Product) => formatStock(v, p);
 
   const wanted: Wanted[] = [];

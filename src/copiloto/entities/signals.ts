@@ -102,6 +102,11 @@ export function wantsAreaBreakdown(message: string): boolean {
   return /\b(cada|por|las|todas las|todos los|sus) (seccion|secciones|espacio|espacios|zona|zonas|barra|barras)\b/.test(text) || /\b(secciones|espacios|zonas)\b/.test(text);
 }
 
+/** «¿En qué local se pierde más en mermas?», «mermas por local»: los movimientos se reparten por local. */
+export function wantsLocationBreakdown(message: string): boolean {
+  return /\b(en que local|que local|cual local|por local|por locales|cada local|en cada local|segun el local|donde se pierde|donde se tira|donde hay mas)\b/.test(tokenize(message).join(" "));
+}
+
 /** Locales nombrados en el mensaje por sus palabras con sentido («la» de «La Oliva» no cuenta: «la caja de ayer»). */
 export function namedLocations<L extends { name: string }>(locations: readonly L[], message: string): L[] {
   const words = new Set(tokenize(message));

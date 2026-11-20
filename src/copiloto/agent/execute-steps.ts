@@ -109,7 +109,7 @@ export async function offerPhrases(actions: Array<{ label: string; say: string }
 
 /** Tarea de varios pasos: tabla, botones que preparan los borradores y enlace a su pantalla. */
 export async function tareaStep(plan: TareaPlan, env: ExecEnv, now: Date, sessions: SessionStore): Promise<ReportOutcome> {
-  const result = await env.timer.time("herramientas", () => runTarea(plan.tarea, { ctx: env.ctx, source: env.tools.source, locationIds: plan.locationIds, now }));
+  const result = await env.timer.time("herramientas", () => runTarea(plan.tarea, { ctx: env.ctx, source: env.tools.source, locationIds: plan.locationIds, now, ...(plan.foco ? { foco: plan.foco } : {}) }));
   if (result.table) await env.emit({ event: "table", data: result.table });
   if (result.navigate) await env.emit({ event: "navigate", data: result.navigate });
   const followUps = result.followUps.map((f) => ({ ...f, id: randomUUID().slice(0, 12) }));

@@ -96,6 +96,8 @@ export class SupabaseInfoSource implements InfoSource {
       allLocations: r.all_locations === true,
       locationIds: (r.location_ids as string[] | null) ?? [],
       pending: r.pending === true,
+      canValidate: r.can_validate === true,
+      seesCosts: r.can_see_costs === true,
     }));
   }
 

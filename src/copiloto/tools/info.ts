@@ -10,15 +10,27 @@ import { normalize, tokenize } from "../entities/normalize";
 import { formatDecimal, formatMoney } from "../entities/units";
 import { tokenSimilarity } from "../entities/retriever";
 import { ALLERGENS } from "../../lib/recipes";
+import { ROLE_HELP } from "../../lib/team";
 import { overview, priceRanking, type FiguresSource } from "./info-figures";
 import { supplierDataAnswer } from "./info-suppliers";
 import { sales, type SalesSource } from "./info-sales";
 import { warehouseQueue, type WarehouseSource } from "./info-warehouse";
 import { invoices, type InvoicesSource } from "./info-invoices";
+import { unknownSupplier } from "./text-filters";
 
 // Datos crudos (cifras como texto) ---------------------------------------------------------
 
-export interface TeamRaw { name: string; role: string; allLocations: boolean; locationIds: string[]; pending: boolean }
+export interface TeamRaw {
+  name: string;
+  role: string;
+  allLocations: boolean;
+  locationIds: string[];
+  pending: boolean;
+  /** Personal que valida salidas del almacén con su PIN (la gestión puede siempre). */
+  canValidate?: boolean;
+  /** Ve costes e importes (la gestión siempre; el personal si se le da). */
+  seesCosts?: boolean;
+}
 /** Un ingrediente de un escandallo: producto o elaboración, con su cantidad en unidad base o de rendimiento. */
 export interface RecipeLineRaw { id: string; productId: string | null; subRecipeId: string | null; name: string; qty: string; unit: "g" | "ml" | "ud" | "racion" }
 export interface RecipeRaw {
@@ -147,6 +159,8 @@ async function team(source: InfoSource, ctx: SessionContext, p: InfoParams): Pro
     people = people.filter((m) => m.allLocations || m.locationIds.some((id) => p.locationIds.includes(id)));
   }
   if (people.length === 0) return { text: `No hay nadie en el equipo ${scopeLabel(ctx, p)}.`.replace(/\s+\./, "."), route, rows: 0 };
+  const person = personAnswer(people, ctx, p.message, route);
+  if (person) return person;
   const counts = new Map<string, number>();
   for (const m of people) counts.set(m.role, (counts.get(m.role) ?? 0) + 1);
   const GROUP: Record<string, [string, string]> = { owner: ["en propiedad", "en propiedad"], admin: ["en administración", "en administración"], manager: ["encargado", "encargados"], staff: ["de personal", "de personal"] };
@@ -171,6 +185,37 @@ async function team(source: InfoSource, ctx: SessionContext, p: InfoParams): Pro
     route,
     rows: people.length,
   };
+}
+
+/** Lo que puede hacer una persona: su puesto (la ayuda de Equipo) y los permisos sueltos del personal. */
+function permissions(m: TeamRaw): string {
+  const role = (ROLE_HELP as Record<string, string>)[m.role] ?? "";
+  if (m.role !== "staff") return role;
+  return `${role} ${m.seesCosts ? "Ve costes e importes." : "No ve costes ni importes."} ${m.canValidate ? "Valida salidas del almacén con su PIN." : "No valida salidas del almacén."}`;
+}
+
+/** Preguntas por persona: «¿qué permisos tiene Luis?», «¿en qué locales está Marta?». */
+const ABOUT_PERSON = /\b(permisos?|puede|pueden|rol|puesto|acceso|accesos|locales? (tiene|lleva)|en que locales?|quien es|que hace|ve costes|valida)\b/;
+const NOT_A_NAME = new Set(["permisos", "permiso", "tiene", "puede", "que", "quien", "rol", "puesto", "acceso", "es", "el", "la", "de", "del", "en", "locales", "local", "hace", "ve", "costes", "valida", "salidas", "equipo", "personal", "lleva", "cual", "su", "sus", "mi", "tengo", "yo"]);
+
+function personAnswer(people: TeamRaw[], ctx: SessionContext, message: string, route: AppRoute): InfoResult | null {
+  const text = normalize(message);
+  const words = tokenize(message);
+  // Por el nombre de pila o el apellido; las palabras de un puesto («encargado») no nombran a nadie.
+  const asName = (part: string) => part.length > 2 && !/^(encargad|camarer|propietari|administra|personal|cociner|jef[ae]|equipo)/.test(part);
+  const named = people.filter((m) => tokenize(m.name).some((part) => asName(part) && words.some((w) => w.length > 2 && tokenSimilarity(w, part) >= 0.85)));
+  if (named.length === 0) {
+    if (!ABOUT_PERSON.test(text)) return null;
+    // Pregunta por alguien que no está: se dice, en vez de enseñar el equipo entero.
+    const candidate = words.filter((w) => w.length > 2 && !NOT_A_NAME.has(w) && !ctx.locations.some((l) => tokenize(l.name).includes(w))).at(-1);
+    return candidate ? { text: `No hay nadie llamado «${candidate}» en el equipo. Mira la lista en Equipo.`, route, rows: 0 } : null;
+  }
+  if (named.length > 3) return null;
+  const lines = named.map((m) => {
+    const where = m.allLocations ? "todos los locales" : m.locationIds.map((id) => locationName(ctx, id)).join(", ") || "ningún local";
+    return `${m.name}: ${(ROLE_LABEL[m.role] ?? m.role).toLowerCase()} en ${where}${m.pending ? " (aún no ha aceptado la invitación)" : ""}. ${permissions(m)}`.trim();
+  });
+  return { text: lines.join("\n"), route, rows: named.length };
 }
 
 // Escandallos --------------------------------------------------------------------------------
@@ -364,6 +409,9 @@ async function suppliers(source: InfoSource, ctx: SessionContext, p: InfoParams)
       s.paymentTerms ? `pago: ${s.paymentTerms}` : null,
     ].filter(Boolean).join(" · ");
   const named = all.filter((s) => names(p.message, s.name));
+  // «Teléfono de makro» con Makro sin dar de alta: se dice, en vez de enseñar la lista entera.
+  const unknown = named.length === 0 ? unknownSupplier(p.message, all.map((s) => s.name), ctx.locations.map((l) => l.name)) : null;
+  if (unknown) return { text: `No tengo ningún proveedor llamado «${unknown}». Mira la lista en Proveedores o dalo de alta allí.`, route, rows: 0 };
   const datos = supplierDataAnswer(all, p.message, route);
   if (datos) return datos;
   if (named.length === 1) {
@@ -430,13 +478,13 @@ const TOPICS: Array<[InfoTool, RegExp]> = [
   ["query_sales", /\b(ventas?|vendid[oa]s?|vendimos|vendi|vendio|vendieron|vendemos|venden|facturacion|facturamos|recaudacion|recaudado|ingresos|ganancias?|beneficios?|ganamos|hemos ganado|margen bruto|tpv|ticket medio)\b|\bse (vende|venden|vendio|vendieron)\b|\bfood ?cost\b.*\b(ventas|ayer|hoy|semana|mes|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b|\bvende (mas|menos)\b|\b(pasta|dinero|pelas)\b.*\b(hicimos|hemos hecho|sacamos|hemos sacado|se hizo)\b|\bcaja (de |del )?(ayer|hoy|anoche|anteayer|\d{1,2}|lunes|martes|miercoles|jueves|viernes|sabado|domingo|esta semana|la semana)\b/],
   // «¿Qué albaranes hay?»: los albaranes se miran contra sus facturas (los que faltan por facturar).
   ["query_invoices", /\bfactur(?!acion|amos)\w*|\bfactuas?\b|\bvencimientos?\b|\bpor pagar\b|\bsin pagar\b|\bdeuda\b|\b(le )?(debo|debemos)\b|\balbaran(es)?\b/],
-  ["query_team", /\b(personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
+  ["query_team", /\b(permisos?|personal|plantilla|empleados?|trabajadores?|equipo|camareros?|encargad[oa]s?|usuarios?|quien trabaja|cuantas personas|cuanta gente)\b/],
   ["query_recipes", /\b(escandallos?|recetas?|platos?|food ?cost|elaboracion(es)?|alergenos?|carta)\b/],
   ["query_areas", /\b(zonas?|secciones|seccion|almacenes)\b/],
   // «¿qué hay pendiente de validar en el almacén?», «salidas sin validar»: la cola de la pantalla de almacén.
   ["query_warehouse", /\b(salidas?|movimientos?|devoluciones?)\b.*\b(pendientes?|sin validar|por validar|validar)\b|\bpendientes? de validar\b|\b(cola|pendientes?) (del|de|en el) almacen\b|\balmacen\b.*\b(pendientes?|sin validar|por validar)\b/],
   ["query_counts", /\binventarios? (abiertos?|pendientes?|en curso|sin cerrar)\b|\bcuando (fue el ultimo inventario|se conto|contamos|contaron|hicimos el (ultimo )?inventario)\b|\bque inventarios\b|\bhay (algun )?inventario abierto\b/],
-  ["query_suppliers", /\b(proveedores|condiciones de pago|dias de pedido|hora limite|pedido minimo)\b/],
+  ["query_suppliers", /\b(proveedores|telefono|movil|email|correo|contacto|whatsapp|condiciones de pago|dias de pedido|hora limite|pedido minimo)\b/],
   // «¿cuál es el producto más caro?», «lo más barato que tenemos». No «¿qué está más caro que antes?» (subidas).
   ["query_price_ranking", /\b(mas|menos) (car[oa]s?|barat[oa]s?)\b(?!.*\bque (antes|el mes|la semana|el ano|hace)\b)/],
   ["query_overview", /\bcomo (voy|vamos|va|van|estamos|estoy|ha ido|fue)\b.*\b(mes|semana|negocio|todo|cosas)\b|\bcomo (voy|vamos)$|\b(resumen|balance|que tal) (del|de este|este|el|la|de la) (mes|semana)\b/],
