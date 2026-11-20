@@ -109,6 +109,9 @@ src/copiloto/
   probabilidad entre los parecidos, salvo que ponga otro producto concreto por delante (`exactCandidate`).
 - **Una aclaración por dato, con la recomendada primero**: el origen de un traspaso ofrece primero el local al que
   le sobra ese producto (`recommend-origin.ts`), con el motivo. Recomendar no es actuar.
+- **La operación que dice la frase manda**: «prepara un pedido de…» o «quiero pedir…» es un pedido y «da de alta…»
+  un alta (`asksOrder`, `asksNewProduct` en `free-text.ts`), aunque Jev dude con un traspaso o un producto parecido.
+  «Olvídalo» con un borrador pendiente lo descarta (`preroute.ts`), también con coletilla («déjalo, ya lo hago yo»).
 - **La respuesta escrita a una aclaración casa primero con sus opciones** («¿y la royal bliss?» a «¿cuál de estas
   tónicas?»). Una reescritura de la IA que es una pregunta al usuario se descarta (`asksUser`).
 - **Lo que decide el usuario manda**: una opción elegida en una aclaración o en el formulario se fuerza

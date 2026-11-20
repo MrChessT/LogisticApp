@@ -22,6 +22,8 @@ import { asksSeveralData, referencesPrevious, wantsAreaBreakdown, wantsLocationB
 import { tokenize } from "../entities/normalize";
 import { isUnitWord } from "../entities/quantity-parser";
 import { familyOf } from "../entities/family";
+import { mentionedSupplier } from "../entities/catalog-parser";
+import { unknownSupplier } from "../tools/text-filters";
 import type { Session } from "./session";
 
 type QueryDeps = Pick<AgentDeps, "jev" | "sessions" | "metrics" | "thresholds">;
@@ -62,7 +64,10 @@ function movementFilter(message: string, plan: QueryPlan, session: Session): { m
 }
 
 /** «¿Cuánto he gastado en bebida?»: la familia que nombra (o los productos que resolvió Jev). */
-function spendFamily(message: string, plan: QueryPlan, ctx: SessionContext): { family?: ToolParams["family"] } {
+function spendFamily(message: string, plan: QueryPlan, ctx: SessionContext): { family?: ToolParams["family"]; supplier?: string } {
+  // «Lo gastado en Bebidas del Sur»: un proveedor nombrado filtra por él (antes que leer «bebidas» como familia).
+  const supplier = mentionedSupplier(message, ctx.suppliers);
+  if (supplier) return { supplier: supplier.name };
   const family = familyOf(message, ctx.products);
   if (family && family.products.length > 0) return { family: { label: family.label, productIds: family.products.map((p) => p.id) } };
   if (plan.products.length > 0) return { family: { label: plan.familia ?? plan.products.map((p) => p.product.name).slice(0, 2).join(", "), productIds: plan.products.map((p) => p.product.id) } };
@@ -106,6 +111,11 @@ export async function runQuery(deps: QueryDeps, now: Date, asked: QueryPlan, mes
     ...(plan.tool === "query_spend" ? spendFamily(message, plan, ctx) : {}),
   };
 
+  // «¿Cuánto llevamos gastado en Frutas Paco?» sin ese proveedor dado de alta: se dice, no se da el total de todos.
+  if (plan.tool === "query_spend" && !params.supplier) {
+    const unknown = unknownSupplier(message, [...ctx.suppliers.map((s) => s.name), ...ctx.products.map((p) => p.name)], ctx.locations.map((l) => l.name));
+    if (unknown) return { kind: "error", message: `No tengo ningún proveedor llamado «${unknown}». Pregúntame el gasto de uno de los tuyos o el total («¿cuánto he gastado este mes?»).` };
+  }
   let result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));
   // «¿qué hay en cada sección?» sin stock repartido por zonas: no es «no hay stock», es que no hay
   // secciones con stock. Se dice y se enseña el total del local.

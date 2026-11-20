@@ -11,6 +11,12 @@ describe("gasto con filtros", () => {
     expect(done.text).toMatch(/^Compras de refrescos del 01\/09\/2026 al 23\/09\/2026: 80,00 € en 1 albarán\./);
   });
 
+  it("«en Bebidas del Sur»: solo lo de ese proveedor; uno que no existe se dice", async () => {
+    const { agent } = makeAgent(new FakeJev([SPEND, SPEND]));
+    expect(find(await run(agent, chat("cuanto he gastado este mes en bebidas del sur")), "done")!.text).toMatch(/^Compras de Bebidas del Sur del 01\/09\/2026 al 23\/09\/2026: 198,00 € en 2 albaranes\./);
+    expect(find(await run(agent, chat("cuanto llevamos gastado con frutas paco")), "done")!.text).toBe("No tengo ningún proveedor llamado «frutas paco». Pregúntame el gasto de uno de los tuyos o el total («¿cuánto he gastado este mes?»).");
+  });
+
   it("sin familia ni «este mes»: todo lo comprado en los últimos 30 días, como siempre", async () => {
     const { agent } = makeAgent(new FakeJev([SPEND]));
     const done = find(await run(agent, chat("cuanto he gastado")), "done")!;

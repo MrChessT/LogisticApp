@@ -347,5 +347,31 @@
       { "usuario": "cuanto queda de larios y cuanto se gasta al dia", "espera": "Stock: .*Consumo 30 días", "sinAclarar": true },
       { "usuario": "precio y proveedor de la coca cola", "espera": "Precio: .*\\(", "sinAclarar": true }
     ]
+  },
+  {
+    "nombre": "Cancelar con coletilla y corregir el motivo (fase 1)",
+    "turnos": [
+      { "usuario": "merma de 1 botella de beefeater en la oliva", "borrador": "Beefeater.*La Oliva" },
+      { "usuario": "y ponlo como caducidad", "borrador": "Beefeater.*La Oliva" },
+      { "usuario": "olvidalo, ya lo apunto luego", "espera": "Descartado|Vale, lo dejo" },
+      { "usuario": "que productos no tienen categoria", "espera": "sin categoría|Ningún producto", "sinAclarar": true }
+    ]
+  },
+  {
+    "nombre": "Pedido dicho como pedido y alta de producto (fase 1)",
+    "turnos": [
+      { "usuario": "hazme un pedido de 4 cajas de coca cola para la oliva", "borrador": "Pedido para La Oliva", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Descartado|Vale, lo dejo" },
+      { "usuario": "da de alta una ginebra nueva de litro que viene en cajas de 6", "espera": "Nuevo producto|¿Cómo se llama|nombre", "no": "¿De cuál de estos productos" }
+    ]
+  },
+  {
+    "nombre": "Preguntas de gestión con filtros (fase 2)",
+    "turnos": [
+      { "usuario": "la factura de lukoilsa del mes pasado esta pagada?", "espera": "No tengo ningún proveedor llamado «lukoilsa»", "sinAclarar": true },
+      { "usuario": "cuanto hemos gastado este mes con lukoilsa", "espera": "No tengo ningún proveedor llamado «lukoilsa»", "sinAclarar": true },
+      { "usuario": "quien del equipo no ha entrado nunca", "espera": "no ha entrado nunca|no han entrado nunca|han entrado alguna vez", "sinAclarar": true },
+      { "usuario": "que platos dejan menos margen", "espera": "Los de menos margen|Ningún plato tiene PVP", "sinAclarar": true }
+    ]
   }
 ]

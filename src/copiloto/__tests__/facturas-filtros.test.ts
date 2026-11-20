@@ -19,7 +19,7 @@ describe("facturas y albaranes con filtros", () => {
 
   it("proveedor que no existe: se dice, con los que sí tienen documentos", async () => {
     const r = await ask("cuanto le debo a frutas paco");
-    expect(r.text).toBe("No tengo ningún proveedor llamado «frutas». Los que tienen facturas o albaranes son: Bebidas del Sur, Distribuciones Canarias, Makro.");
+    expect(r.text).toBe("No tengo ningún proveedor llamado «frutas paco». Los que tienen facturas o albaranes son: Bebidas del Sur, Distribuciones Canarias, Makro.");
     expect(r.table).toBeUndefined();
   });
 
@@ -54,6 +54,10 @@ describe("equipo: preguntas por una persona", () => {
     expect(r.table).toBeUndefined();
   });
 
+  it("«¿quién no ha entrado nunca?»: los que no han aceptado la invitación", async () => {
+    expect((await team("y quien no ha entrado nunca")).text).toBe("1 persona no ha entrado nunca en tus locales: Marta Camarera.");
+  });
+
   it("alguien que no está se dice; «¿cuántos encargados hay?» sigue siendo la lista", async () => {
     expect((await team("que permisos tiene pepe")).text).toBe("No hay nadie llamado «pepe» en el equipo. Mira la lista en Equipo.");
     expect((await team("cuantos encargados hay")).text).toMatch(/^3 personas/);
@@ -73,5 +77,13 @@ describe("proveedores: contacto de uno que no existe", () => {
 describe("filtro que facturas no admite", () => {
   it("«facturas de la barra 1»: se dice que van por local, no por zona", async () => {
     expect((await ask("facturas de la barra 1")).text).toBe("En facturas y albaranes no puedo filtrar por zona («Barra 1»): van por local, no por zona. Puedo verlas por proveedor, número o fecha.");
+  });
+});
+
+describe("escandallos: ordenar por margen", () => {
+  it("«¿qué platos tienen peor margen?»: la lista de menos a más margen", async () => {
+    const r = await runInfo(new FixtureInfoSource(NOW), ctx, { tool: "query_recipes", message: "que platos tienen peor margen", locationIds: ctx.locations.map((l) => l.id), locationsChosen: false, productNames: [], now: NOW });
+    expect(r.text).toBe("Los de menos margen: Croquetas de jamón (4,78 € por ración, food cost 41,6 %), Ensalada de la huerta (5,67 € por ración, food cost 22 %).");
+    expect(r.table!.rows.map((x) => x.plato)).toEqual(["Croquetas de jamón", "Ensalada de la huerta"]);
   });
 });

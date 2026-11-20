@@ -14,14 +14,14 @@ function step(task: PendingTask, text: string) {
 }
 
 describe("operación a medias tras el miniformulario", () => {
-  it("merma por pasos: «larios» → «2 botellas» → «en el vivero» arman la merma completa", () => {
-    const a = step(merma, "larios");
-    expect(a.message).toBe("merma de larios");
+  it("merma por pasos: «barcelo» → «2 botellas» → «en el vivero» arman la merma completa", () => {
+    const a = step(merma, "barcelo");
+    expect(a.message).toBe("merma de barcelo");
     expect(a.missing).toEqual(["local", "cantidad"]);
     const b = step(a.task, "2 botellas");
-    expect(b.message).toBe("merma de 2 botellas de larios");
+    expect(b.message).toBe("merma de 2 botellas de barcelo");
     const c = step(b.task, "en el vivero");
-    expect(c.message).toBe("merma de 2 botellas de larios en Vivero");
+    expect(c.message).toBe("merma de 2 botellas de barcelo en Vivero");
     expect(c.overrides).toMatchObject({ intent: "proponer_accion", tipo_accion: "merma", local: "Vivero" });
     expect(c.missing).toEqual([]);
   });
@@ -52,7 +52,9 @@ describe("operación a medias tras el miniformulario", () => {
     expect(continueTask(merma, "¿cuánto ron queda en el Parador?", ctx, NOW).kind).toBe("other");
     expect(continueTask(merma, "cuanto ron queda", ctx, NOW).kind).toBe("other");
     expect(continueTask(merma, "mejor haz un traspaso", ctx, NOW).kind).toBe("other");
-    expect(continueTask(merma, "hola", ctx, NOW).kind).toBe("continue");
+    // Sin ningún dato reconocible («hola», «lo demás todo bien») no es una continuación.
+    expect(continueTask(merma, "hola", ctx, NOW).kind).toBe("other");
+    expect(continueTask(merma, "lo demas todo bien", ctx, NOW).kind).toBe("other");
   });
 
   it("caduca: pasado un rato, lo escrito es un mensaje nuevo", () => {

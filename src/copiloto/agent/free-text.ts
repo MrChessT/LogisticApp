@@ -122,7 +122,29 @@ export const CANCEL_OPTION = "__dejar";
 
 /** «déjalo», «cancela», «olvídalo», «nada», «no»: no se quiere seguir con esa pregunta. */
 export function isCancel(text: string): boolean {
-  return /^(no,? )?(dejalo|dejala|dejalo estar|cancela|cancelar|cancelalo|olvidalo|olvida|nada|da igual|salir|stop)$/.test(tokenize(text).join(" "));
+  const t = tokenize(text).join(" ");
+  if (/^(no,? )?(dejalo|dejala|dejalo estar|cancela|cancelar|cancelalo|olvidalo|olvida|nada|da igual|salir|stop)$/.test(t)) return true;
+  // Con una coletilla corta: «déjalo, ya lo hago yo», «olvídalo que no hace falta», «no hace falta».
+  return t.split(" ").length <= 7 && /^(no,? )?(dejalo|dejala|olvidalo|cancela|cancelalo|da igual|no hace falta|no importa)\b.*\b(yo|luego|despues|falta|mejor|igual|ya|mas tarde|otro dia)\b/.test(t) || /^no hace falta$/.test(t);
+}
+
+/** «Da de alta un vermut rojo de litro»: un alta de producto, aunque se parezca a uno que ya existe. */
+export function asksNewProduct(message: string): boolean {
+  const t = tokenize(message).join(" ");
+  if (/[¿?]/.test(message) || /\b(escandallo|receta|plato|proveedor|zona|seccion|usuario|persona|empleado)\b/.test(t)) return false;
+  return /\b(da|dar|doy|dame|damos) de alta\b|\bnuevo producto\b|\bproducto nuevo\b|\bnueva referencia\b/.test(t);
+}
+
+/**
+ * «Prepara un pedido de 5 cajas de agua», «quiero pedir 3 cocacolas y 3 larios»: es un pedido (no un traspaso),
+ * aunque Jev dude entre los dos. Lo que decide es la palabra pedido o pedir con un verbo de hacerlo.
+ */
+export function asksOrder(message: string): boolean {
+  const t = tokenize(message).join(" ");
+  // «¿Qué tengo que pedir?» es una consulta (reposición), no la orden de pedir.
+  if (/[¿?]/.test(message) || /^(que|cual|cuales|cuanto|cuanta|cuantos|cuantas|cuando|donde|como)\b/.test(t)) return false;
+  if (/\b(traspas\w*|pasa|pasar|mueve|mover|lleva|llevar|manda|mandar)\b/.test(t)) return false;
+  return /\b(prepara|preparame|preparar|haz|hazme|hacer|monta|montame)\b.*\bpedido\b|\b(quiero|queria|hay que|tengo que|tenemos que|necesito|vamos a) pedir\b|^pide(le)?\b/.test(t);
 }
 
 export function readFreeText(pending: PendingClarify, text: string, ctx: SessionContext): FreeTextAnswer {

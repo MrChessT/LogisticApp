@@ -28,9 +28,9 @@ export interface Correction {
 }
 
 /** Una corrección se anuncia: «mejor…», «no, …», «que sean…», «cámbialo…», «en vez de…». */
-const MARKER = /^(no|mejor|perdon|perdona|espera|uy|ups|corrijo|corrige|cambia\w*|quita\w*|elimina\w*|borra\w*|pon|ponlo|ponla|ponme|que sean|sean|son|eran|era|al final|mas bien|en realidad|me he equivocado|me equivoque)\b|\ben (vez|lugar) de\b|\bque sean\b/;
+const MARKER = /^(no|mejor|perdon|perdona|espera|uy|ups|corrijo|corrige|cambia\w*|quita\w*|elimina\w*|borra\w*|(apunta|marca|pon)(lo|la)? como|pon|ponlo|ponla|ponme|que sean|sean|son|eran|era|al final|mas bien|en realidad|me he equivocado|me equivoque)\b|\ben (vez|lugar) de\b|\bque sean\b/;
 /** Palabras de la corrección en sí: no son el producto. */
-const LEAD = /^((no|vale|perdon|perdona|espera|uy|ups|oye|mejor|corrijo|corrige|cambia\w*|pon\w*|que|sean|son|eran|era|es|al final|mas bien|en realidad|me he equivocado|me equivoque|lo|la|el|los|las|cantidad|local|producto|origen|destino|motivo)\b[\s,.]*)+/;
+const LEAD = /^((no|vale|perdon|perdona|espera|uy|ups|oye|mejor|corrijo|corrige|cambia\w*|pon\w*|apunta\w*|marca\w*|como|que|sean|son|eran|era|es|al final|mas bien|en realidad|me he equivocado|me equivoque|lo|la|el|los|las|cantidad|local|producto|origen|destino|motivo)\b[\s,.]*)+/;
 /** «Quita la de zero», «elimina la coca cola», «sin el larios»: fuera esa línea (solo con varias). */
 const REMOVE = /^(quita\w*|elimina\w*|borra\w*|sin)\b/;
 const INSTEAD = /\ben (vez|lugar) de\s+(el |la |los |las )?\S+(\s+(botellas?|cajas?|uds?|unidades?|kg|kilos?|litros?|l|packs?|barriles?|garrafas?))?/;
@@ -105,7 +105,8 @@ async function removeLine(norm: string, draft: WasteDraft | TransferDraft, lines
  */
 export async function draftCorrection(text: string, focus: Focus | undefined, drafts: DraftStore, ctx: SessionContext, retriever: Retriever, now: Date): Promise<Correction | null> {
   if (!focus?.draftId) return null;
-  const norm = normalize(text).trim();
+  // «y apúntalo como rotura»: el «y» de seguir hablando no cambia nada.
+  const norm = normalize(text).trim().replace(/^(y|e|pues|vale,?)\s+/, "");
   const words = tokenize(text);
   if (!MARKER.test(norm) || words.length > MAX_WORDS || isNewQuestion(text) || isCancel(text)) return null;
   // Precios, PVP o importes son otra orden («pon el pvp del gin tonic a 9 euros»), no esta corrección.
@@ -115,7 +116,9 @@ export async function draftCorrection(text: string, focus: Focus | undefined, dr
   const draft: Draft = stored.draft;
   if (draft.kind !== "merma" && draft.kind !== "traspaso") return null;
   // Si nombra una operación («pon una merma de…»), es una orden nueva, no un retoque de esta.
-  if (operationOf(text) !== null) return null;
+  // «Apúntalo como rotura» nombra la merma sin pedir otra: eso sí es una corrección.
+  const op = operationOf(text);
+  if (op !== null && (op !== draft.kind || /\b(una|otra|nueva|un|otro|nuevo)\s+(merma|traspaso|rotura)\b/.test(norm))) return null;
 
   const said = norm.replace(INSTEAD, " ").replace(LEAD, "").trim();
   const f = readFragment(said, ctx);

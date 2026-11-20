@@ -33,6 +33,7 @@ const CONNECTORS = new Set(["de", "del", "en", "el", "la", "los", "las", "al", "
 const OPERATION_WORDS = new Set([
   "merma", "mermas", "traspaso", "traspasos", "traspasar", "pasa", "pasar", "mueve", "mover", "recepcion", "llegado", "llegaron", "llego", "han",
   "registra", "registrar", "apunta", "apuntar", "haz", "hacer", "quiero", "una", "un", "se", "ha", "hay", "me", "nos",
+  "necesito", "necesitamos", "tengo", "tenemos", "hoy", "ahora", "porfa", "favor",
 ]);
 const REASONS: Array<[string, RegExp]> = [
   ["rotura", /\b(rot[oa]s?|rompi\w*|rotura|se (ha |han )?ca(id|y)\w*|cayo|cayeron)\b/],
@@ -155,6 +156,14 @@ function unitText(amount: string, unit: string): string {
   return /[aeiou]$/.test(unit) ? `${unit}s` : `${unit}es`;
 }
 
+/** ¿Alguna palabra del texto es (casi) una palabra de un producto del catálogo? */
+function namesCatalog(text: string, ctx: SessionContext): boolean {
+  const words = tokenize(text).filter((w) => w.length >= 3);
+  // Erratas solo en palabras largas: con cuatro letras «hola» se parecería a «cola».
+  const close = (w: string, n: string) => n === w || (w.length >= 4 && n.startsWith(w)) || (w.length >= 5 && sameWord(w, n));
+  return words.some((w) => ctx.products.some((p) => tokenize(p.name).some((n) => n.length >= 3 && close(w, n)) || (w.length >= 5 && tokenize(p.name).join("").startsWith(w))));
+}
+
 /** Lo que queda al quitar conectores, palabras de la operación y motivos es el producto («larios»). */
 function cleanProduct(text: string): string | undefined {
   const reasons = new RegExp(REASONS.map(([, re]) => re.source).join("|"));
@@ -198,10 +207,11 @@ export function continueTask(task: PendingTask, text: string, ctx: SessionContex
     else if (task.accion === "traspaso" && !next.destino && l.name !== next.local) next.destino = l.name;
   }
   if (f.cantidad) next.cantidad = f.cantidad;
-  if (f.producto) next.producto = f.producto;
+  // Solo cuenta como producto si alguna palabra está en el catálogo: «lo demás todo bien» no es un producto.
+  if (f.producto && namesCatalog(f.producto, ctx)) next.producto = f.producto;
   if (f.motivo) next.motivo = f.motivo;
 
-  const learned = f.locations.length > 0 || f.cantidad || f.producto || f.motivo;
+  const learned = f.locations.length > 0 || f.cantidad || next.producto !== task.producto || f.motivo;
   if (!learned) return { kind: "other" };
   const byName = (name: string | undefined) => (name ? ctx.locations.find((l) => normalize(l.name) === normalize(name)) : undefined);
   const local = byName(next.local);
@@ -233,10 +243,16 @@ export function resumeTask(session: { task?: PendingTask }, text: string, ctx: S
 }
 
 /** Sale el miniformulario: se guarda lo que ya se sabe (lo acumulado manda sobre lo que el formulario no trae). */
-export function rememberTask(session: { task?: PendingTask }, form: FormEvent, now: number): void {
+export function rememberTask(session: { task?: PendingTask }, form: FormEvent, now: number, message?: string, ctx?: SessionContext): void {
   const fromForm = taskFromForm(form, now);
   const kept = session.task?.accion === form.accion ? session.task : undefined;
-  session.task = kept ? { ...fromForm, ...Object.fromEntries(Object.entries(kept).filter(([, v]) => v !== undefined)), at: now } : fromForm;
+  const task: PendingTask = kept ? { ...fromForm, ...Object.fromEntries(Object.entries(kept).filter(([, v]) => v !== undefined)), at: now } : fromForm;
+  // «Necesito mover hielo»: el producto dicho, aunque el formulario no lo traiga elegido (había varios hielos).
+  if (!task.producto && message && ctx) {
+    const said = cleanProduct(message);
+    if (said && namesCatalog(said, ctx)) task.producto = said;
+  }
+  session.task = task;
 }
 
 /** Cualquier respuesta que no sea pedir datos (un borrador, una consulta, un error) cierra la operación a medias. */
