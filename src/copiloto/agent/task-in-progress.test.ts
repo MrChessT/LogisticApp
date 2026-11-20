@@ -48,6 +48,7 @@ describe("operación a medias tras el miniformulario", () => {
 
   it("cancelar, preguntar otra cosa u otra operación no completan la merma", () => {
     expect(continueTask(merma, "olvídalo", ctx, NOW).kind).toBe("cancel");
+    expect(continueTask(merma, "no", ctx, NOW).kind).toBe("cancel");
     expect(continueTask(merma, "¿cuánto ron queda en el Parador?", ctx, NOW).kind).toBe("other");
     expect(continueTask(merma, "cuanto ron queda", ctx, NOW).kind).toBe("other");
     expect(continueTask(merma, "mejor haz un traspaso", ctx, NOW).kind).toBe("other");

@@ -35,12 +35,12 @@ describe("facturas y albaranes con filtros", () => {
 
   it("albaranes de un proveedor en un periodo: todos, con su factura; sin filtros, los que faltan por facturar", async () => {
     const r = await ask("albaranes de distribuciones canarias de este mes");
-    expect(r.text).toBe("1 albarán de Distribuciones Canarias de este mes (desde el 01/09/2026) por 466,00 €; todos facturados.");
+    expect(r.text).toBe("1 albarán de Distribuciones Canarias de este mes por 466,00 €; todos facturados.");
     expect((await ask("que albaranes hay")).text).toMatch(/^Hay 2 albaranes sin factura por 240,50 €/);
   });
 
   it("facturas de un periodo, por su fecha", async () => {
-    expect((await ask("facturas de este mes")).text).toBe("1 factura de este mes (desde el 01/09/2026) por 484,00 €; pendiente de pago: 484,00 €.");
+    expect((await ask("facturas de este mes")).text).toBe("1 factura de este mes por 484,00 €; pendiente de pago: 484,00 €.");
     expect((await ask("facturas pagadas en agosto")).text).toBe("1 factura pagada en agosto por 300,00 €. La última, el 23/8/2026.");
   });
 });
@@ -67,5 +67,11 @@ describe("proveedores: contacto de uno que no existe", () => {
     const supp = (message: string) => runInfo(new FixtureInfoSource(NOW), ctx, { tool: "query_suppliers", message, locationIds: ctx.locations.map((l) => l.id), locationsChosen: false, productNames: [], now: NOW });
     expect((await supp("telefono de frutaspaco")).text).toBe("No tengo ningún proveedor llamado «frutaspaco». Mira la lista en Proveedores o dalo de alta allí.");
     expect((await supp("telefono de makro")).text).toMatch(/^Makro: /);
+  });
+});
+
+describe("filtro que facturas no admite", () => {
+  it("«facturas de la barra 1»: se dice que van por local, no por zona", async () => {
+    expect((await ask("facturas de la barra 1")).text).toBe("En facturas y albaranes no puedo filtrar por zona («Barra 1»): van por local, no por zona. Puedo verlas por proveedor, número o fecha.");
   });
 });

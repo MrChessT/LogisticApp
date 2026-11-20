@@ -180,8 +180,9 @@ export type TaskStep =
   | { kind: "other" };
 
 export function continueTask(task: PendingTask, text: string, ctx: SessionContext, now: number): TaskStep {
-  if (isCancel(text)) return { kind: "cancel" };
   const words = tokenize(text);
+  // Con una operación a medias, un «no» o «ninguno» suelto también la deja (no contesta ningún dato).
+  if (isCancel(text) || /^(no|ninguno|ninguna|nada mas|ya no|mejor no)$/.test(words.join(" "))) return { kind: "cancel" };
   const op = operationOf(text);
   if (isNewQuestion(text) || words.length === 0 || words.length > MAX_FRAGMENT_WORDS || (op !== null && op !== task.accion)) return { kind: "other" };
   // «¿cuánto…», «qué…», «dónde…» sin signos: también es una pregunta, no un dato.

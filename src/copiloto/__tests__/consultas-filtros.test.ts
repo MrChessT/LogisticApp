@@ -51,8 +51,23 @@ describe("catálogo: un problema concreto y el stock parado", () => {
     const { agent } = makeAgent(new FakeJev([{}]));
     const events = await run(agent, chat("cuanto stock tengo parado"));
     expect(find(events, "done")!.text).toBe(
-      "Stock parado (sin ninguna salida en 30 días): 339,25 € en 7 productos por local. Lo que más pesa: Cerveza Mahou barril 30 l en Parador (148,50 €), Ron Brugal Añejo 70 cl en Parador (98,00 €), Ginebra Tanqueray 70 cl en Parador (34,00 €). Se puede traspasar a donde se gaste o dejar de pedirlo.",
+      "Stock parado (sin ninguna salida en 30 días): 339,25 € en 7 productos (cada local aparte). Lo que más pesa: Cerveza Mahou barril 30 l en Parador (148,50 €), Ron Brugal Añejo 70 cl en Parador (98,00 €), Ginebra Tanqueray 70 cl en Parador (34,00 €). Se puede traspasar a donde se gaste o dejar de pedirlo.",
     );
     expect(find(events, "table")!.rows).toHaveLength(7);
+  });
+});
+
+describe("preguntas dobles", () => {
+  it("«dime el stock del ron barceló y a cuánto lo compramos»: la ficha, con stock y precio", async () => {
+    const { agent } = makeAgent(new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: "query_stock", producto_0: "Ron Barceló Añejo 70 cl", local: "todos", dato: "cantidad" }]));
+    const done = find(await run(agent, chat("dime el stock del ron barcelo añejo y a cuanto lo compramos")), "done")!;
+    expect(done.text).toMatch(/^Ron Barceló Añejo 70 cl · Destilados\nPrecio: .*92,40 €.*\nStock: /);
+  });
+
+  it("una sola pregunta sigue siendo una sola respuesta", async () => {
+    const { asksSeveralData } = await import("../entities/signals");
+    expect(asksSeveralData("cuanto queda de larios y de beefeater")).toBe(false);
+    expect(asksSeveralData("precio y proveedor de la coca cola")).toBe(true);
+    expect(asksSeveralData("cuanto queda de larios y cuanto se gasta al dia")).toBe(true);
   });
 });

@@ -37,3 +37,14 @@ describe("respuesta escrita a «¿cuál de estos productos?»", () => {
     expect(find(events, "draft") as WasteDraft).toMatchObject({ productName: BARCELO, qtyBase: "1400" });
   });
 });
+
+describe("origen de un traspaso: la opción recomendada primero", () => {
+  it("«pasa 1 botella de ron barceló al vivero»: primero el local al que le sobra, con el motivo", async () => {
+    const jev = new FakeJev([{ intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: { dist: { Parador: 0.5, Pickels: 0.3, "La Oliva": 0.2 } }, local_destino: "Vivero", producto_0: BARCELO, cantidad_ok_0: 0.97 }]);
+    const { agent } = makeAgent(jev);
+    const clarify = find(await run(agent, chat("pasa 1 botella de ron barcelo añejo al vivero")), "clarify")!;
+    expect(clarify.question).toBe("¿Desde qué local sale la mercancía hacia Vivero?");
+    expect(clarify.options[0]!.label).toMatch(/^Pickels \(recomendado: le sobran .* de Ron Barceló Añejo 70 cl\)$/);
+    expect(clarify.options.map((o) => o.id)).toContain("Parador");
+  });
+});

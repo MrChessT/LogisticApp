@@ -43,6 +43,7 @@ import { auditEarlyTurn, auditTurn, traceEmit } from "./turn-trace";
 import { rememberTask, resumeTask, settleTask, taskPrompt } from "./task-in-progress";
 import { answerDraft, infoStep, offerPhrases, retireDraft, tareaStep, type ConfirmDraft, type ExecEnv } from "./execute-steps";
 import { draftCorrection } from "./draft-correction";
+import { recommendOrigin } from "./recommend-origin";
 
 export interface RequestScope {
   tools?: Tools;
@@ -358,14 +359,16 @@ export class Agent {
     return { plan: interpretation.plan, intent: interpretation.intent, decisions: interpretation.decisions, routing: { meta: built.meta, jev }, shortcut: false };
   }
 
-  private async clarify(plan: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
+  private async clarify(original: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
     // Operación clara con dos datos o más por saber: se piden juntos en un miniformulario.
-    const form = formFor(plan, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
+    const form = formFor(original, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
     if (form) {
       rememberTask(env.session, form, this.now().getTime());
       await env.emit({ event: "form", data: form });
       return { kind: "tarea", tarea: "formulario", text: taskPrompt(env.session.task), rows: 0 };
     }
+    // El origen de un traspaso: primero el local al que le sobra (recommend-origin.ts).
+    const plan = await recommendOrigin(original, { routing: env.routing, overrides: env.overrides, ctx: env.ctx, source: env.tools.source });
     // La misma pregunta otra vez: lo que se escribió no la contestaba. Se dice claro qué falta, con un
     // ejemplo de respuesta, y se ofrece dejarlo (nunca se manda a otra pantalla).
     const repeated = askedRecently(env.session, plan.question);

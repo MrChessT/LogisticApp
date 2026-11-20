@@ -7,6 +7,7 @@ import { formatDecimal, formatMoney, formatStock } from "../entities/units";
 import { businessDay } from "../../lib/business-day";
 import { EXIT_KIND_LABEL } from "../../lib/exit-kinds";
 import { addDays, daysInclusive, formatDay } from "./periods";
+import { spendBySupplier } from "./spend";
 import type { EvalItem, InventoryDataSource, MovementRaw, MovementType, ToolParams, ToolResult, ToolRow } from "./types";
 
 const MAX_ROWS = 12;
@@ -172,7 +173,7 @@ export class InventoryTools implements Tools {
       case "query_orders":
         return this.orders(params, ctx);
       case "query_spend":
-        return this.spend(params, ctx);
+        return spendBySupplier(this.source, params, dayOf(params.now));
       case "query_product":
         return this.product(params, ctx);
       case "query_top_usage":
@@ -357,39 +358,6 @@ export class InventoryTools implements Tools {
           : null,
       }));
     return finish("query_top_usage", rows, { total: formatMoney(total), productos: String(rows.length), desde: formatDay(from), hasta: formatDay(to) }, [], 10);
-  }
-
-  private async spend(params: ToolParams, ctx: SessionContext): Promise<ToolResult> {
-    void ctx;
-    const today = dayOf(params.now);
-    const from = params.period?.from ?? addDays(today, -29);
-    const to = params.period?.to ?? today;
-    // «¿Cuánto he gastado en bebida?»: solo las líneas de esa familia; si no, el albarán entero.
-    const family = params.family ? new Set(params.family.productIds) : null;
-    const raw = family
-      ? (await this.source.purchaseLines({ locationIds: params.locationIds, since: from }))
-          .filter((l) => l.docDate <= to && family.has(l.productId))
-          .map((l) => ({ receiptId: l.receiptId, supplierName: l.supplierName, total: l.amount }))
-      : (await this.source.purchases({ locationIds: params.locationIds, since: from })).filter((p) => p.docDate <= to);
-    const receipts = new Set(raw.map((p) => p.receiptId));
-    const bySupplier = new Map<string, { total: Decimal; receipts: Set<string> }>();
-    for (const p of raw) {
-      const key = p.supplierName ?? "Sin proveedor";
-      const entry = bySupplier.get(key) ?? { total: new Decimal(0), receipts: new Set<string>() };
-      entry.total = entry.total.plus(p.total);
-      entry.receipts.add(p.receiptId);
-      bySupplier.set(key, entry);
-    }
-    const total = [...bySupplier.values()].reduce((acc, e) => acc.plus(e.total), new Decimal(0));
-    const rows: ToolRow[] = [...bySupplier.entries()]
-      .sort((a, b) => b[1].total.cmp(a[1].total))
-      .map(([name, e]) => ({
-        proveedor: name,
-        albaranes: String(e.receipts.size),
-        importe: formatMoney(e.total),
-        porcentaje: `${formatDecimal(pct(e.total, total) ?? new Decimal(0), 1)} %`,
-      }));
-    return finish("query_spend", rows, { total: formatMoney(total), albaranes: String(receipts.size), desde: formatDay(from), hasta: formatDay(to), ...(params.family ? { familia: params.family.label } : {}) });
   }
 
   /** Último precio de compra: por unidad de barra y el del formato («Caja 24 a 28,80 € (Makro)»). */

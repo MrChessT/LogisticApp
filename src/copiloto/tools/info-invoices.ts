@@ -160,6 +160,12 @@ export async function invoices(source: InvoicesSource, ctx: SessionContext, p: I
       };
     }
   }
+  // Filtros que facturas y albaranes no tienen (zona, producto): se dice, en vez de enseñarlo todo.
+  if (!supplier) {
+    const words = new Set(tokenize(p.message));
+    const area = ctx.areas.find((a) => tokenize(a.name).filter((w) => w.length > 2 || /\d/.test(w)).every((w) => words.has(w)));
+    if (area) return { text: `En facturas y albaranes no puedo filtrar por zona («${area.name}»): van por local, no por zona. Puedo verlas por proveedor, número o fecha.`, route: ROUTE, rows: 0 };
+  }
   const who = supplier ? ` de ${supplier}` : "";
   const scoped = supplier ? all.filter((i) => i.supplierName === supplier) : all;
   const scopedReceipts = supplier ? receipts.filter((r) => r.supplierName === supplier) : receipts;

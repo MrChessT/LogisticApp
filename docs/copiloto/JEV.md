@@ -60,7 +60,15 @@ src/copiloto/
 ## Recorrido de un mensaje
 
 1. **Estado** (`loop.ts`): botón de seguimiento, formulario enviado, respuesta a una aclaración o mensaje
-   nuevo.
+   nuevo. Antes de Jev se miran dos estados de la sesión:
+   - la **operación a medias** (`task-in-progress.ts`): tras el miniformulario, un mensaje corto («larios», «2
+     botellas», «del parador al vivero») completa la operación y se arma la frase («merma de 2 botellas de larios en
+     Vivero»), que sigue el camino de siempre. Una pregunta, otra operación o una frase larga la olvidan; «olvídalo»
+     y «no» la dejan. Caduca a los 20 minutos;
+   - la **corrección del borrador pendiente** (`draft-correction.ts`): con un borrador de merma o traspaso esperando,
+     «mejor que sean 4», «no, a Pickles», «era por caducidad» o «quita la de zero» rehacen ese borrador con el mismo
+     constructor y solo ese dato cambiado. La llamada nº 2 recibe la petición original y la corrección, con el dato
+     que cambia; si Jev la ve coherente, sale el borrador nuevo y el anterior se bloquea y pasa a «descartado».
 2. **Comprensión** (`comprehension.ts`): si el mensaje depende de lo hablado, la IA lo reescribe; se
    descarta si inventa productos o locales.
 3. **Sin Jev** (`preroute.ts`), el primero que contesta gana:
@@ -96,7 +104,13 @@ src/copiloto/
 - **Cambiar un texto del catálogo sube `CATALOG_VERSION`** (en `catalog/criteria.ts`) y obliga a medir con
   Jev real (`npm run copiloto:eval`). La caché de decisiones se invalida sola.
 - **Evidencia literal**: si el mensaje nombra tal cual un local o producto, basta menos seguridad (salvo
-  en operaciones críticas, `policy.ts`).
+  en operaciones críticas, `policy.ts`). Si lo escrito es exactamente el nombre de un solo producto del catálogo
+  sin contar el formato («coca cola» = «Coca-Cola», no «Coca-Cola Zero»), se toma aunque Jev reparta la
+  probabilidad entre los parecidos, salvo que ponga otro producto concreto por delante (`exactCandidate`).
+- **Una aclaración por dato, con la recomendada primero**: el origen de un traspaso ofrece primero el local al que
+  le sobra ese producto (`recommend-origin.ts`), con el motivo. Recomendar no es actuar.
+- **La respuesta escrita a una aclaración casa primero con sus opciones** («¿y la royal bliss?» a «¿cuál de estas
+  tónicas?»). Una reescritura de la IA que es una pregunta al usuario se descarta (`asksUser`).
 - **Lo que decide el usuario manda**: una opción elegida en una aclaración o en el formulario se fuerza
   como certeza (`overrides`), siempre que siga siendo una opción válida.
 - **Un atajo sin Jev solo cuando es inequívoco**: si hay un borrador o una pregunta pendiente, los atajos

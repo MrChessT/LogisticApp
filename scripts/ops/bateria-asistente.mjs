@@ -8,7 +8,8 @@
 // · La cuenta debe ser de pruebas (modo pruebas del asistente): nunca la de un usuario real.
 // · Sale con código 1 si alguna respuesta no cumple: sirve antes y después de cambiar el asistente.
 // Los casos están en scripts/ops/bateria-asistente.json («espera» y «no» son expresiones regulares;
-// «sinAclarar»: la respuesta no puede ser una pregunta de aclaración; «especialista»: quién debe atenderlo, según
+// «sinAclarar»: la respuesta no puede ser una pregunta de aclaración; «borrador»: expresión que debe cumplir el título
+// del borrador que salga (si no sale ninguno, falla); «especialista»: quién debe atenderlo, según
 // src/copiloto/especialistas/registro.ts. Al final se resume el acierto del enrutado por especialista).
 // scripts/ops/bateria-alcance.json se pasa con una cuenta de pruebas limitada a la cuenta Comida (Equipo → Cuentas de
 // análisis): comprueba que lo de otras cuentas se avisa en vez de responder sin filtro.
@@ -96,6 +97,7 @@ for (const conversation of cases) {
     if (turn.espera && !new RegExp(turn.espera, "is").test(r.text)) why.push(`falta /${turn.espera}/`);
     if (turn.no && new RegExp(turn.no, "is").test(r.text)) why.push(`sobra /${turn.no}/`);
     if (turn.sinAclarar && r.clarified) why.push("pidió aclaración");
+    if (turn.borrador && !(r.draft && new RegExp(turn.borrador, "is").test(r.draft.title))) why.push(r.draft ? `borrador «${r.draft.title}» no cumple /${turn.borrador}/` : "no preparó borrador");
     if (turn.especialista) {
       const tally = routing.get(turn.especialista) ?? { ok: 0, total: 0 };
       tally.total += 1;

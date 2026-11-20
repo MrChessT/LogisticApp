@@ -1,7 +1,6 @@
 // Ejecución de una consulta de inventario (stock, movimientos, precios, reposición…): llama a la
 // herramienta, pide a Jev que valore lo que merece atención, y emite la tabla, el gráfico y los botones
 // de seguimiento. Las cifras salen siempre de la herramienta, nunca de un modelo.
-import { familyOf } from "../entities/family";
 import { randomUUID } from "node:crypto";
 import { businessDay } from "../../lib/business-day";
 import { Analytics, VIEW_FOR_TOOL } from "../analytics/analytics";
@@ -19,7 +18,10 @@ import { locationLabel } from "../jev/interpret";
 import type { QueryPlan } from "./plans";
 import type { AgentDeps } from "./loop";
 import type { Evaluation, ReportOutcome } from "./report";
-import { referencesPrevious, wantsAreaBreakdown, wantsLocationBreakdown } from "../entities/signals";
+import { asksSeveralData, referencesPrevious, wantsAreaBreakdown, wantsLocationBreakdown } from "../entities/signals";
+import { tokenize } from "../entities/normalize";
+import { isUnitWord } from "../entities/quantity-parser";
+import { familyOf } from "../entities/family";
 import type { Session } from "./session";
 
 type QueryDeps = Pick<AgentDeps, "jev" | "sessions" | "metrics" | "thresholds">;
@@ -67,7 +69,22 @@ function spendFamily(message: string, plan: QueryPlan, ctx: SessionContext): { f
   return {};
 }
 
-export async function runQuery(deps: QueryDeps, now: Date, plan: QueryPlan, message: string, ctx: SessionContext, emit: Emit, timer: StageTimer, tools: Tools, session: Session): Promise<ReportOutcome> {
+/** Dos datos del mismo producto en una pregunta: la ficha entera (stock, precio, consumo y mínimos). */
+function bothParts(plan: QueryPlan, message: string): QueryPlan {
+  if (plan.products.length === 0 || !["query_stock", "query_prices", "query_product", "query_movements"].includes(plan.tool) || !asksSeveralData(message)) return plan;
+  // Con varios candidatos («beefeater»: Beefeater y Ginebra Beefeater Black), el que se nombra entero.
+  const said = new Set(tokenize(message));
+  const whole = plan.products.filter((p) => tokenize(p.product.name).filter((w) => !/^\d/.test(w) && !isUnitWord(w)).every((w) => said.has(w)));
+  const products = plan.products.length === 1 ? plan.products : whole.length === 1 ? whole : null;
+  if (!products) return plan;
+  const { dato: _dato, familia: _familia, ...rest } = plan;
+  void _dato;
+  void _familia;
+  return { ...rest, products, tool: "query_product" };
+}
+
+export async function runQuery(deps: QueryDeps, now: Date, asked: QueryPlan, message: string, ctx: SessionContext, emit: Emit, timer: StageTimer, tools: Tools, session: Session): Promise<ReportOutcome> {
+  const plan = bothParts(asked, message);
   const tzLocation = ctx.locations.find((l) => l.id === plan.locationIds[0]);
   const today = businessDay(now, tzLocation?.timezone ?? "Europe/Madrid", tzLocation?.dayCutoff ?? "06:00");
   // Comparar locales con una semana suele dar ceros: sin periodo dicho, el último mes.

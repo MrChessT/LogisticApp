@@ -102,6 +102,25 @@ export function wantsAreaBreakdown(message: string): boolean {
   return /\b(cada|por|las|todas las|todos los|sus) (seccion|secciones|espacio|espacios|zona|zonas|barra|barras)\b/.test(text) || /\b(secciones|espacios|zonas)\b/.test(text);
 }
 
+/** Datos de un producto que se pueden pedir en la misma frase («el stock de X y a cuánto lo compramos»). */
+const PRODUCT_DATA: RegExp[] = [
+  /\b(stock|existencias|cuant[oa]s? (queda|quedan|hay|tengo|tenemos)|que queda|lo que queda|lo que hay)\b/,
+  /\b(a cuanto|precio|cuesta|cuestan|compramos|pagamos|nos sale|nos cuesta)\b/,
+  /\b(consumo|gastamos|se gasta|se consume|consumimos|sale al dia)\b/,
+  /\b(minimo|minimos)\b/,
+  /\b(proveedor|proveedores|quien (nos )?(lo|la|los|las) trae)\b/,
+];
+
+/**
+ * ¿Pregunta dos datos o más del mismo producto unidos con «y» («dime el stock de beefeater y a cuánto lo
+ * compramos»)? Entonces va la ficha, que los trae todos; si no, se contestaba solo la primera parte.
+ */
+export function asksSeveralData(message: string): boolean {
+  const text = tokenize(message).join(" ");
+  if (!/\by\b|,/.test(message.toLowerCase())) return false;
+  return PRODUCT_DATA.filter((re) => re.test(text)).length >= 2;
+}
+
 /** «¿En qué local se pierde más en mermas?», «mermas por local»: los movimientos se reparten por local. */
 export function wantsLocationBreakdown(message: string): boolean {
   return /\b(en que local|que local|cual local|por local|por locales|cada local|en cada local|segun el local|donde se pierde|donde se tira|donde hay mas)\b/.test(tokenize(message).join(" "));

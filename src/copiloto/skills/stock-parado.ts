@@ -28,7 +28,7 @@ export async function stockParado({ ctx, source, locationIds, now }: TareaInput)
   return {
     tarea: "catalogo",
     text: costs
-      ? `Stock parado (sin ninguna salida en ${PARADO_DIAS} días): ${formatMoney(total)} en ${plural(still.length, "producto", "productos")} por local. Lo que más pesa: ${top.join(", ")}. Se puede traspasar a donde se gaste o dejar de pedirlo.`
+      ? `Stock parado (sin ninguna salida en ${PARADO_DIAS} días): ${formatMoney(total)} en ${plural(still.length, "producto", "productos")}${ctx.locations.length > 1 ? " (cada local aparte)" : ""}. Lo que más pesa: ${top.join(", ")}. Se puede traspasar a donde se gaste o dejar de pedirlo.`
       : `Hay ${plural(still.length, "producto", "productos")} sin ninguna salida en ${PARADO_DIAS} días. Se puede traspasar a donde se gaste o dejar de pedirlo.`,
     table: {
       columns: [{ key: "producto", label: "Producto" }, { key: "local", label: "Local" }, { key: "cantidad", label: "Cantidad", align: "right" }, ...(costs ? [{ key: "valor", label: "Valor", align: "right" as const }] : [])],

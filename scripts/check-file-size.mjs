@@ -11,7 +11,7 @@ const BASELINE = {
   "src/app/productos/product-editor.tsx": 880,
   "src/components/operations/operations-page.tsx": 811,
   "src/copiloto/drafts/catalog-builder.ts": 633,
-  "src/copiloto/tools/tools.ts": 790,
+  "src/copiloto/tools/tools.ts": 770,
 };
 
 const SKIP = /(\.test\.tsx?$|__tests__|database\.types\.ts$)/;

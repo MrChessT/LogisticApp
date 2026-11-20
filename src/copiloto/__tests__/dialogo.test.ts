@@ -88,6 +88,17 @@ describe("corregir el borrador pendiente hablando", () => {
     expect(more.toLocationName).toBe("Vivero");
   });
 
+  it("«quita la de tónica» en un traspaso de dos líneas: queda solo la otra, igual que estaba", async () => {
+    const TWO = { intent: "proponer_accion", intent_alt: "cambiar", tipo_accion: "traspaso", local: "Parador", local_destino: "Vivero", producto_0: "Coca-Cola 20 cl", cantidad_ok_0: 0.97, producto_1: "Tónica Schweppes 20 cl", cantidad_ok_1: 0.97 };
+    const { agent } = makeAgent(new FakeJev([TWO, OK, OK]));
+    const first = find(await run(agent, chat("pasa 2 cajas de coca cola y 1 caja de tonica del parador al vivero")), "draft") as TransferDraft;
+    expect(first.lines.map((l) => l.productName)).toEqual(["Coca-Cola 20 cl", "Tónica Schweppes 20 cl"]);
+    const events = await run(agent, chat("quita la de tonica"));
+    const second = find(events, "draft") as TransferDraft;
+    expect(second.lines.map((l) => [l.productName, l.qtyBase])).toEqual([["Coca-Cola 20 cl", "48"]]);
+    expect(find(events, "resolved")).toMatchObject({ draftId: first.draftId, status: "descartado" });
+  });
+
   it("no es corrección: una orden nueva, una pregunta o un «sí» siguen su camino", async () => {
     const { agent } = makeAgent(new FakeJev([MERMA, OK, { intent: "consultar", intent_alt: "leer", herramienta: "query_stock", local: "Parador", producto_0: BARCELO }]));
     await run(agent, chat("merma de 2 botellas de ron barceló en el parador"));

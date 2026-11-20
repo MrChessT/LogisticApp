@@ -33,6 +33,28 @@ function stockReport(): DecisionReport {
   };
 }
 
+/** Gasto: una consulta que la LLM redacta (las simples, stock, precios y ficha, van con plantilla). */
+function spendReport(): DecisionReport {
+  return {
+    ...stockReport(),
+    outcome: {
+      kind: "consulta",
+      tool: "query_spend",
+      scope: { locales: ["Parador"], espacio: null, productos: [], periodo: "los últimos 30 días" },
+      result: {
+        tool: "query_spend",
+        rows: [{ proveedor: "Bebidas del Sur", albaranes: "1", importe: "132,00 €", porcentaje: "71,4 %" }, { proveedor: "Distribuciones Canarias", albaranes: "1", importe: "52,80 €", porcentaje: "28,6 %" }],
+        totals: { total: "184,80 €", albaranes: "2", desde: "25/08/2026", hasta: "23/09/2026" },
+        count: 2,
+        truncated: false,
+        evalItems: [],
+      },
+      evaluations: [],
+      notices: [],
+    },
+  };
+}
+
 describe("verificador de cifras", () => {
   it("acepta las cifras del informe en formato es-ES o en", () => {
     const allowed = allowedNumbers({ a: "1.400 ml", b: "12,5 %", c: "Barra 1" });
@@ -73,9 +95,9 @@ describe("redactor", () => {
   }
 
   it("emite frase a frase el texto verificado de la LLM", async () => {
-    const provider = new FakeProvider([["En Parador quedan ", "2,1 l de Ron Barceló. ", "Está bajo el mínimo de 2,8 l."]]);
-    const { result, events } = await write(provider);
-    expect(result).toEqual({ source: "llm", text: "En Parador quedan 2,1 l de Ron Barceló. Está bajo el mínimo de 2,8 l." });
+    const provider = new FakeProvider([["En Parador se han comprado ", "184,80 € en 2 albaranes. ", "Bebidas del Sur es el 71,4 %."]]);
+    const { result, events } = await write(provider, spendReport());
+    expect(result).toEqual({ source: "llm", text: "En Parador se han comprado 184,80 € en 2 albaranes. Bebidas del Sur es el 71,4 %." });
     expect(events.map((e) => e.event)).toEqual(["text", "text"]);
     expect(provider.prompts[0]!.user).toContain("<informe>");
     expect(provider.prompts[0]!.user).not.toContain("productId");
@@ -83,10 +105,10 @@ describe("redactor", () => {
 
   it("regenera si aparece una cifra que no está en el informe y usa la plantilla como último recurso", async () => {
     const provider = new FakeProvider([
-      ["Quedan 2,1 l. ", "Son 3 botellas."],
-      ["Quedan unas 3 botellas."],
+      ["Compras: 184,80 €. ", "Son 3 botellas."],
+      ["Unas 3 botellas."],
     ]);
-    const { result, events, metrics } = await write(provider);
+    const { result, events, metrics } = await write(provider, spendReport());
     expect(result.source).toBe("plantilla");
     expect(provider.prompts).toHaveLength(2);
     const last = events.at(-1)!;
@@ -103,6 +125,13 @@ describe("redactor", () => {
     expect(result.text).toBe(renderTemplate(stockReport()));
     const none = await write(null);
     expect(none.result.text).toContain("2,1 l");
+  });
+
+  it("las consultas simples (stock, precios, ficha) van con plantilla aunque haya LLM", async () => {
+    const provider = new FakeProvider([["texto libre"]]);
+    const { result } = await write(provider);
+    expect(result).toEqual({ source: "plantilla", text: renderTemplate(stockReport()) });
+    expect(provider.prompts).toHaveLength(0);
   });
 
   it("las aclaraciones y los bloqueos siempre usan plantilla", async () => {

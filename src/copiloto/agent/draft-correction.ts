@@ -28,9 +28,11 @@ export interface Correction {
 }
 
 /** Una corrección se anuncia: «mejor…», «no, …», «que sean…», «cámbialo…», «en vez de…». */
-const MARKER = /^(no|mejor|perdon|perdona|espera|uy|ups|corrijo|corrige|cambia\w*|pon|ponlo|ponla|ponme|que sean|sean|son|eran|era|al final|mas bien|en realidad|me he equivocado|me equivoque)\b|\ben (vez|lugar) de\b|\bque sean\b/;
+const MARKER = /^(no|mejor|perdon|perdona|espera|uy|ups|corrijo|corrige|cambia\w*|quita\w*|elimina\w*|borra\w*|pon|ponlo|ponla|ponme|que sean|sean|son|eran|era|al final|mas bien|en realidad|me he equivocado|me equivoque)\b|\ben (vez|lugar) de\b|\bque sean\b/;
 /** Palabras de la corrección en sí: no son el producto. */
 const LEAD = /^((no|vale|perdon|perdona|espera|uy|ups|oye|mejor|corrijo|corrige|cambia\w*|pon\w*|que|sean|son|eran|era|es|al final|mas bien|en realidad|me he equivocado|me equivoque|lo|la|el|los|las|cantidad|local|producto|origen|destino|motivo)\b[\s,.]*)+/;
+/** «Quita la de zero», «elimina la coca cola», «sin el larios»: fuera esa línea (solo con varias). */
+const REMOVE = /^(quita\w*|elimina\w*|borra\w*|sin)\b/;
 const INSTEAD = /\ben (vez|lugar) de\s+(el |la |los |las )?\S+(\s+(botellas?|cajas?|uds?|unidades?|kg|kilos?|litros?|l|packs?|barriles?|garrafas?))?/;
 const MAX_WORDS = 12;
 
@@ -71,6 +73,32 @@ function newQuantity(line: Line, product: Product, amount: string, unit: string 
   return { ...base, unit: pack || line.input.unit === product.baseUnit ? null : line.input.unit };
 }
 
+/** Quita del traspaso la línea que se nombra; las demás quedan igual. Con una sola línea, eso es descartarlo. */
+async function removeLine(norm: string, draft: WasteDraft | TransferDraft, lines: Line[], draftId: string, original: string, ctx: SessionContext, retriever: Retriever): Promise<Correction | null> {
+  if (draft.kind !== "traspaso") return null;
+  const phrase = norm.replace(REMOVE, "").replace(/^\s*(la|el|los|las|lo)\s+(de\s+)?/, "").trim();
+  if (!phrase) return null;
+  const named = await productsNamed(phrase, ctx, retriever, 6);
+  // Si dice «zero», la línea cuyo nombre lo lleva, aunque la búsqueda devuelva también la normal.
+  const said = tokenize(phrase);
+  const hits = lines.filter((l) => named.some((p) => p.id === l.productId));
+  const exact = hits.filter((l) => said.every((w) => tokenize(ctx.products.find((p) => p.id === l.productId)!.name).some((n) => n.startsWith(w))));
+  const gone = exact.length === 1 ? exact : hits.length === 1 ? hits : [];
+  const plan = (text: string): Correction => ({ plan: { type: "aviso", text }, request: original, answers: [], overrides: {}, replaces: draftId });
+  if (gone.length === 0) return hits.length > 1 ? plan("¿Cuál de las líneas quito? Dímelo con el nombre como sale en el borrador.") : null;
+  if (lines.length === 1) return plan("Es la única línea del traspaso: si no lo quieres, dime «descártalo».");
+  const overrides: Record<string, string> = { intent: "proponer_accion", tipo_accion: "traspaso" };
+  const kept = lines.filter((l) => l !== gone[0]).map((l, i) => keptLine(l, ctx.products.find((p) => p.id === l.productId)!, i, overrides));
+  const removed = ctx.products.find((p) => p.id === gone[0]!.productId)!.name;
+  return {
+    plan: { type: "accion", accion: "traspaso", locationId: draft.fromLocationId, locationOutcome: "actuar", toLocationId: draft.toLocationId, toLocationOutcome: "actuar", areaId: null, products: kept, motivo: "no_indicado", ambiguous: 0 },
+    request: `«${original}», y después lo corrigió: quitar ${removed} (lo demás sigue igual)`,
+    answers: [],
+    overrides,
+    replaces: draftId,
+  };
+}
+
 /**
  * ¿Lo escrito corrige el borrador pendiente? Devuelve el plan del borrador rehecho (o un aviso si no se sabe qué
  * línea cambiar). null si no es una corrección: el mensaje sigue su camino normal.
@@ -94,6 +122,8 @@ export async function draftCorrection(text: string, focus: Focus | undefined, dr
   const lines = linesOf(draft);
   const byId = (id: string) => ctx.products.find((p) => p.id === id);
   if (lines.some((l) => !byId(l.productId))) return null;
+
+  if (REMOVE.test(norm)) return removeLine(norm, draft, lines, focus.draftId, stored.request, ctx, retriever);
 
   // Producto: el de una línea («que sean 4 de cocacola») o, en una sola línea, el producto nuevo.
   let target = lines.length === 1 ? 0 : -1;

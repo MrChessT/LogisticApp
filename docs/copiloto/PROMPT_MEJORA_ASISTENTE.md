@@ -21,7 +21,9 @@ puertas deciden si se actúa o se pregunta, y nada se guarda sin confirmación.
 |---|---|
 | 0 | Hecha. Batería de decisiones (13 casos, en `npm test`); rastro de cada turno en `copilot_audit` (`agent/turn-trace.ts`, baterías marcadas); indicadores de uso real (0062, pantalla Opiniones); juez y rúbrica de la prueba ciega (`scripts/ops/juez-ciega.mjs`, [EVALUACION_CIEGA.md](EVALUACION_CIEGA.md)); conjunto de reserva de 40 turnos; línea base. Pendiente: calibrar el juez con modelo cuando haya credencial del AI Gateway fuera de Vercel |
 | 4 | En producción los pasos 0 a 5: fuentes de precio (0061), cobertura con lo que está en camino, traspasar antes que comprar, ficha del proveedor para decidir (`orderCycle`), excepciones primero y borrador que solo lleva lo de hoy. Faltan el paso 6 (peso por día de la semana, consumo teórico desde ventas, perecederos) y la tarjeta compacta, que pasa a la fase 7 |
-| 1–3, 5–7 | Sin empezar |
+| 1 | Hecha en código y batería: operación a medias tras el formulario (`agent/task-in-progress.ts`), corrección del borrador pendiente (`agent/draft-correction.ts`: cantidad, local, origen, destino, motivo, quitar una línea), nombre exacto sin aclarar, respuesta libre que casa con las opciones, origen recomendado primero (`agent/recommend-origin.ts`), «olvídalo»/«no» cierran, reescrituras que preguntan al usuario descartadas. Pendiente: los criterios de uso real (una semana en producción) |
+| 2 | Hecha en código y batería: número de documento, proveedor que no existe, periodo natural, «vencen esta semana», albaranes de un periodo con su factura (`tools/info-invoices.ts`, `tools/text-filters.ts`), persona del equipo, gasto por familia, comparar proveedores por precio, mermas por local, productos sin precio, stock parado, filtro de zona en facturas dicho, preguntas dobles con la ficha y plantilla obligatoria en stock, precios y ficha |
+| 3, 5–7 | Sin empezar |
 
 ---
 
