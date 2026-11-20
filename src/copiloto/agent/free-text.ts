@@ -77,7 +77,7 @@ export function operationOnly(message: string): Operation | null {
 }
 
 /** La operación de la orden que espera respuesta (la que se forzó al aclarar o la que eligió Jev). */
-function pendingOperation(pending: PendingClarify): string | null {
+export function pendingOperation(pending: PendingClarify): string | null {
   return pending.overrides.tipo_accion ?? asChoice(pending.routing?.jev.answers.tipo_accion)?.choice ?? null;
 }
 
@@ -119,7 +119,7 @@ function mentions(text: string, label: string): boolean {
 export const CANCEL_OPTION = "__dejar";
 
 /** «déjalo», «cancela», «olvídalo», «nada», «no»: no se quiere seguir con esa pregunta. */
-function isCancel(text: string): boolean {
+export function isCancel(text: string): boolean {
   return /^(no,? )?(dejalo|dejala|dejalo estar|cancela|cancelar|cancelalo|olvidalo|olvida|nada|da igual|salir|stop)$/.test(tokenize(text).join(" "));
 }
 

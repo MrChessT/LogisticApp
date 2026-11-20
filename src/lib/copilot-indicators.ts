@@ -22,6 +22,8 @@ export const VIA_LABEL: Record<string, string> = {
   varias_ordenes: "Varias órdenes",
   boton: "Botón",
   formulario: "Miniformulario",
+  continuacion: "Completa una operación a medias",
+  correccion: "Corrige el borrador pendiente",
   aclaracion: "Respuesta a una aclaración",
   atajo: "Atajo (sin Jev)",
   comprension: "Reescrito por la IA",

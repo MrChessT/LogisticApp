@@ -48,11 +48,13 @@ export function renderTemplate(report: DecisionReport): string {
       return "Te respondo sobre stock, consumo, mermas, precios (también qué es lo más caro), proveedores, pedidos y cuándo se pidió o llegó algo, gasto, cómo va el mes, ventas, facturas, escandallos y alérgenos, zonas, salidas de almacén sin validar, inventarios y equipo. Y te preparo mermas, traspasos, recepciones, recuentos, pedidos, cambios de precio o de mínimos, las salidas de almacén (apuntarlas y validarlas), el pago de facturas, el PVP de los platos, las condiciones de los proveedores y la categoría o los alérgenos de un producto para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «¿qué facturas vencen esta semana?», «¿cuándo pedimos tónica por última vez?», «¿cómo voy este mes?» o «pasa 2 cajas de tónica del Parador a Pickles».";
     case "borrador": {
       const review = o.draft.checks?.filter((c) => c.status === "revisar") ?? [];
+      // Al corregir se dice lo que queda: el anterior ya no vale y la tarjeta nueva lo sustituye.
+      const lead = o.corrige ? `Corregido: ${o.draft.title}. El anterior queda descartado.` : "He preparado un borrador.";
       if (review.length > 0) {
-        return `He preparado un borrador. Antes de confirmarlo revisa ${review.length === 1 ? "este aviso" : "estos avisos"}: ${review.map((c) => c.detail).join(" ")}`;
+        return `${lead} Antes de confirmarlo revisa ${review.length === 1 ? "este aviso" : "estos avisos"}: ${review.map((c) => c.detail).join(" ")}`;
       }
       // El título ya va en la tarjeta del borrador: el texto no lo repite.
-      return "Revísalo y confírmalo si está bien.";
+      return o.corrige ? `${lead} Revísalo y confírmalo si está bien.` : "Revísalo y confírmalo si está bien.";
     }
     case "error":
       return o.message;

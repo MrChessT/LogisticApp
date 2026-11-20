@@ -477,7 +477,7 @@ function boxesPlusLoose(p: ResolvedProduct, warnings: string[]): Quantity | null
 }
 
 /** Opción «unidades sueltas» de la pregunta de formato (productos que se cuentan por unidades). */
-const BASE_PACK = "base";
+export const BASE_PACK = "base";
 
 /**
  * La unidad «suelta» de un producto, si es evidente: en lo que se cuenta por unidades, el formato de 1 ud

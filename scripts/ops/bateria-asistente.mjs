@@ -22,6 +22,8 @@ import { randomUUID } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
 
 const BASE = process.env.BATERIA_URL ?? "https://nexo-inventario-three.vercel.app";
+/** Cuánto de cada respuesta se enseña (BATERIA_ANCHO=2000 para leerlas enteras). */
+const WIDTH = Number(process.env.BATERIA_ANCHO ?? 170);
 const { BATERIA_EMAIL: email, BATERIA_PASSWORD: password, NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_ANON_KEY: key } = process.env;
 if (!email || !password || !url || !key) {
   console.error("Faltan BATERIA_EMAIL, BATERIA_PASSWORD, NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY.");
@@ -101,7 +103,7 @@ for (const conversation of cases) {
       else why.push(`especialista ${r.especialista ?? "ninguno"} en vez de ${turn.especialista}`);
       routing.set(turn.especialista, tally);
     }
-    console.log(`  ${why.length ? "✗" : "✓"} [${r.ms} ms] ${turn.usuario}\n      → ${r.text.replace(/\s+/g, " ").slice(0, 170)}${why.length ? `\n      ✗ ${why.join(" · ")}` : ""}`);
+    console.log(`  ${why.length ? "✗" : "✓"} [${r.ms} ms] ${turn.usuario}\n      → ${r.text.replace(/\s+/g, " ").slice(0, WIDTH)}${why.length ? `\n      ✗ ${why.join(" · ")}` : ""}`);
     if (why.length) failures.push(`${conversation.nombre} · «${turn.usuario}»: ${why.join(" · ")}`);
     // El chat admite 20 mensajes por minuto.
     await new Promise((resolve) => setTimeout(resolve, 3200));

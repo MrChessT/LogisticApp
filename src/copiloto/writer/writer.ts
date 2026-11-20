@@ -35,7 +35,9 @@ export class Writer {
 
   async write(report: DecisionReport, emit: Emit): Promise<WriteResult> {
     const template = renderTemplate(report);
-    if (!this.provider || TEMPLATE_ONLY.has(report.outcome.kind)) {
+    // Una corrección se cuenta con la plantilla: dice qué borrador sustituye al anterior, sin adornos.
+    const corrected = report.outcome.kind === "borrador" && report.outcome.corrige === true;
+    if (!this.provider || TEMPLATE_ONLY.has(report.outcome.kind) || corrected) {
       await emit({ event: "text", data: { delta: template } });
       this.metrics.writer.plantilla += 1;
       return { text: template, source: "plantilla" };
