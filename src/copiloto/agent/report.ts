@@ -42,7 +42,8 @@ export type ReportOutcome =
   /** general: respuesta general del ayudante (sin datos del negocio), si la pregunta lo permite. */
   | { kind: "fuera_de_ambito"; general?: string }
   | { kind: "bloqueado" }
-  | { kind: "borrador"; draft: Draft }
+  /** corrige: sustituye al borrador anterior («mejor que sean 4»). */
+  | { kind: "borrador"; draft: Draft; corrige?: boolean }
   | { kind: "resuelto"; status: "confirmado" | "descartado"; message: string }
   | { kind: "error"; message: string }
   /** Tarea (pedidos, equilibrar, catálogo, parte): el texto ya viene redactado con las cifras exactas. */

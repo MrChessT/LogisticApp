@@ -55,7 +55,7 @@
     "nombre": "Cambio de tema: no arrastra el contexto",
     "turnos": [
       { "usuario": "¿cuánta coca-cola queda en el Vivero?", "espera": "Vivero", "especialista": "almacen" },
-      { "usuario": "¿qué facturas vencen esta semana?", "espera": "Pendiente de pago|No hay facturas", "no": "Entiendo", "especialista": "facturas" },
+      { "usuario": "¿qué facturas vencen esta semana?", "espera": "vencen? esta semana|No vence ninguna factura esta semana|No hay facturas", "no": "Entiendo", "especialista": "facturas" },
       { "usuario": "¿cómo voy este mes?", "espera": "^En \\w+ \\(del 1 al", "no": "Entiendo", "especialista": "informes" }
     ]
   },
@@ -234,6 +234,118 @@
     "turnos": [
       { "usuario": "/preparar", "espera": "toca pedir|no toca hacer ningún pedido|No hace falta pedir ni mover", "no": "Precio de referencia|Precios de escandallo", "sinAclarar": true },
       { "usuario": "prepárame el pedido del parador", "espera": "He preparado un borrador|Revísalo y confírmalo|Hoy no toca pedir nada en Parador|No hace falta pedir nada en Parador", "no": "Precio de referencia|Precios de escandallo" }
+    ]
+  },
+  {
+    "nombre": "Corregir el borrador hablando: cantidad (fase 1)",
+    "turnos": [
+      { "usuario": "merma de 2 botellas de larios rotas en el vivero", "borrador": "Merma: 2 ×.*Larios.*Vivero" },
+      { "usuario": "mejor que sean 3", "borrador": "Merma: 3 ×.*Larios.*Vivero", "espera": "^Corregido: .*El anterior queda descartado" },
+      { "usuario": "en vez de 3, 1", "borrador": "Merma: 1 ×.*Larios.*Vivero" },
+      { "usuario": "no, son 2", "borrador": "Merma: 2 ×.*Larios.*Vivero" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
+    ]
+  },
+  {
+    "nombre": "Corregir el borrador hablando: locales y motivo (fase 1)",
+    "turnos": [
+      { "usuario": "se ha roto una botella de beefeater en el parador", "borrador": "Beefeater.*Parador" },
+      { "usuario": "cambialo a la oliva", "borrador": "Beefeater.*La Oliva" },
+      { "usuario": "me he equivocado, en el vivero", "borrador": "Beefeater.*Vivero" },
+      { "usuario": "era por caducidad", "borrador": "Beefeater.*Vivero" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
+    ]
+  },
+  {
+    "nombre": "Corregir un traspaso hablando (fase 1)",
+    "turnos": [
+      { "usuario": "pasa 2 cajas de coca cola del parador al vivero", "borrador": "Traspaso Parador → Vivero: 2 × Caja" },
+      { "usuario": "no, a pickles", "borrador": "Traspaso Parador → Pickles: 2 × Caja" },
+      { "usuario": "mejor desde la oliva", "borrador": "Traspaso La Oliva → Pickles: 2 × Caja" },
+      { "usuario": "perdona, que sean 5 cajas", "borrador": "Traspaso La Oliva → Pickles: 5 × Caja" },
+      { "usuario": "cambia la cantidad a 1", "borrador": "Traspaso La Oliva → Pickles: 1 × Caja" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
+    ]
+  },
+  {
+    "nombre": "Traspasos y mermas dichos de una vez (fase 1)",
+    "turnos": [
+      { "usuario": "pasa 2 cajas de coca cola al parador desde el vivero", "borrador": "Traspaso Vivero → Parador: 2 × Caja.*Coca-Cola$", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "lleva 3 botellas de beefeater del parador a la oliva", "borrador": "Traspaso Parador → La Oliva: 3 ×.*Beefeater", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "traspasa al vivero 2 cajas de tonica schweppes desde pickles", "borrador": "Traspaso Pickles → Vivero: 2 × Caja.*Schweppes", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "mueve 6 cocacolas de pickles al parador", "borrador": "Traspaso Pickles → Parador: 6 ×.*Coca-Cola", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "manda 1 caja de coca cola zero del vivero al parador", "borrador": "Traspaso Vivero → Parador: 1 × Caja.*Zero", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "se han caido 2 botellas de beefeater en la oliva", "borrador": "Merma: 2 ×.*Beefeater.*La Oliva", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "tira 3 coca colas caducadas del vivero", "borrador": "Merma: 3 ×.*Coca-Cola.*Vivero", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "merma de medio kilo de limones en el parador", "borrador": "Merma: 500 g de Limones.*Parador", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "apunta una merma de 1 botella de larios en pickles por rotura", "borrador": "Merma: 1 ×.*Larios.*Pickles", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "pasa 2 cajas de coca cola del parador al vivero", "borrador": "Traspaso Parador → Vivero: 2 × Caja.*Coca-Cola$", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
+    ]
+  },
+  {
+    "nombre": "Lo escrito tras el formulario completa la operación (fase 1)",
+    "turnos": [
+      { "usuario": "registra una merma", "espera": "Me faltan unos datos" },
+      { "usuario": "beefeater", "espera": "Llevo apuntado: merma de beefeater" },
+      { "usuario": "1 botella", "espera": "¿En qué local\\?|Me falta saber en qué local" },
+      { "usuario": "en el parador", "borrador": "Merma: 1 ×.*Beefeater.*Parador" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "quiero hacer un traspaso", "espera": "Me faltan unos datos" },
+      { "usuario": "de pickles al vivero", "espera": "Llevo apuntado: traspaso desde Pickles a Vivero" },
+      { "usuario": "2 cajas de coca cola", "borrador": "Traspaso Pickles → Vivero: 2 × Caja" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "merma", "espera": "Me faltan unos datos" },
+      { "usuario": "se cayeron 2 botellas de larios en el vivro", "borrador": "Merma: 2 ×.*Larios.*Vivero" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "traspaso", "espera": "Me faltan unos datos" },
+      { "usuario": "3 cajas de coca cola", "espera": "Llevo apuntado: traspaso de 3 cajas de coca cola" },
+      { "usuario": "del parador al vivero", "borrador": "Traspaso Parador → Vivero: 3 × Caja" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
+      { "usuario": "registrar merma", "espera": "Me faltan unos datos" },
+      { "usuario": "en la oliva", "espera": "Llevo apuntado: merma en La Oliva" },
+      { "usuario": "2 botellas de beefeater", "borrador": "Merma: 2 ×.*Beefeater.*La Oliva" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
+    ]
+  },
+  {
+    "nombre": "Filtros en facturas, albaranes y proveedores (fase 2)",
+    "turnos": [
+      { "usuario": "que albaranes de makro no tienen factura", "espera": "No tengo ningún proveedor llamado «makro»", "sinAclarar": true },
+      { "usuario": "cuanto le debo a makro", "espera": "No tengo ningún proveedor llamado «makro»", "sinAclarar": true },
+      { "usuario": "telefono de makro", "espera": "No tengo ningún proveedor llamado «makro»", "sinAclarar": true },
+      { "usuario": "hazme el pedido de makro para el vivero", "espera": "No tengo ningún proveedor llamado «makro»" },
+      { "usuario": "que facturas vencen esta semana", "espera": "esta semana \\(hasta el", "sinAclarar": true },
+      { "usuario": "facturas del mes pasado", "espera": "mes pasado", "sinAclarar": true },
+      { "usuario": "busca el albaran ZZ-99999", "espera": "No encuentro ninguna factura ni albarán con el número «ZZ-99999»", "sinAclarar": true }
+    ]
+  },
+  {
+    "nombre": "Filtros en equipo, gasto, comparativas y catálogo (fase 2)",
+    "turnos": [
+      { "usuario": "que permisos tiene pepito", "espera": "No hay nadie llamado «pepito» en el equipo", "sinAclarar": true },
+      { "usuario": "cuanto he gastado este mes en bebida", "espera": "^Compras de bebida del 01/", "sinAclarar": true },
+      { "usuario": "que proveedor me vende mas barata la coca cola", "espera": "€/ud", "sinAclarar": true },
+      { "usuario": "en que local se pierde mas dinero en mermas", "espera": "Donde más:|ninguna", "sinAclarar": true },
+      { "usuario": "cuanto stock tengo parado", "espera": "Stock parado|No hay stock parado", "sinAclarar": true },
+      { "usuario": "que productos no tienen precio", "espera": "sin precio", "sinAclarar": true }
+    ]
+  },
+  {
+    "nombre": "Preguntas dobles: la ficha con todo (fase 2)",
+    "turnos": [
+      { "usuario": "dime el stock de beefeater y a cuanto lo compramos", "espera": "Precio: .*Stock: ", "sinAclarar": true },
+      { "usuario": "cuanto queda de larios y cuanto se gasta al dia", "espera": "Stock: .*Consumo 30 días", "sinAclarar": true },
+      { "usuario": "precio y proveedor de la coca cola", "espera": "Precio: .*\\(", "sinAclarar": true }
     ]
   }
 ]

@@ -4,6 +4,7 @@ import type { Product, SessionContext } from "../domain";
 import type { Retriever } from "../entities/retriever";
 import type { ToolName } from "../tools/tools";
 import type { TareaId } from "../skills/tareas";
+import type { TareaFoco } from "../skills/tarea-types";
 import type { ClarifyPlan, Plan, QueryPlan } from "./plans";
 
 const ROUTES: Record<string, AppRoute> = {
@@ -48,8 +49,24 @@ const TAREA_COMMANDS: Record<string, TareaId> = {
  * «¿qué errores hay?», «¿qué no cuadra?», «revisar catálogo»: la revisión del catálogo (formatos, precios,
  * stock negativo, costes incoherentes). Antes acababa en «¿Qué quieres hacer?».
  */
+/** Un problema concreto del catálogo o el stock parado: la tarea «catalogo» con ese foco. */
+const FOCOS: Array<[TareaFoco, RegExp]> = [
+  ["sin_precio", /\b(sin precio|no tienen? precio|les falta (el )?precio|falta(n)? precios?)\b/],
+  ["sin_categoria", /\b(sin categoria|no tienen? categoria)\b/],
+  ["sin_minimo", /\b(sin minimo|no tienen? minimo|sin stock minimo)\b/],
+  ["sin_formatos", /\b(sin formatos?|no tienen? formatos?)\b/],
+  ["stock_negativo", /\bstock negativo\b|\ben negativo\b/],
+  ["parado", /\b(stock|dinero|producto|productos|genero|mercancia) (parad[oa]s?|muert[oa]s?|inmovilizad[oa]s?|sin mover|sin movimiento|sin rotacion)\b|\bque (no se mueve|no sale|no rota)\b|\btengo parado\b|\bno ha salido\b/],
+];
+
+export function tareaFocoOf(message: string): TareaFoco | null {
+  const text = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ").trim();
+  return FOCOS.find(([, re]) => re.test(text))?.[0] ?? null;
+}
+
 export function tareaTopicOf(message: string): TareaId | null {
   const text = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ").trim();
+  if (tareaFocoOf(message)) return "catalogo";
   if (/\b(que|cuales|cuantos) errores\b|\berrores (hay|tengo|tenemos|del catalogo|en el catalogo|en los datos)\b|\bhay (algun |algunos )?errores?\b|\bque (esta|hay) mal\b|\bque no cuadra\b|\brevisa(r)? (el )?catalogo\b|\bproblemas (del|en el) catalogo\b/.test(text)) return "catalogo";
   return null;
 }

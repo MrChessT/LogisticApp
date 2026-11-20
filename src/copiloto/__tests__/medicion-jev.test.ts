@@ -73,7 +73,10 @@ describe("batería en producción (2026-10-16)", () => {
 
   it("«la semana pasada» y «el mes pasado» son la anterior entera, no los últimos días otra vez", () => {
     expect(pastPeriod("semana", "2026-10-16", "¿y la semana pasada?", "mes")).toMatchObject({ from: "2026-10-05", to: "2026-10-11" });
-    expect(pastPeriod("semana", "2026-10-16", "esta semana", "mes")).toMatchObject({ from: "2026-10-10", to: "2026-10-16" });
+    // «esta semana» es la natural (desde el lunes) y «este mes» desde el día 1; sin decirlo, los últimos 7 o 30 días.
+    expect(pastPeriod("semana", "2026-10-16", "esta semana", "mes")).toMatchObject({ from: "2026-10-12", to: "2026-10-16" });
+    expect(pastPeriod("mes", "2026-10-16", "cuanto he gastado este mes", "mes")).toMatchObject({ from: "2026-10-01", to: "2026-10-16" });
+    expect(pastPeriod("semana", "2026-10-16", "consumo de la semana", "mes")).toMatchObject({ from: "2026-10-10", to: "2026-10-16" });
     expect(pastPeriod("mes", "2026-10-16", "el mes pasado", "mes")).toMatchObject({ from: "2026-09-01", to: "2026-09-30" });
   });
 

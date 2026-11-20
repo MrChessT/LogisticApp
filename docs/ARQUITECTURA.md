@@ -57,7 +57,12 @@ Un mensaje recorre este camino (`agent/loop.ts` lo orquesta; el detalle, con có
 en [copiloto/JEV.md](copiloto/JEV.md)):
 
 1. **Estado del mensaje**: botón de seguimiento, formulario enviado, respuesta a una aclaración
-   (`clarify-answer.ts`) o mensaje nuevo.
+   (`clarify-answer.ts`) o mensaje nuevo. Dos estados más hacen que el diálogo avance:
+   - **Operación a medias** (`task-in-progress.ts`): tras el miniformulario, lo escrito («larios», «2 botellas»,
+     «en el vivero») rellena lo que falta y se arma la frase completa; «olvídalo» o «no» la dejan.
+   - **Corrección del borrador pendiente** (`draft-correction.ts`): «mejor que sean 4», «cámbialo a Parador», «era
+     por caducidad» o «quita la de zero» rehacen ese borrador con lo que cambia (Jev vuelve a comprobarlo) y el
+     anterior queda descartado; nunca sale uno nuevo suelto.
 2. **Seguimiento con contexto** (`comprehension.ts`): si el mensaje depende de lo hablado, la IA lo
    reescribe como petición completa. Se descarta si inventa productos o locales.
 3. **Sin Jev** (`preroute.ts`, en orden): preguntas sobre el archivo dado al chat o cargar sus ventas
@@ -71,14 +76,20 @@ en [copiloto/JEV.md](copiloto/JEV.md)):
 5. **Rescate**: si Jev no entendió un mensaje nuevo, la IA lo reescribe o da una respuesta general, y la
    reescritura vuelve a pasar por Jev. Solo se adopta si ahora se entiende.
 6. **Ejecución**: consulta (`run-query.ts` + `tools/`), información de gestión (`tools/info*.ts`), tarea
-   (`skills/tareas.ts`) o borrador (`drafts/`). **Las cifras salen siempre del código.**
+   (`skills/tareas.ts`) o borrador (`drafts/`; pasos sueltos en `agent/execute-steps.ts`). **Las cifras salen
+   siempre del código.** Las consultas respetan lo que dice el mensaje: periodo natural («este mes» desde el día 1,
+   `tools/periods.ts`), número de documento, ventana de vencimiento y proveedor que no existe
+   (`tools/text-filters.ts`, usados en `tools/info-invoices.ts`, proveedores y pedidos), familia del gasto, mermas
+   por local, persona del equipo, comparar proveedores por precio (`agent/product-facts.ts`), stock parado
+   (`skills/stock-parado.ts`) y dos datos de un producto en la misma pregunta (la ficha entera).
    La reposición («preparar pedidos», «equilibrar» y el borrador de pedido sin cantidades) sale de una sola
    decisión, `tools/reorder-plan.ts`: traspasar antes que comprar, pedir a cada proveedor lo que cubre hasta su
    pedido siguiente (días, hora límite y plazo de su ficha, `orderCycle` en `src/lib/supplier-terms.ts`), dejar
    para su día lo del proveedor que hoy no admite pedidos y poner primero lo que se acaba antes de que llegue
    nada. Las fuentes de precio (`suppliers.is_price_source`, 0061) valoran pero nunca reciben pedidos
    (`tools/orderable.ts`). La comprueba la batería de decisiones (`__tests__/bateria-decisiones.test.ts`).
-7. **Respuesta** (`writer/`): plantillas con las cifras exactas. Un borrador no se guarda hasta que el
+7. **Respuesta** (`writer/`): plantillas con las cifras exactas (las consultas simples —stock, precios y ficha— y
+   las correcciones de borrador, siempre con plantilla). Un borrador no se guarda hasta que el
    usuario lo confirma (`drafts/confirm.ts`, con las mismas funciones de la base que las pantallas).
 8. **Rastro** (`agent/turn-trace.ts`): cada turno, por cualquier vía (archivo, varias órdenes, atajo, botón, Jev),
    queda en `copilot_audit` con la respuesta, la vía, el plan, el tiempo por etapa y si fue una aclaración o un

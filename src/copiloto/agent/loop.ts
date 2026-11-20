@@ -9,14 +9,13 @@ import { asNoul, gateNoulYes } from "../jev/gates/gate";
 import type { Thresholds } from "../jev/gates/thresholds";
 import { CATALOG_VERSION, evaluationQuestions, label, type Intent } from "../jev/catalog";
 import { JevError, type JevPort, type JevResult } from "../jev/client";
-import { runTarea, type TareaPlan } from "../skills/tareas";
 import { StageTimer, type Metrics } from "../metrics/metrics";
 import { DataError } from "../supabase/client";
 import type { Tools } from "../tools/tools";
 import { GENERAL_NOTE, type Assistant } from "../writer/assistant";
 import type { Writer } from "../writer/writer";
 import { Interpreter } from "../jev/interpret";
-import { needsCoherenceCheck, shortcutIntent, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type InfoPlan, type Plan } from "./plans";
+import { needsCoherenceCheck, shortcutIntent, type ActionPlan, type CatalogPlan, type ClarifyPlan, type DocumentPlan, type Plan } from "./plans";
 import { validateDraft } from "../drafts/schemas";
 import type { DraftBuilder } from "../drafts/builder";
 import type { DraftStore } from "../drafts/store";
@@ -24,10 +23,9 @@ import type { DecisionReport, ReportOutcome } from "./report";
 import { buildRouting, type RoutingMeta } from "../jev/request";
 import { activeFocus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
-import type { ConfirmResponse } from "../drafts/confirm";
 import { CANCEL_OPTION, operationOnly } from "./free-text";
 import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
-import { describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
+import { asksUser, describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
 import { multiTaskTurn } from "./multi-task";
 import { runQuery } from "./run-query";
@@ -38,13 +36,14 @@ import { especialistaDe } from "../especialistas/mapa";
 import { fueraDeAlcance } from "../especialistas/puerta";
 import { dropStaleDraft } from "./stale-draft";
 import { smallTalk } from "./topics";
-import { runInfo, type InfoSource } from "../tools/info";
+import type { InfoSource } from "../tools/info";
 import { preroute } from "./preroute";
 import { formFor, readForm } from "./action-form";
 import { auditEarlyTurn, auditTurn, traceEmit } from "./turn-trace";
-
-/** Confirma un borrador con el mismo servicio (y las mismas comprobaciones) que el botón. */
-type ConfirmDraft = (draftId: string) => Promise<ConfirmResponse>;
+import { rememberTask, resumeTask, settleTask, taskPrompt } from "./task-in-progress";
+import { answerDraft, infoStep, offerPhrases, retireDraft, tareaStep, type ConfirmDraft, type ExecEnv } from "./execute-steps";
+import { draftCorrection } from "./draft-correction";
+import { recommendOrigin } from "./recommend-origin";
 
 export interface RequestScope {
   tools?: Tools;
@@ -178,6 +177,17 @@ export class Agent {
         }
       }
 
+      // Operación a medias tras un miniformulario: lo escrito la completa («larios», «2 botellas»; task-in-progress.ts).
+      const resumed = !followUp && !fromForm && !req.clarification ? resumeTask(session, message, ctx, this.now().getTime()) : null;
+      if (resumed?.cancelled) [plan, shortcut] = [{ type: "aviso", text: "Vale, lo dejo. Dime si necesitas otra cosa." }, true];
+      else if (resumed) ({ message, overrides } = resumed);
+      const continued = Boolean(resumed && !resumed.cancelled);
+
+      // Corrección del borrador pendiente («mejor que sean 4», «cámbialo a Parador»): se rehace (draft-correction.ts).
+      const correction = !plan && !followUp && !fromForm && !req.clarification && !continued ? await draftCorrection(message, activeFocus(session, this.now().getTime()), deps.drafts, ctx, deps.retriever, this.now()) : null;
+      if (correction) ({ plan, overrides, answers, message } = { ...correction, message: correction.request });
+      shortcut ||= Boolean(correction);
+
       // Respuesta a una aclaración: se retoma la orden original con lo contestado (ver clarify-answer.ts).
       if (req.clarification && !byButton) {
         ({ message, page, pageContext, overrides, answers, reuse, plan, shortcut } = await resumeClarification(req, session, ctx, deps.retriever, { message, page, pageContext, overrides, answers, reuse, plan, shortcut }));
@@ -186,7 +196,7 @@ export class Agent {
       // Seguimiento que depende de lo hablado («¿y sus proveedores?»): la IA lo completa antes de enrutar
       // (ver comprehension.ts). Lo reescrito sigue el camino normal; si falla, el mensaje tal cual.
       let understoodAs: string | null = null;
-      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !followUp && !fromForm) {
+      if (deps.assistant?.enabled && !plan && !reuse && !req.clarification && !followUp && !fromForm && !continued) {
         understoodAs = await rewriteFollowUp(deps.assistant, message, session, activeFocus(session, this.now().getTime()), ctx, timer);
         if (understoodAs) message = understoodAs;
       }
@@ -197,7 +207,7 @@ export class Agent {
 
       // Lo que se resuelve sin Jev (comandos, órdenes de oficina, respuestas escritas, temas claros, vía
       // rápida de stock): ver preroute.ts, con el orden de prioridad.
-      if (!plan && !reuse && !fromForm) {
+      if (!plan && !reuse && !fromForm && !continued) {
         const now = this.now();
         plan = await preroute(message, {
           ctx,
@@ -245,7 +255,7 @@ export class Agent {
           plan = { type: "aviso", text: `${understanding.respuesta}\n\n${GENERAL_NOTE}` };
           intent = "conversar";
           decisions = [];
-        } else if (understanding?.tipo === "datos" && tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") && groundedLocations(understanding.consulta, message, session, focusNow, ctx)) {
+        } else if (understanding?.tipo === "datos" && tokenize(understanding.consulta).join(" ") !== tokenize(message).join(" ") && !asksUser(understanding.consulta) && groundedLocations(understanding.consulta, message, session, focusNow, ctx)) {
           const again = await this.replan(understanding.consulta, page, pageContext, session, ctx, deps, timer, habits, toolset);
           if (resolves(again.plan)) {
             ({ plan, intent, decisions, routing, shortcut } = again);
@@ -265,6 +275,11 @@ export class Agent {
       });
 
       const outcome = await this.execute(plan, { message, messageId, page, pageContext, overrides, answers, routing, ctx, session, emit, timer, tools: toolset, info: deps.info, decisions, audit: deps.audit, drafts: deps.drafts, confirmDraft: deps.confirmDraft, skipGeneral, ...(understoodAs ? { understoodAs } : {}) });
+      settleTask(session, outcome);
+      if (correction && outcome.kind === "borrador") {
+        await retireDraft(correction.replaces, deps.drafts, emit);
+        outcome.corrige = true;
+      }
       // Lo que se entendió va delante de la respuesta: el usuario ve cómo se ha leído su mensaje.
       if (understoodAs) {
         const said = `Entiendo: «${understoodAs}».`;
@@ -291,7 +306,7 @@ export class Agent {
 
       const written = await timer.time("redaccion", () => deps.writer.write(report, emit));
       // En el historial va lo que el usuario dijo (no la orden original que se reutiliza al aclarar).
-      deps.sessions.addTurn(session, { role: "user", text: req.clarification ? req.clarification.freeText ?? req.message : understoodAs ? req.message : message });
+      deps.sessions.addTurn(session, { role: "user", text: req.clarification ? req.clarification.freeText ?? req.message : understoodAs || correction ? req.message : message });
       deps.sessions.addTurn(session, { role: "assistant", text: written.text });
       timer.flush(deps.metrics);
       await deps.sessions.save(req.sessionId, ctx.orgId, session).catch(() => undefined);
@@ -299,7 +314,7 @@ export class Agent {
 
       await auditTurn(deps.audit, {
         ctx, req, messageId, message, understoodAs, intent, decisions, outcome: outcome.kind, jevModel: report.jevModel, shortcut, plan, seen: traced.seen, timer,
-        via: byButton ? "boton" : fromForm ? "formulario" : req.clarification ? "aclaracion" : understoodAs ? "comprension" : shortcut ? "atajo" : "jev",
+        via: byButton ? "boton" : fromForm ? "formulario" : continued ? "continuacion" : correction ? "correccion" : req.clarification ? "aclaracion" : understoodAs ? "comprension" : shortcut ? "atajo" : "jev",
       });
     } catch (err) {
       // El usuario ve un mensaje; el fallo se registra para poder arreglarlo (ver lib/report-error).
@@ -344,13 +359,16 @@ export class Agent {
     return { plan: interpretation.plan, intent: interpretation.intent, decisions: interpretation.decisions, routing: { meta: built.meta, jev }, shortcut: false };
   }
 
-  private async clarify(plan: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
+  private async clarify(original: ClarifyPlan, env: ExecEnv): Promise<ReportOutcome> {
     // Operación clara con dos datos o más por saber: se piden juntos en un miniformulario.
-    const form = formFor(plan, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
+    const form = formFor(original, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
     if (form) {
+      rememberTask(env.session, form, this.now().getTime());
       await env.emit({ event: "form", data: form });
-      return { kind: "tarea", tarea: "formulario", text: "Me faltan unos datos: rellénalos aquí y te preparo el borrador.", rows: 0 };
+      return { kind: "tarea", tarea: "formulario", text: taskPrompt(env.session.task), rows: 0 };
     }
+    // El origen de un traspaso: primero el local al que le sobra (recommend-origin.ts).
+    const plan = await recommendOrigin(original, { routing: env.routing, overrides: env.overrides, ctx: env.ctx, source: env.tools.source });
     // La misma pregunta otra vez: lo que se escribió no la contestaba. Se dice claro qué falta, con un
     // ejemplo de respuesta, y se ofrece dejarlo (nunca se manda a otra pantalla).
     const repeated = askedRecently(env.session, plan.question);
@@ -454,34 +472,6 @@ export class Agent {
    * que el botón (dueño, caducidad, rol, idempotencia). Con avisos en «revisar» no se confirma por
    * chat: hay que marcarlos en la tarjeta.
    */
-  private async answerDraft(plan: Extract<Plan, { type: "borrador" }>, env: ExecEnv): Promise<ReportOutcome> {
-    const stored = await env.drafts.get(plan.draftId, env.ctx.userId, env.ctx.orgId);
-    if (!stored || stored.status !== "pendiente" || new Date(stored.draft.expiresAt).getTime() < this.now().getTime()) {
-      return { kind: "error", message: "Ese borrador ya no está disponible (se confirmó, se descartó o caducó). Pídemelo de nuevo." };
-    }
-    const title = stored.draft.title;
-    const resolved = async (status: "confirmado" | "descartado", message: string): Promise<ReportOutcome> => {
-      await env.emit({ event: "resolved", data: { draftId: plan.draftId, status, message } });
-      return { kind: "resuelto", status, message };
-    };
-
-    if (plan.action === "cancelar") {
-      // Se bloquea en el servidor para que la tarjeta antigua ya no pueda confirmarlo.
-      await env.drafts.claim(plan.draftId);
-      env.drafts.delete(plan.draftId);
-      return resolved("descartado", `Descartado: ${title}.`);
-    }
-
-    if (stored.draft.checks?.some((c) => c.status === "revisar")) {
-      return { kind: "error", message: "Ese borrador tiene avisos que revisar: márcalos en la tarjeta y confírmalo desde allí." };
-    }
-    if (!env.confirmDraft) return { kind: "error", message: "Confírmalo con el botón de la tarjeta." };
-    const result = await env.confirmDraft(plan.draftId);
-    if (!result.ok) return { kind: "error", message: result.message };
-    if (result.navigate) await env.emit({ event: "navigate", data: result.navigate });
-    return resolved("confirmado", result.message);
-  }
-
   private async execute(plan: Plan, env: ExecEnv): Promise<ReportOutcome> {
     const { ctx, emit } = env;
     // Puerta por especialista y por cuentas: lo que el perfil no puede usar o no ve recibe un aviso sin cifras.
@@ -501,89 +491,24 @@ export class Agent {
       }
       case "aviso":
         if (plan.route) await emit({ event: "navigate", data: { route: plan.route, filters: plan.filters ?? {}, auto: plan.go ?? false } });
-        await this.offerPhrases(plan.actions, env);
+        await offerPhrases(plan.actions, env, this.deps.sessions);
         return { kind: "tarea", tarea: "aviso", text: plan.text, rows: 0 };
       case "bloqueado":
         return { kind: "bloqueado" };
       case "info":
-        return this.info(plan, env);
+        return infoStep(plan, env, this.now(), this.deps.sessions);
       case "accion":
       case "catalogo":
       case "documento":
         return this.draft(plan, env);
       case "borrador":
-        return this.answerDraft(plan, env);
+        return answerDraft(plan, env, this.now());
       case "consultar":
         return runQuery(this.deps, this.now(), plan, env.message, ctx, emit, env.timer, env.tools, env.session);
       case "tarea":
-        return this.tarea(plan, env);
+        return tareaStep(plan, env, this.now(), this.deps.sessions);
     }
-  }
-
-  /** Facturas, equipo, escandallos, zonas, inventarios o proveedores: texto y tabla ya redactados. */
-  private async info(plan: InfoPlan, env: ExecEnv): Promise<ReportOutcome> {
-    if (!env.info) return { kind: "error", message: "Esa consulta no está disponible ahora mismo." };
-    const result = await env.timer.time("herramientas", () =>
-      runInfo(env.info!, env.ctx, {
-        tool: plan.tool,
-        message: env.message,
-        locationIds: plan.locationIds,
-        locationsChosen: !plan.locationsDefaulted,
-        productNames: plan.products.map((p) => p.product.name),
-        now: this.now(),
-      }),
-    );
-    if (result.table) await env.emit({ event: "table", data: result.table });
-    await env.emit({ event: "navigate", data: { route: result.route, filters: {}, auto: false } });
-    await this.offerPhrases(result.actions, env);
-    return { kind: "tarea", tarea: plan.tool, text: result.text, rows: result.rows };
-  }
-
-  /** Botones que envían una frase ya escrita («Registrar como merma», «Validarlas»). */
-  private async offerPhrases(actions: Array<{ label: string; say: string }> | undefined, env: ExecEnv): Promise<void> {
-    if (!actions?.length) return;
-    const followUps = actions.map((a) => ({ id: randomUUID().slice(0, 12), label: a.label, say: a.say }));
-    this.deps.sessions.setFollowUps(env.session, followUps);
-    await env.emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
-  }
-
-  /** Tarea de varios pasos: tabla, botones que preparan los borradores y enlace a su pantalla. */
-  private async tarea(plan: TareaPlan, env: ExecEnv): Promise<ReportOutcome> {
-    const result = await env.timer.time("herramientas", () => runTarea(plan.tarea, { ctx: env.ctx, source: env.tools.source, locationIds: plan.locationIds, now: this.now() }));
-    if (result.table) await env.emit({ event: "table", data: result.table });
-    if (result.navigate) await env.emit({ event: "navigate", data: result.navigate });
-    const followUps = result.followUps.map((f) => ({ ...f, id: randomUUID().slice(0, 12) }));
-    if (followUps.length > 0) {
-      this.deps.sessions.setFollowUps(env.session, followUps);
-      await env.emit({ event: "actions", data: { actions: followUps.map((f) => ({ id: f.id, label: f.label })) } });
-    }
-    return { kind: "tarea", tarea: result.tarea, text: result.text, rows: result.table?.rows.length ?? 0 };
   }
 
 }
 
-interface ExecEnv {
-  message: string;
-  /** La comprensión ya dijo que no es una pregunta general: no se vuelve a preguntar a la IA. */
-  skipGeneral?: boolean;
-  /** Petición tal como la entendió la comprensión (se dice también al aclarar). */
-  understoodAs?: string;
-  messageId: string;
-  page: AppRoute;
-  pageContext: ChatRequest["pageContext"];
-  overrides: Record<string, string>;
-  /** Respuestas a las aclaraciones de esta orden, en texto. */
-  answers: string[];
-  routing: { meta: RoutingMeta; jev: JevResult } | undefined;
-  ctx: SessionContext;
-  session: Session;
-  emit: Emit;
-  timer: StageTimer;
-  tools: Tools;
-  info?: InfoSource;
-  /** Decisiones del mensaje; la coherencia del borrador se añade aquí para el informe y la auditoría. */
-  decisions: Decision[];
-  audit: AuditSink;
-  drafts: DraftStore;
-  confirmDraft?: ConfirmDraft;
-}

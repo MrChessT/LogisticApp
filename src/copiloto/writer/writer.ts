@@ -15,6 +15,11 @@ export interface WriteResult {
 /** Resultados que siempre se dicen con plantilla: son fijos o de seguridad. */
 // Las tareas ya traen su texto con las cifras exactas: no se reescribe.
 const TEMPLATE_ONLY = new Set(["aclaracion", "fuera_de_ambito", "bloqueado", "error", "resuelto", "tarea"]);
+/**
+ * Consultas simples (cuánto queda, a cuánto se compra, la ficha de un producto): la plantilla ya dice la cifra con
+ * su unidad y su local. Redactadas por la LLM a veces perdían un dato o el filtro pedido; aquí no aporta nada.
+ */
+const TEMPLATE_TOOLS = new Set(["query_stock", "query_prices", "query_product"]);
 
 const MAX_CHARS = 900;
 // Sin "$": un "1." al final de un fragmento puede ser el principio de "1.400".
@@ -35,7 +40,10 @@ export class Writer {
 
   async write(report: DecisionReport, emit: Emit): Promise<WriteResult> {
     const template = renderTemplate(report);
-    if (!this.provider || TEMPLATE_ONLY.has(report.outcome.kind)) {
+    // Una corrección se cuenta con la plantilla: dice qué borrador sustituye al anterior, sin adornos.
+    const corrected = report.outcome.kind === "borrador" && report.outcome.corrige === true;
+    const simple = report.outcome.kind === "consulta" && TEMPLATE_TOOLS.has(report.outcome.tool);
+    if (!this.provider || TEMPLATE_ONLY.has(report.outcome.kind) || corrected || simple) {
       await emit({ event: "text", data: { delta: template } });
       this.metrics.writer.plantilla += 1;
       return { text: template, source: "plantilla" };

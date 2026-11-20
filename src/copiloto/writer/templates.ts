@@ -48,11 +48,13 @@ export function renderTemplate(report: DecisionReport): string {
       return "Te respondo sobre stock, consumo, mermas, precios (también qué es lo más caro), proveedores, pedidos y cuándo se pidió o llegó algo, gasto, cómo va el mes, ventas, facturas, escandallos y alérgenos, zonas, salidas de almacén sin validar, inventarios y equipo. Y te preparo mermas, traspasos, recepciones, recuentos, pedidos, cambios de precio o de mínimos, las salidas de almacén (apuntarlas y validarlas), el pago de facturas, el PVP de los platos, las condiciones de los proveedores y la categoría o los alérgenos de un producto para que los confirmes. Prueba: «¿cuánta coca queda en el Vivero?», «¿qué facturas vencen esta semana?», «¿cuándo pedimos tónica por última vez?», «¿cómo voy este mes?» o «pasa 2 cajas de tónica del Parador a Pickles».";
     case "borrador": {
       const review = o.draft.checks?.filter((c) => c.status === "revisar") ?? [];
+      // Al corregir se dice lo que queda: el anterior ya no vale y la tarjeta nueva lo sustituye.
+      const lead = o.corrige ? `Corregido: ${o.draft.title}. El anterior queda descartado.` : "He preparado un borrador.";
       if (review.length > 0) {
-        return `He preparado un borrador. Antes de confirmarlo revisa ${review.length === 1 ? "este aviso" : "estos avisos"}: ${review.map((c) => c.detail).join(" ")}`;
+        return `${lead} Antes de confirmarlo revisa ${review.length === 1 ? "este aviso" : "estos avisos"}: ${review.map((c) => c.detail).join(" ")}`;
       }
       // El título ya va en la tarjeta del borrador: el texto no lo repite.
-      return "Revísalo y confírmalo si está bien.";
+      return o.corrige ? `${lead} Revísalo y confírmalo si está bien.` : "Revísalo y confírmalo si está bien.";
     }
     case "error":
       return o.message;
@@ -156,6 +158,11 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
             ? `${byType.map((t) => `${MOVEMENT_PLURAL[t.tipo] ?? t.tipo} ${t.valor}`).join(" · ")}.`
             : `${result.totals.movimientos} registros.`;
       const title = result.totals.tipos ? `${result.totals.tipos[0]!.toUpperCase()}${result.totals.tipos.slice(1)}` : "Movimientos";
+      if (result.totals.por_local) {
+        if (result.rows.length === 0) return `${title} ${where}: ninguna.`;
+        const top = result.rows[0]!;
+        return `${title} ${where}: ${head}\nDonde más: ${top.local} (${top.valor}${top.tipo !== "merma" ? `, ${top.tipo}` : ""}).\n${list(result.rows, (r) => `${r.local}: ${r.valor} (${plural(String(r.movimientos ?? "0"), "registro", "registros")}${r.tipo !== "merma" ? `, ${r.tipo}` : ""})`)}${more}`;
+      }
       return `${title} ${where}: ${head[0]!.toUpperCase()}${head.slice(1)}\n${list(result.rows, (r) => `${r.tipo} · ${r.producto}: ${r.cantidad} (${r.valor})`)}${more}`;
     }
     case "query_prices": {
@@ -207,7 +214,7 @@ function renderQueryBody(o: Extract<DecisionReport["outcome"], { kind: "consulta
       return `${head}\n${list(result.rows, (r) => `${r.posicion}. ${r.producto}: ${r.cantidad} (${r.valor}, ${r.porcentaje}) — ${r.al_dia} al día`)}${more}`;
     }
     case "query_spend":
-      return `Compras del ${result.totals.desde} al ${result.totals.hasta}: ${result.totals.total} en ${plural(result.totals.albaranes ?? "0", "albarán", "albaranes")}.\n${list(result.rows, (r) => `${r.proveedor}: ${r.importe} (${r.porcentaje})`)}${more}`;
+      return `Compras${result.totals.familia ? ` de ${result.totals.familia}` : ""} del ${result.totals.desde} al ${result.totals.hasta}: ${result.totals.total} en ${plural(result.totals.albaranes ?? "0", "albarán", "albaranes")}.\n${list(result.rows, (r) => `${r.proveedor}: ${r.importe} (${r.porcentaje})`)}${more}`;
     case "query_reorder": {
       // Con tabla (ordenada por urgencia): solo el titular.
       if (o.tabulated) {

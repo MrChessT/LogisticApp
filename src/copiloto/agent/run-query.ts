@@ -18,7 +18,10 @@ import { locationLabel } from "../jev/interpret";
 import type { QueryPlan } from "./plans";
 import type { AgentDeps } from "./loop";
 import type { Evaluation, ReportOutcome } from "./report";
-import { referencesPrevious, wantsAreaBreakdown } from "../entities/signals";
+import { asksSeveralData, referencesPrevious, wantsAreaBreakdown, wantsLocationBreakdown } from "../entities/signals";
+import { tokenize } from "../entities/normalize";
+import { isUnitWord } from "../entities/quantity-parser";
+import { familyOf } from "../entities/family";
 import type { Session } from "./session";
 
 type QueryDeps = Pick<AgentDeps, "jev" | "sessions" | "metrics" | "thresholds">;
@@ -58,10 +61,35 @@ function movementFilter(message: string, plan: QueryPlan, session: Session): { m
   return types.length > 0 ? { movementTypes: types } : {};
 }
 
-export async function runQuery(deps: QueryDeps, now: Date, plan: QueryPlan, message: string, ctx: SessionContext, emit: Emit, timer: StageTimer, tools: Tools, session: Session): Promise<ReportOutcome> {
+/** «¿Cuánto he gastado en bebida?»: la familia que nombra (o los productos que resolvió Jev). */
+function spendFamily(message: string, plan: QueryPlan, ctx: SessionContext): { family?: ToolParams["family"] } {
+  const family = familyOf(message, ctx.products);
+  if (family && family.products.length > 0) return { family: { label: family.label, productIds: family.products.map((p) => p.id) } };
+  if (plan.products.length > 0) return { family: { label: plan.familia ?? plan.products.map((p) => p.product.name).slice(0, 2).join(", "), productIds: plan.products.map((p) => p.product.id) } };
+  return {};
+}
+
+/** Dos datos del mismo producto en una pregunta: la ficha entera (stock, precio, consumo y mínimos). */
+function bothParts(plan: QueryPlan, message: string): QueryPlan {
+  if (plan.products.length === 0 || !["query_stock", "query_prices", "query_product", "query_movements"].includes(plan.tool) || !asksSeveralData(message)) return plan;
+  // Con varios candidatos («beefeater»: Beefeater y Ginebra Beefeater Black), el que se nombra entero.
+  const said = new Set(tokenize(message));
+  const whole = plan.products.filter((p) => tokenize(p.product.name).filter((w) => !/^\d/.test(w) && !isUnitWord(w)).every((w) => said.has(w)));
+  const products = plan.products.length === 1 ? plan.products : whole.length === 1 ? whole : null;
+  if (!products) return plan;
+  const { dato: _dato, familia: _familia, ...rest } = plan;
+  void _dato;
+  void _familia;
+  return { ...rest, products, tool: "query_product" };
+}
+
+export async function runQuery(deps: QueryDeps, now: Date, asked: QueryPlan, message: string, ctx: SessionContext, emit: Emit, timer: StageTimer, tools: Tools, session: Session): Promise<ReportOutcome> {
+  const plan = bothParts(asked, message);
   const tzLocation = ctx.locations.find((l) => l.id === plan.locationIds[0]);
   const today = businessDay(now, tzLocation?.timezone ?? "Europe/Madrid", tzLocation?.dayCutoff ?? "06:00");
-  const fallback = DEFAULT_PERIOD[plan.tool];
+  // Comparar locales con una semana suele dar ceros: sin periodo dicho, el último mes.
+  const byLocation = plan.tool === "query_movements" && wantsLocationBreakdown(message) && plan.locationIds.length > 1;
+  const fallback = byLocation ? "mes" : DEFAULT_PERIOD[plan.tool];
   const period = fallback || plan.periodo !== "no_indicado" ? pastPeriod(plan.periodo, today, message, fallback ?? "mes") : null;
   const h = horizon(plan.periodo, today);
   const params: ToolParams = {
@@ -74,6 +102,8 @@ export async function runQuery(deps: QueryDeps, now: Date, plan: QueryPlan, mess
     now,
     ...(plan.tool === "query_stock" && wantsAreaBreakdown(message) ? { byArea: true } : {}),
     ...(plan.tool === "query_movements" ? movementFilter(message, plan, session) : {}),
+    ...(byLocation ? { byLocation: true } : {}),
+    ...(plan.tool === "query_spend" ? spendFamily(message, plan, ctx) : {}),
   };
 
   let result = await timer.time("herramientas", () => tools.run(plan.tool, params, ctx));

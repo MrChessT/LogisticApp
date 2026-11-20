@@ -155,6 +155,10 @@ export interface ToolParams {
   now: Date;
   /** Stock desglosado por espacio («¿qué hay en cada sección?»). */
   byArea?: boolean;
+  /** Movimientos repartidos por local («¿en qué local se pierde más?»). */
+  byLocation?: boolean;
+  /** Gasto de una familia del catálogo («en bebida»): solo las líneas de sus productos. */
+  family?: { label: string; productIds: string[] };
   /** Movimientos: solo estos tipos («¿cuánta merma…?» → mermas). Sin él, todos menos aperturas y cambios de zona. */
   movementTypes?: MovementType[];
 }

@@ -25,7 +25,7 @@ export type AuditEvent =
   | { type: "bloqueo"; at: string; userId: string; orgId: string; messageId: string; reason: string };
 
 /** Por dónde se resolvió un mensaje: los indicadores separan lo que va por atajo de lo que pasa por Jev. */
-export type Via = "documento" | "varias_ordenes" | "boton" | "formulario" | "aclaracion" | "atajo" | "comprension" | "jev";
+export type Via = "documento" | "varias_ordenes" | "boton" | "formulario" | "continuacion" | "correccion" | "aclaracion" | "atajo" | "comprension" | "jev";
 
 export interface TurnTrace {
   via: Via;

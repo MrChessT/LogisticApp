@@ -5,7 +5,8 @@ import type { SessionContext } from "../domain";
 import { tokenize } from "../entities/normalize";
 import { isGenericName } from "../entities/catalog-parser";
 import type { Retriever } from "../entities/retriever";
-import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, readFreeText, type FreeTextAnswer } from "./free-text";
+import { CANCEL_OPTION, changesOperation, ENTITY_FIELDS, fieldOverrides, isNewQuestion, NAME_FIELDS, operationOf, pendingOperation, readFreeText, type FreeTextAnswer } from "./free-text";
+import { continueTask, taskFromPending } from "./task-in-progress";
 import type { ClarifyPlan, Plan } from "./plans";
 import type { PendingClarify, Session } from "./session";
 import { officeAction } from "./office-actions";
@@ -142,11 +143,17 @@ export async function resumeClarification(req: ChatRequest, session: Session, ct
       answers = answered(option !== null ? (pending.optionLabels?.[pending.optionIds.indexOf(option)] ?? text) : text);
       reuse = pending.routing;
     } else if (ENTITY_FIELDS.has(pending.field) && !pending.restart && !isNewQuestion(text) && !changes) {
-      // Falta un dato de la orden y no encaja con ninguna opción: se completa la orden original.
-      message = `${pending.message}. ${text}`.slice(0, 1000);
+      // Falta un dato de la orden y no encaja con ninguna opción: se completa la orden original. En una merma,
+      // traspaso o recepción, lo escrito se ordena en su sitio (task-in-progress.ts); pegarlo al final daba
+      // frases como «iniciar traspaso. a comida la oliva. traspaso. cocacola» que Jev ya no entendía.
+      const now = Date.now();
+      const base = taskFromPending(pendingOperation(pending), pending.overrides, pending.routing?.meta.segments[0]?.segment, now);
+      const step = base ? continueTask(base, text, ctx, now) : null;
+      const ordered = step?.kind === "continue" ? step : null;
+      message = ordered ? ordered.message : `${pending.message}. ${text}`.slice(0, 1000);
       page = pending.page;
       pageContext = pending.pageContext;
-      overrides = fieldOverrides(pending.overrides);
+      overrides = { ...fieldOverrides(pending.overrides), ...(ordered?.overrides ?? {}) };
       answers = pending.answers ?? [];
     }
     // Si no, lo escrito es un mensaje nuevo: la orden anterior no se arrastra.

@@ -14,6 +14,7 @@ import { isLoss } from "../../lib/exit-kinds";
 import { addDays } from "../tools/periods";
 
 import { equilibrar, pedidos } from "./reponer";
+import { stockParado } from "./stock-parado";
 import { locationName, MAX_ROWS, plural, TAREAS, type TareaFollowUp, type TareaId, type TareaInput, type TareaResult } from "./tarea-types";
 
 export type { TareaId, TareaPlan, TareaResult } from "./tarea-types";
@@ -25,7 +26,7 @@ export async function runTarea(id: TareaId, input: TareaInput): Promise<TareaRes
     case "equilibrar":
       return equilibrar(input);
     case "catalogo":
-      return catalogo(input);
+      return input.foco === "parado" ? stockParado(input) : input.foco ? catalogIssue(input, input.foco) : catalogo(input);
     case "parte":
       return parte(input);
   }
@@ -103,6 +104,29 @@ async function catalogo({ ctx, source, locationIds }: TareaInput): Promise<Tarea
     },
     followUps: [],
     navigate: { route: "/productos", filters: {}, auto: false },
+  };
+}
+
+/** Un solo problema del catálogo («¿qué productos no tienen precio?»): la lista de los que lo tienen. */
+async function catalogIssue({ ctx, source, locationIds }: TareaInput, issue: string): Promise<TareaResult> {
+  const issues = (await source.catalogHealth({ locationIds })).filter((i) => i.issue === issue);
+  const label = (ISSUE_LABELS[issue] ?? issue).toLowerCase();
+  const navigate = { route: "/productos" as const, filters: {}, auto: false };
+  const names = [...new Set(issues.map((i) => i.productName))];
+  if (names.length === 0) return { tarea: "catalogo", text: `Ningún producto ${label === "stock negativo" ? "con stock negativo" : label}.`, table: null, followUps: [], navigate };
+  const head = `${plural(names.length, "producto", "productos")} ${label === "stock negativo" ? "con stock negativo" : label}`;
+  return {
+    tarea: "catalogo",
+    text: names.length <= 6 ? `${head}: ${names.join(", ")}. Se arregla en la ficha de cada producto.` : `${head}. Se arregla en la ficha de cada producto (la lista, abajo).`,
+    table: names.length > 6
+      ? {
+          columns: [{ key: "producto", label: "Producto" }, { key: "local", label: "Local" }, { key: "detalle", label: "Detalle" }],
+          rows: issues.slice(0, MAX_ROWS).map((i) => ({ producto: i.productName, local: i.locationId ? locationName(ctx, i.locationId) : "—", detalle: i.detail })),
+          ...(issues.length > MAX_ROWS ? { more: issues.length - MAX_ROWS } : {}),
+        }
+      : null,
+    followUps: [],
+    navigate,
   };
 }
 

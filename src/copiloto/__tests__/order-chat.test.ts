@@ -92,3 +92,18 @@ describe("pedidos desde el chat: local", () => {
     expect(draft.warnings).not.toContain("Revisa el local.");
   });
 });
+
+describe("pedido a un proveedor que no existe", () => {
+  it("«hazme el pedido de frutas paco para el parador»: se dice que no existe, sin preparar el de todos", async () => {
+    const { agent } = makeAgent(new FakeJev([route({ local: "Parador" })]));
+    const events = await run(agent, chat("hazme el pedido de frutaspaco para el parador"));
+    expect(find(events, "draft")).toBeUndefined();
+    expect(find(events, "done")!.text).toBe("No tengo ningún proveedor llamado «frutaspaco». Dime a cuál de los tuyos se lo pido o dalo de alta en Proveedores.");
+  });
+
+  it("«el pedido de coca cola»: un producto no es un proveedor desconocido", async () => {
+    const { agent } = makeAgent(new FakeJev([route({ local: "Parador", producto_0: COCA.name }), { coherencia: 0.95 }]));
+    const events = await run(agent, chat("prepara el pedido de coca cola para el parador"));
+    expect(find(events, "done")!.text).not.toContain("No tengo ningún proveedor");
+  });
+});

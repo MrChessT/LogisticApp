@@ -38,6 +38,14 @@ describe("comprensión con IA validada por Jev", () => {
     expect(text(events)).not.toContain("Entiendo");
   });
 
+  it("no acepta una reescritura que es una pregunta al usuario («¿qué pedido quieres consultar?»)", async () => {
+    const jev = new FakeJev([DOUBT, STOCK]);
+    const { agent } = makeAgent(jev, null, { assistant: assistant('{"tipo":"datos","consulta":"¿qué pedido quieres consultar?"}') });
+    const events = await run(agent, chat("pedido"));
+    expect(jev.calls).toHaveLength(1);
+    expect(text(events)).not.toContain("Entiendo");
+  });
+
   it("no acepta una reescritura que se inventa un local", async () => {
     const jev = new FakeJev([DOUBT, STOCK]);
     const { agent } = makeAgent(jev, null, { assistant: assistant('{"tipo":"datos","consulta":"¿cuánta coca-cola queda en el Vivero?"}') });

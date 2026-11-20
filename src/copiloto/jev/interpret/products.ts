@@ -18,6 +18,25 @@ function wholeMessage(segment: { text: string; productText: string }): boolean {
   return segment.productText === segment.text && segment.text.split(/\s+/).length > 4;
 }
 
+/**
+ * Producto cuyo nombre completo es exactamente lo escrito («coca cola» o «cocacola» = «Coca-Cola»), sin contar
+ * cantidades, unidades ni locales. Si hay otro igual de exacto, ninguno.
+ */
+function exactCandidate(r: JevReading, segmentIndex: number): string | undefined {
+  const rs = r.meta.segments[segmentIndex];
+  if (!rs) return undefined;
+  // El formato («20 cl», «70cl») no cuenta: «coca cola» es «Coca-Cola 20 cl» si no hay otra Coca-Cola.
+  const core = (text: string) => tokenize(text).filter((w) => !isUnitWord(w) && !/^\d/.test(w) && w !== "de" && w !== "del");
+  const said = core(rs.segment.productText || rs.segment.text).filter((w) => !r.placeWords.has(w));
+  if (said.length === 0) return undefined;
+  const same = (name: string) => {
+    const words = core(name);
+    return words.join(" ") === said.join(" ") || words.join("") === said.join("");
+  };
+  const exact = [...rs.candidates.entries()].filter(([, p]) => same(p.name));
+  return exact.length === 1 ? exact[0]![0] : undefined;
+}
+
 /** Familia del catálogo que nombra el fragmento («ron», «cervezas»), para consultas. */
 function catalogFamily(r: JevReading, segmentIndex: number, byName = true): Family | null {
   const rs = r.meta.segments[segmentIndex];
@@ -79,6 +98,21 @@ export function resolveProducts(r: JevReading, context: ContextKey, forAction: b
     if (g.outcome !== "actuar" && literal && rs.candidates.size === 1 && chosen && g.ranked[0]?.option === answer!.choice && g.probability >= 0.45) {
       g.outcome = "actuar";
       r.markActed(id);
+    }
+    // Nombre exacto del catálogo: «pasa 2 cajas de coca cola» con Coca-Cola, Coca-Cola Zero y Coca Cola Pet. Jev
+    // reparte la probabilidad entre los parecidos (0,35), pero lo escrito es literalmente uno de ellos. Se toma si
+    // Jev no pone otro producto concreto por delante; preguntar aquí era la aclaración de más que más molestaba.
+    const exactKey = g.outcome !== "actuar" ? exactCandidate(r, i) : undefined;
+    if (exactKey && answer) {
+      const probs = answer.probabilities as Record<string, number>;
+      const p = probs[exactKey] ?? 0;
+      const rival = Object.entries(probs).some(([k, v]) => k !== exactKey && k !== NINGUNO && k !== VARIOS && v > p);
+      if (!rival && p >= 0.2) {
+        g.choice = exactKey;
+        g.outcome = "actuar";
+        const last = [...r.decisions].reverse().find((d) => d.id === id);
+        if (last) Object.assign(last, { value: exactKey, valueLabel: exactKey, probability: p, gate: "actuar" });
+      }
     }
     // En una consulta (solo lectura) basta con que el mensaje nombre el único candidato y Jev le dé
     // algo de peso: «¿cuál es el mínimo de tónica en pickels?» (ninguno 0,46, la tónica 0,43).

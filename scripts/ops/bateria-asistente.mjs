@@ -8,7 +8,8 @@
 // · La cuenta debe ser de pruebas (modo pruebas del asistente): nunca la de un usuario real.
 // · Sale con código 1 si alguna respuesta no cumple: sirve antes y después de cambiar el asistente.
 // Los casos están en scripts/ops/bateria-asistente.json («espera» y «no» son expresiones regulares;
-// «sinAclarar»: la respuesta no puede ser una pregunta de aclaración; «especialista»: quién debe atenderlo, según
+// «sinAclarar»: la respuesta no puede ser una pregunta de aclaración; «borrador»: expresión que debe cumplir el título
+// del borrador que salga (si no sale ninguno, falla); «especialista»: quién debe atenderlo, según
 // src/copiloto/especialistas/registro.ts. Al final se resume el acierto del enrutado por especialista).
 // scripts/ops/bateria-alcance.json se pasa con una cuenta de pruebas limitada a la cuenta Comida (Equipo → Cuentas de
 // análisis): comprueba que lo de otras cuentas se avisa en vez de responder sin filtro.
@@ -22,6 +23,8 @@ import { randomUUID } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
 
 const BASE = process.env.BATERIA_URL ?? "https://nexo-inventario-three.vercel.app";
+/** Cuánto de cada respuesta se enseña (BATERIA_ANCHO=2000 para leerlas enteras). */
+const WIDTH = Number(process.env.BATERIA_ANCHO ?? 170);
 const { BATERIA_EMAIL: email, BATERIA_PASSWORD: password, NEXT_PUBLIC_SUPABASE_URL: url, NEXT_PUBLIC_SUPABASE_ANON_KEY: key } = process.env;
 if (!email || !password || !url || !key) {
   console.error("Faltan BATERIA_EMAIL, BATERIA_PASSWORD, NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY.");
@@ -94,6 +97,7 @@ for (const conversation of cases) {
     if (turn.espera && !new RegExp(turn.espera, "is").test(r.text)) why.push(`falta /${turn.espera}/`);
     if (turn.no && new RegExp(turn.no, "is").test(r.text)) why.push(`sobra /${turn.no}/`);
     if (turn.sinAclarar && r.clarified) why.push("pidió aclaración");
+    if (turn.borrador && !(r.draft && new RegExp(turn.borrador, "is").test(r.draft.title))) why.push(r.draft ? `borrador «${r.draft.title}» no cumple /${turn.borrador}/` : "no preparó borrador");
     if (turn.especialista) {
       const tally = routing.get(turn.especialista) ?? { ok: 0, total: 0 };
       tally.total += 1;
@@ -101,7 +105,7 @@ for (const conversation of cases) {
       else why.push(`especialista ${r.especialista ?? "ninguno"} en vez de ${turn.especialista}`);
       routing.set(turn.especialista, tally);
     }
-    console.log(`  ${why.length ? "✗" : "✓"} [${r.ms} ms] ${turn.usuario}\n      → ${r.text.replace(/\s+/g, " ").slice(0, 170)}${why.length ? `\n      ✗ ${why.join(" · ")}` : ""}`);
+    console.log(`  ${why.length ? "✗" : "✓"} [${r.ms} ms] ${turn.usuario}\n      → ${r.text.replace(/\s+/g, " ").slice(0, WIDTH)}${why.length ? `\n      ✗ ${why.join(" · ")}` : ""}`);
     if (why.length) failures.push(`${conversation.nombre} · «${turn.usuario}»: ${why.join(" · ")}`);
     // El chat admite 20 mensajes por minuto.
     await new Promise((resolve) => setTimeout(resolve, 3200));

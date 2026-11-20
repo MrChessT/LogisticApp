@@ -4,6 +4,7 @@ import type { Product } from "../domain";
 import type { JevResult } from "../jev/client";
 import type { RoutingMeta } from "../jev/request";
 import type { FollowUp } from "./followups";
+import type { PendingTask } from "./task-in-progress";
 
 export interface Turn {
   role: "user" | "assistant";
@@ -69,6 +70,8 @@ export interface Session {
   focus?: Focus;
   /** Botones de seguimiento de las últimas respuestas (id → consulta ya resuelta). */
   followUps?: Array<FollowUp>;
+  /** Operación a medias tras un miniformulario: lo que se escriba después la completa (task-in-progress.ts). */
+  task?: PendingTask;
 }
 
 /** Forma JSON de una sesión (los Map se guardan como pares). */
@@ -77,6 +80,7 @@ export interface SerializedSession {
   turns: Turn[];
   focus?: Focus;
   followUps?: Array<FollowUp>;
+  task?: PendingTask;
   clarifies: Array<[string, SerializedClarify]>;
 }
 
@@ -110,6 +114,7 @@ function serializeSession(session: Session): SerializedSession {
     turns: session.turns,
     ...(session.focus ? { focus: session.focus } : {}),
     ...(session.followUps?.length ? { followUps: session.followUps } : {}),
+    ...(session.task ? { task: session.task } : {}),
     clarifies: [...session.clarifies.entries()].map(([id, c]) => {
       const { routing, ...rest } = c;
       if (!routing) return [id, rest];
@@ -138,6 +143,7 @@ function deserializeSession(data: SerializedSession): Session {
     turns: data.turns ?? [],
     ...(data.focus ? { focus: data.focus } : {}),
     ...(data.followUps?.length ? { followUps: data.followUps } : {}),
+    ...(data.task ? { task: data.task } : {}),
     clarifies: new Map(
       (data.clarifies ?? []).map(([id, c]) => {
         const { routing, ...rest } = c;

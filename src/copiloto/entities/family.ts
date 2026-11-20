@@ -15,7 +15,7 @@ const segmentsOf = (category: string | null): string[] => (category ? category.s
 const singular = (w: string) => (w.endsWith("es") && w.length > 4 ? w.slice(0, -2) : w.endsWith("s") && w.length > 3 ? w.slice(0, -1) : w);
 
 /** Letras que cambian, sobran o faltan para pasar de una palabra a otra. */
-function editDistance(a: string, b: string): number {
+export function editDistance(a: string, b: string): number {
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
     const cur = [i];
