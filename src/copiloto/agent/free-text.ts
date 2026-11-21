@@ -128,6 +128,15 @@ export function isCancel(text: string): boolean {
   return t.split(" ").length <= 7 && /^(no,? )?(dejalo|dejala|olvidalo|cancela|cancelalo|da igual|no hace falta|no importa)\b.*\b(yo|luego|despues|falta|mejor|igual|ya|mas tarde|otro dia)\b/.test(t) || /^no hace falta$/.test(t);
 }
 
+/**
+ * «¿Cuánto he gastado este mes en bebida?», «¿cuánto llevamos gastado con Makro?»: gasto en compras. No «¿cuánto se
+ * gasta de tónica?», que es consumo.
+ */
+export function asksSpend(message: string): boolean {
+  const t = tokenize(message).join(" ");
+  return /\b(he|hemos|llevo|llevamos|habeis|han) gastado\b|\bgasto en compras\b|\b(cuanto|que) (he|hemos) comprado\b/.test(t) && !/\bse gasta\b/.test(t);
+}
+
 /** «Da de alta un vermut rojo de litro»: un alta de producto, aunque se parezca a uno que ya existe. */
 export function asksNewProduct(message: string): boolean {
   const t = tokenize(message).join(" ");

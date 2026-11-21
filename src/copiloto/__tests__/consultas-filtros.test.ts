@@ -17,6 +17,13 @@ describe("gasto con filtros", () => {
     expect(find(await run(agent, chat("cuanto llevamos gastado con frutas paco")), "done")!.text).toBe("No tengo ningún proveedor llamado «frutas paco». Pregúntame el gasto de uno de los tuyos o el total («¿cuánto he gastado este mes?»).");
   });
 
+  it("aunque Jev dude de la consulta, «he gastado» es gasto en compras", async () => {
+    const { agent } = makeAgent(new FakeJev([{ intent: "consultar", intent_alt: "leer", herramienta: { dist: { query_spend: 0.4, query_movements: 0.35, query_top_usage: 0.25 } }, periodo: "mes" }]));
+    expect(find(await run(agent, chat("cuanto he gastado este mes en refrescos")), "done")!.text).toMatch(/^Compras de refrescos del 01\/09\/2026/);
+    const { asksSpend } = await import("../agent/free-text");
+    expect(asksSpend("cuanto se gasta de tonica al dia")).toBe(false);
+  });
+
   it("sin familia ni «este mes»: todo lo comprado en los últimos 30 días, como siempre", async () => {
     const { agent } = makeAgent(new FakeJev([SPEND]));
     const done = find(await run(agent, chat("cuanto he gastado")), "done")!;
