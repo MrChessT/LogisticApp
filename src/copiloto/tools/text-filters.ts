@@ -73,14 +73,24 @@ const NOT_A_SUPPLIER = new Set([
  */
 export function unknownSupplier(message: string, known: string[], locations: string[]): string | null {
   const words = tokenize(message);
-  const isKnown = (w: string) => [...known, ...locations].some((name) => tokenize(name).some((part) => part.length > 2 && (part === w || (w.length >= 5 && part.startsWith(w.slice(0, 5))))));
+  // Conocido: alguna palabra de un nombre, o el nombre escrito junto («cocacola» = «Coca-Cola»).
+  const isKnown = (w: string) =>
+    [...known, ...locations].some((name) => tokenize(name).join("").startsWith(w) || tokenize(name).some((part) => part.length > 2 && (part === w || (w.length >= 5 && part.startsWith(w.slice(0, 5))))));
   for (let i = 0; i < words.length - 1; i += 1) {
     if (!["de", "a", "con", "del", "al"].includes(words[i]!)) continue;
     const w = words[i + 1]!;
     if (w.length < 3 || /\d/.test(w) || NOT_A_SUPPLIER.has(w) || isKnown(w)) continue;
     // Solo tras palabras de compras: «le debo a makro», «facturas de makro», «albaranes de makro», «pedido de makro».
-    const before = words.slice(Math.max(0, i - 4), i).join(" ");
-    if (/\b(debo|debemos|factura|facturas|albaran|albaranes|pedido|pedidos|compras?|comprado|gastado|gasto|telefono|contacto|email|correo|proveedor|pagar|pagado|pague)\b/.test(before)) return w;
+    // Lo dicho antes en la frase («quiero pedir 3 cajas de coca y 2 de fanta a makro»).
+    const before = words.slice(0, i).join(" ");
+    if (!/\b(debo|debemos|factura|facturas|albaran|albaranes|pedido|pedidos|pedir|pide|pido|pidele|compras?|comprar|comprado|gastado|gasto|telefono|contacto|email|correo|proveedor|pagar|pagado|pague)\b/.test(before)) continue;
+    // El nombre entero, hasta la siguiente palabra de enlace («a frutas paco para el parador» → «frutas paco»).
+    const name = [w];
+    for (const next of words.slice(i + 2, i + 4)) {
+      if (NOT_A_SUPPLIER.has(next) || ["de", "del", "a", "al", "en", "para", "por", "y", "que", "con", "sin", "no"].includes(next) || /\d/.test(next) || isKnown(next)) break;
+      name.push(next);
+    }
+    return name.join(" ");
   }
   return null;
 }

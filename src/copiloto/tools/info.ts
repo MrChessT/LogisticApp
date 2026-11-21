@@ -159,6 +159,11 @@ async function team(source: InfoSource, ctx: SessionContext, p: InfoParams): Pro
     people = people.filter((m) => m.allLocations || m.locationIds.some((id) => p.locationIds.includes(id)));
   }
   if (people.length === 0) return { text: `No hay nadie en el equipo ${scopeLabel(ctx, p)}.`.replace(/\s+\./, "."), route, rows: 0 };
+  // «¿Quién no ha entrado nunca?»: los que no han aceptado la invitación (nunca han iniciado sesión).
+  if (/\b(no (ha|han) entrado|nunca (ha|han) entrado|sin entrar|no (ha|han) aceptado|invitaciones? (pendientes?|sin aceptar)|no se (ha|han) conectado)\b/.test(normalize(p.message))) {
+    const waiting = people.filter((m) => m.pending);
+    return { text: waiting.length ? `${plural(waiting.length, "persona no ha entrado nunca", "personas no han entrado nunca")} ${scopeLabel(ctx, p)}: ${waiting.map((m) => m.name).join(", ")}.`.replace(/\s+:/, ":") : `Todos ${scopeLabel(ctx, p)} han entrado alguna vez.`.replace(/\s+\./, "."), route, rows: waiting.length };
+  }
   const person = personAnswer(people, ctx, p.message, route);
   if (person) return person;
   const counts = new Map<string, number>();
@@ -300,6 +305,23 @@ async function recipes(source: InfoSource, ctx: SessionContext, p: InfoParams): 
     return { text: `Hay ${plural(platos.length, "plato", "platos")} y ${plural(elaboraciones, "elaboración", "elaboraciones")}. Los costes los ve quien tiene el permiso «ve costes»; pregúntame por los alérgenos de un plato o por qué platos llevan un alérgeno.`, route, rows: all.length };
   }
   const priced = platos.filter((r) => r.foodCostPct !== null);
+  // «¿Qué platos tienen peor margen?» / «¿cuáles dejan más?»: la lista ordenada por margen, no el resumen.
+  const byMargin = /\b(peor|peores|menos|menor|mejor|mejores|mas|mayor)\s+(margen|margenes)\b|\b(dejan|deja) (mas|menos)\b/.exec(normalize(p.message));
+  if (byMargin) {
+    const worst = /peor|menos|menor/.test(byMargin[0]);
+    const ranked = priced.filter((r) => r.margin !== null).sort((a, b) => (worst ? 1 : -1) * new Decimal(a.margin!).cmp(b.margin!));
+    if (ranked.length === 0) return { text: "Ningún plato tiene PVP todavía: ponlo en su escandallo para ver su margen.", route, rows: 0 };
+    const top = ranked.slice(0, 3).map((r) => `${r.name} (${money(r.margin!)} por ración, food cost ${pct(r.foodCostPct!)})`);
+    return {
+      text: `${worst ? "Los de menos margen" : "Los de más margen"}: ${top.join(", ")}.`,
+      table: table(
+        [{ key: "plato", label: "Plato" }, { key: "margen", label: "Margen", align: "right" }, { key: "pvp", label: "PVP", align: "right" }, { key: "food_cost", label: "Food cost", align: "right" }],
+        ranked.map((r) => ({ plato: r.name, margen: money(r.margin!), pvp: r.salePrice === null ? "—" : money(r.salePrice), food_cost: pct(r.foodCostPct!) })),
+      ),
+      route,
+      rows: ranked.length,
+    };
+  }
   const avg = priced.length ? priced.reduce((s, r) => s.plus(r.foodCostPct!), new Decimal(0)).div(priced.length) : null;
   const over = priced.filter((r) => new Decimal(r.foodCostPct!).gt(r.target)).sort((a, b) => new Decimal(b.foodCostPct!).cmp(a.foodCostPct!));
   const incomplete = all.filter((r) => r.missingPrices > 0).length;

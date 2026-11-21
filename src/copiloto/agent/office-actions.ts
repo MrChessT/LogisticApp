@@ -75,7 +75,9 @@ const VALIDATE_MOVES =
 export function officeAction(message: string, ctx: SessionContext, pageLocationId?: string): DocumentPlan | null {
   const text = normalize(message).replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ").trim();
   if (!text || QUESTION.test(text)) return null;
-  const accion = PAY_INVOICE.test(text.replace(QUERY_PAY, " "))
+  // «¿la factura de X está pagada?» pregunta si lo está: no es la orden de pagarla.
+  const asksIfPaid = /[¿?]/.test(message) && /\b(esta|estan|ya esta|se ha|se han|fue|han sido)\s+pagad[ao]s?\b/.test(text);
+  const accion = !asksIfPaid && PAY_INVOICE.test(text.replace(QUERY_PAY, " "))
     ? "pagar_factura"
     : VALIDATE_MOVES.test(text)
       ? "validar_salidas"
@@ -97,7 +99,7 @@ export function officeAction(message: string, ctx: SessionContext, pageLocationI
               ? "ficha_producto"
               : NEW_ZONE.test(text)
                 ? "crear_zona"
-                : NEW_PACK.test(text) && PACK_RE.test(text)
+                : NEW_PACK.test(text) && PACK_RE.test(text) && !/\b(da|dar|doy|dame) de alta\b|\bnuevo producto\b|\bproducto nuevo\b/.test(text)
                   ? "formato_producto"
                   : null;
   if (!accion) return null;

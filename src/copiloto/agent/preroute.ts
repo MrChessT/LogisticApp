@@ -19,6 +19,7 @@ import { infoFollowUp, infoTopicOf } from "../tools/info";
 import type { InventoryDataSource } from "../tools/types";
 import { fastStockPlan } from "./fast-path";
 import { fixedReply } from "./fixed-replies";
+import { isCancel } from "./free-text";
 import { officeAction } from "./office-actions";
 import type { Plan } from "./plans";
 import type { Session } from "./session";
@@ -51,6 +52,12 @@ export async function preroute(message: string, input: PrerouteInput): Promise<P
     const plan = await resolveShortcut(message, ctx, retriever, pageLocationId);
     if (plan) return plan;
   }
+
+  // «Olvídalo» con un borrador esperando: se descarta ese borrador. Antes solo se contestaba «Vale, lo dejo» y el
+  // borrador seguía pendiente, así que el mensaje siguiente («¿qué productos no tienen precio?») se leía como
+  // respuesta a él y no llegaba a las consultas.
+  const draftId = session.focus?.draftId;
+  if (!input.onlyQueries && input.draftPending && draftId && isCancel(message)) return { type: "borrador", action: "cancelar", draftId };
 
   const office = input.onlyQueries ? null : officeAction(message, ctx, pageLocationId);
   if (office) return office;

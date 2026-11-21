@@ -48,3 +48,22 @@ describe("origen de un traspaso: la opción recomendada primero", () => {
     expect(clarify.options.map((o) => o.id)).toContain("Parador");
   });
 });
+
+describe("la operación que dice la frase manda", () => {
+  it("pedido o traspaso, alta de producto y cancelar con coletilla", async () => {
+    const { asksOrder, asksNewProduct, isCancel } = await import("../agent/free-text");
+    expect(asksOrder("prepara un pedido de 5 cajas de agua para el vivero")).toBe(true);
+    expect(asksOrder("quiero pedir 3 cocacolas y 3 larios")).toBe(true);
+    expect(asksOrder("¿qué tengo que pedir?")).toBe(false);
+    expect(asksOrder("pasa el pedido al vivero")).toBe(false);
+    expect(asksNewProduct("da de alta un vermut rojo de litro que lo traen en cajas de 6")).toBe(true);
+    expect(asksNewProduct("da de alta el proveedor frutas garcia")).toBe(false);
+    expect(isCancel("dejalo, ya lo hago yo")).toBe(true);
+    expect(isCancel("no hace falta")).toBe(true);
+    expect(isCancel("dejalo en el parador")).toBe(false);
+    // Un alta con su formato no es «añadir un formato» a un producto que ya existe.
+    const { officeAction } = await import("../agent/office-actions");
+    const { fixtureContext } = await import("../dev/fixture");
+    expect(officeAction("da de alta una ginebra nueva de litro que viene en cajas de 6", fixtureContext())?.accion).not.toBe("formato_producto");
+  });
+});

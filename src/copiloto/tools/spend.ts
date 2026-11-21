@@ -1,5 +1,5 @@
 // Gasto (query_spend): lo comprado en el periodo, por proveedor. Con una familia («¿cuánto he gastado en bebida?»)
-// cuentan solo las líneas de sus productos; sin ella, el albarán entero.
+// cuentan solo las líneas de sus productos; sin ella, el albarán entero. Con un proveedor, solo lo suyo.
 import Decimal from "decimal.js";
 import { formatDecimal, formatMoney } from "../entities/units";
 import { addDays, formatDay } from "./periods";
@@ -17,9 +17,10 @@ export async function spendBySupplier(source: InventoryDataSource, params: ToolP
         .filter((l) => l.docDate <= to && family.has(l.productId))
         .map((l) => ({ receiptId: l.receiptId, supplierName: l.supplierName, total: l.amount }))
     : (await source.purchases({ locationIds: params.locationIds, since: from })).filter((p) => p.docDate <= to);
-  const receipts = new Set(raw.map((p) => p.receiptId));
+  const scoped = params.supplier ? raw.filter((p) => p.supplierName === params.supplier) : raw;
+  const receipts = new Set(scoped.map((p) => p.receiptId));
   const bySupplier = new Map<string, { total: Decimal; receipts: Set<string> }>();
-  for (const p of raw) {
+  for (const p of scoped) {
     const key = p.supplierName ?? "Sin proveedor";
     const entry = bySupplier.get(key) ?? { total: new Decimal(0), receipts: new Set<string>() };
     entry.total = entry.total.plus(p.total);
@@ -35,6 +36,6 @@ export async function spendBySupplier(source: InventoryDataSource, params: ToolP
       importe: formatMoney(e.total),
       porcentaje: `${formatDecimal(total.isZero() ? 0 : e.total.div(total).mul(100), 1)} %`,
     }));
-  const totals = { total: formatMoney(total), albaranes: String(receipts.size), desde: formatDay(from), hasta: formatDay(to), ...(params.family ? { familia: params.family.label } : {}) };
+  const totals = { total: formatMoney(total), albaranes: String(receipts.size), desde: formatDay(from), hasta: formatDay(to), ...(params.family ? { familia: params.family.label } : {}), ...(params.supplier ? { familia: params.supplier } : {}) };
   return { tool: "query_spend", rows: rows.slice(0, MAX_ROWS), totals, count: rows.length, truncated: rows.length > MAX_ROWS, evalItems: [] };
 }

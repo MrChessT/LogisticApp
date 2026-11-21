@@ -58,5 +58,6 @@ describe("proveedor que no existe", () => {
     expect(unknownSupplier("facturas de la oliva", known, locations)).toBeNull();
     expect(unknownSupplier("facturas de octubre", known, locations)).toBeNull();
     expect(unknownSupplier("cuanto stock hay de larios", known, locations)).toBeNull();
+    expect(unknownSupplier("quiero pedir 3 cajas de cocacola y 2 de fanta a makro para el parador", [...known, "Coca-Cola", "Fanta Naranja"], locations)).toBe("makro");
   });
 });

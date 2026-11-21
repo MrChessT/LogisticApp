@@ -23,7 +23,7 @@ import type { DecisionReport, ReportOutcome } from "./report";
 import { buildRouting, type RoutingMeta } from "../jev/request";
 import { activeFocus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
-import { CANCEL_OPTION, operationOnly } from "./free-text";
+import { asksNewProduct, asksOrder, CANCEL_OPTION, operationOnly } from "./free-text";
 import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
 import { asksUser, describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
@@ -204,6 +204,8 @@ export class Agent {
       // «merma», «registrar merma», «nuevo producto»: empieza esa operación (Jev solo pregunta lo que falte).
       const onlyOperation = !plan && !reuse ? operationOnly(message) : null;
       if (onlyOperation) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: onlyOperation };
+      else if (!plan && !reuse && !continued && asksOrder(message)) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: "preparar_pedido" };
+      else if (!plan && !reuse && !continued && asksNewProduct(message)) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: "nuevo_producto" };
 
       // Lo que se resuelve sin Jev (comandos, órdenes de oficina, respuestas escritas, temas claros, vía
       // rápida de stock): ver preroute.ts, con el orden de prioridad.
@@ -363,7 +365,7 @@ export class Agent {
     // Operación clara con dos datos o más por saber: se piden juntos en un miniformulario.
     const form = formFor(original, { decisions: env.decisions, overrides: env.overrides, meta: env.routing?.meta, answers: env.routing?.jev.answers, ctx: env.ctx });
     if (form) {
-      rememberTask(env.session, form, this.now().getTime());
+      rememberTask(env.session, form, this.now().getTime(), env.message, env.ctx);
       await env.emit({ event: "form", data: form });
       return { kind: "tarea", tarea: "formulario", text: taskPrompt(env.session.task), rows: 0 };
     }

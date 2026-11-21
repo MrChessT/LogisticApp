@@ -67,12 +67,14 @@ describe("corregir el borrador pendiente hablando", () => {
   });
 
   it("«cámbialo a Vivero» y «era por caducidad» cambian solo eso", async () => {
-    const { agent } = makeAgent(new FakeJev([MERMA, OK, OK, OK]));
+    const { agent } = makeAgent(new FakeJev([MERMA, OK, OK, OK, OK]));
     await run(agent, chat("merma de 2 botellas de ron barceló en el parador"));
     const moved = find(await run(agent, chat("cámbialo a Vivero")), "draft") as WasteDraft;
     expect(moved).toMatchObject({ locationName: "Vivero", qtyBase: "1400", productName: BARCELO });
     const why = find(await run(agent, chat("era por caducidad")), "draft") as WasteDraft;
     expect(why).toMatchObject({ locationName: "Vivero", qtyBase: "1400", reason: "caducidad" });
+    const broken = find(await run(agent, chat("y apúntalo como rotura")), "draft") as WasteDraft;
+    expect(broken).toMatchObject({ locationName: "Vivero", reason: "rotura" });
   });
 
   it("traspaso: «no, al Vivero» cambia el destino; «que sean 3 cajas» la cantidad en cajas", async () => {
@@ -97,6 +99,14 @@ describe("corregir el borrador pendiente hablando", () => {
     const second = find(events, "draft") as TransferDraft;
     expect(second.lines.map((l) => [l.productName, l.qtyBase])).toEqual([["Coca-Cola 20 cl", "48"]]);
     expect(find(events, "resolved")).toMatchObject({ draftId: first.draftId, status: "descartado" });
+  });
+
+  it("«olvídalo» con un borrador esperando lo descarta, y lo siguiente ya no se lee como respuesta a él", async () => {
+    const { agent } = makeAgent(new FakeJev([MERMA, OK]));
+    const first = find(await run(agent, chat("merma de 2 botellas de ron barceló en el parador")), "draft") as WasteDraft;
+    const events = await run(agent, chat("olvídalo"));
+    expect(find(events, "resolved")).toMatchObject({ draftId: first.draftId, status: "descartado" });
+    expect(find(await run(agent, chat("que productos no tienen precio")), "done")!.text).toMatch(/sin precio/);
   });
 
   it("no es corrección: una orden nueva, una pregunta o un «sí» siguen su camino", async () => {
