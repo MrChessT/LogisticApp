@@ -23,7 +23,7 @@ import type { DecisionReport, ReportOutcome } from "./report";
 import { buildRouting, type RoutingMeta } from "../jev/request";
 import { activeFocus, type PendingClarify, type Session, type SessionStore } from "./session";
 import { HabitsStore } from "./habits";
-import { asksNewProduct, asksOrder, CANCEL_OPTION, operationOnly } from "./free-text";
+import { asksNewProduct, asksOrder, asksSpend, CANCEL_OPTION, operationOnly } from "./free-text";
 import { askedRecently, insistedQuestion, resumeClarification } from "./clarify-answer";
 import { asksUser, describeFocus, groundedLocations, needsUnderstanding, resolves, rewriteFollowUp } from "./comprehension";
 import { nextFocus } from "./focus";
@@ -206,6 +206,7 @@ export class Agent {
       if (onlyOperation) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: onlyOperation };
       else if (!plan && !reuse && !continued && asksOrder(message)) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: "preparar_pedido" };
       else if (!plan && !reuse && !continued && asksNewProduct(message)) overrides = { ...overrides, intent: "proponer_accion", tipo_accion: "nuevo_producto" };
+      else if (!plan && !reuse && !continued && asksSpend(message)) overrides = { ...overrides, intent: "consultar", intent_alt: "leer", herramienta: "query_spend" };
 
       // Lo que se resuelve sin Jev (comandos, órdenes de oficina, respuestas escritas, temas claros, vía
       // rápida de stock): ver preroute.ts, con el orden de prioridad.
