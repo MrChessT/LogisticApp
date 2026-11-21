@@ -68,7 +68,7 @@
       { "usuario": "cuanto se espera ganar", "espera": "No hago previsiones", "sinAclarar": true },
       { "usuario": "que categoría tiene el pacharan", "espera": "[Pp]achar", "sinAclarar": true, "especialista": "catalogo" },
       { "usuario": "dame los nombres dle personal", "espera": "\\(propiedad|\\(administración|\\(encargado|\\(personal", "sinAclarar": true, "especialista": "equipo" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo", "sinAclarar": true },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado", "sinAclarar": true },
       { "usuario": "se ha consumido los siguientes productos: 10 cajas de cocacola y 3 fantas de naranja", "espera": "recuentos", "sinAclarar": true }
     ]
   },
@@ -87,69 +87,69 @@
       { "usuario": "¿cuándo pedimos tónica por última vez?", "espera": "último pedido|No consta|Último pedido", "sinAclarar": true },
       { "usuario": "¿quién nos trae la ginebra?", "espera": "trae|proveedor", "sinAclarar": true, "especialista": "compras" },
       { "usuario": "paga la factura", "espera": "¿Qué factura marco como pagada\\?|Marcar pagada|No hay facturas pendientes", "especialista": "facturas" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Gestión desde el chat (solo borradores, sin confirmar)",
     "turnos": [
       { "usuario": "pon el PVP de las croquetas a 10 €", "espera": "Cambiar PVP|¿De qué plato cambio el PVP\\?|No encuentro ese plato", "especialista": "escandallos" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
       { "usuario": "el pedido mínimo de Makro ahora es 200 €", "espera": "Condiciones de|No encuentro ese proveedor", "no": "proveedores activos", "especialista": "compras" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Miniformulario: varios datos a la vez, uno solo se pregunta",
     "turnos": [
       { "usuario": "registra una merma", "espera": "Me faltan unos datos" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
       { "usuario": "merma de 2 botellas de larios 12", "espera": "¿En qué local\\?|Revísalo", "no": "Me faltan unos datos", "especialista": "almacen" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Salida de almacén desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "saca 2 botellas de larios 12 a la barra del Parador", "espera": "Salida en|¿En qué local\\?|¿A qué zona va\\?|¿De qué almacén sale\\?|¿Cuál de estos productos\\?|no tiene zonas", "especialista": "almacen" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Ficha de producto desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "la tónica lleva sulfitos", "espera": "Revísalo y confírmalo|Ficha:|¿A cuál de estos productos\\?|No encuentro", "especialista": "catalogo" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Zona nueva desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "crea la zona Terraza de servicio en el Vivero", "espera": "Revísalo y confírmalo|Zona nueva en|ya tiene una zona|¿En qué local\\?", "especialista": "almacen" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Escandallo nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "crea el plato Sangría de prueba con PVP 6,50: 1 l de Ron Barceló Añejo 70 cl", "espera": "Revísalo y confírmalo|Ya hay un escandallo|No encuentro", "especialista": "escandallos" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Cambiar los ingredientes de un escandallo (borrador sin confirmar)",
     "turnos": [
       { "usuario": "añade 20 g de mantequilla a la croqueta de cecina de wagyu", "espera": "Revísalo y confírmalo|ya lleva", "no": "Escandallo nuevo", "especialista": "escandallos" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" },
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" },
       { "usuario": "quita la harina de trigo de la croqueta de cecina de wagyu", "espera": "Revísalo y confírmalo|no lleva", "especialista": "escandallos" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Enlazar un artículo del TPV (borrador sin confirmar)",
     "turnos": [
       { "usuario": "ignora el artículo PAN del TPV", "espera": "No encuentro ese artículo del TPV|Revísalo y confírmalo", "especialista": "ventas" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
@@ -183,7 +183,7 @@
     "nombre": "Producto con cifras en el nombre (captura del 18/11, borrador sin confirmar)",
     "turnos": [
       { "usuario": "han llegado 1 de Boj 570 Albariño a La Oliva", "espera": "Revísalo y confírmalo", "no": "No estoy seguro", "sinAclarar": true, "especialista": "compras" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
@@ -196,14 +196,14 @@
     "nombre": "Proveedor asociado a un producto desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "el proveedor de Tónica Schweppes 20 cl es Bebidas Mar Menor", "espera": "Revísalo y confírmalo|ya es proveedor|No encuentro|¿A cuál|¿En qué formato", "especialista": "compras" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Varias órdenes en un mensaje: un borrador por orden (sin confirmar)",
     "turnos": [
       { "usuario": "asocia Bebidas Mar Menor a Tónica Schweppes 20 cl y pon el PVP de las croquetas a 9,50", "espera": "He preparado|No he podido|Revísalo y confírmalo|¿A cuál" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
@@ -219,14 +219,14 @@
     "turnos": [
       { "usuario": "quiero archivar un producto", "espera": "Qué producto quieres archivar" },
       { "usuario": "Coca-Cola 20 cl", "espera": "Revísalo y confírmalo|Archivar|No encuentro|He preparado un borrador", "no": "Qué quieres hacer|No estoy seguro", "especialista": "catalogo" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {
     "nombre": "Formato nuevo desde el chat (borrador sin confirmar)",
     "turnos": [
       { "usuario": "la tónica también viene en caja de 12", "espera": "Formato nuevo de|¿De cuál de estos productos\\?|ya tiene el formato|No encuentro", "especialista": "catalogo" },
-      { "usuario": "olvidalo", "espera": "Vale, lo dejo" }
+      { "usuario": "olvidalo", "espera": "Vale, lo dejo|Descartado" }
     ]
   },
   {

@@ -82,3 +82,16 @@ describe("texto del formulario", () => {
     expect(taskPrompt({ accion: "merma", at: NOW })).toBe("Me faltan unos datos: rellénalos aquí y te preparo el borrador.");
   });
 });
+
+describe("lo apuntado al salir el formulario", () => {
+  it("el producto de la frase, sin confundir un local con un producto", async () => {
+    const { rememberTask } = await import("./task-in-progress");
+    const form = { accion: "merma" as const, fields: [] } as unknown as Parameters<typeof rememberTask>[1];
+    const a: { task?: PendingTask } = {};
+    rememberTask(a, form, NOW, "necesito registrar una merma de barcelo", ctx);
+    expect(a.task?.producto).toBe("barcelo");
+    const b: { task?: PendingTask } = {};
+    rememberTask(b, form, NOW, "merma en La Oliva", ctx);
+    expect(b.task?.producto).toBeUndefined();
+  });
+});

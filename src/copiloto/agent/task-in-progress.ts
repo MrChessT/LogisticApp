@@ -249,7 +249,8 @@ export function rememberTask(session: { task?: PendingTask }, form: FormEvent, n
   const task: PendingTask = kept ? { ...fromForm, ...Object.fromEntries(Object.entries(kept).filter(([, v]) => v !== undefined)), at: now } : fromForm;
   // «Necesito mover hielo»: el producto dicho, aunque el formulario no lo traiga elegido (había varios hielos).
   if (!task.producto && message && ctx) {
-    const said = cleanProduct(message);
+    // Sin los locales: «merma en La Oliva» no es una merma de «oliva».
+    const said = readFragment(message, ctx).producto;
     if (said && namesCatalog(said, ctx)) task.producto = said;
   }
   session.task = task;
